@@ -389,6 +389,7 @@ public class ManifestIssueTests
         ["ci step secret not allowed"] = Row(C.CiSecretNotAllowed, "ci.stages[0].steps[0].secrets[0]", "CI step 'checkout' uses secret 'GITHUB_TOKEN', which is not in ci.secrets", r => { WithCi(r); r["ci"]!["secrets"] = new JsonArray(); }),
         ["ci step differs"] = Row(C.CiStepMismatch, "ci.stages[1].steps[0].name", "CI step 'build' differs from the pipeline's step 'build' at stages[1].steps[0]; a step in both must be the same step", r => { WithCi(r); CiStep(r, "build")["image"] = "alpine:3"; }),
         ["ci step waits for input"] = Row(C.CiExternalInput, "ci.stages[0].steps[0].externalInputs", "CI step 'checkout' waits for external inputs; nobody answers a pull request's step", r => { WithCi(r); CiStep(r, "checkout")["externalInputs"] = External("BuildArtifact"); }),
+        ["ci step asks for cluster access"] = Row(C.CiClusterAccess, "ci.stages[0].steps[0].clusterAccess", "CI step 'checkout' asks for cluster access; a pull request's code never gets it", r => { WithCi(r); CiStep(r, "checkout")["clusterAccess"] = true; }),
         ["ci when field unknown"] = Row(C.WhenFieldUnknown, "ci.stages[2].when.nope", "'nope' is not a field of the CI input DeployRequest", r =>
         {
             WithCi(r);

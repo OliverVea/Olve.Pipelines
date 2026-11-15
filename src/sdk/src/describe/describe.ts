@@ -154,6 +154,10 @@ function describeCi(
       ctx.problems.push(
         `CI step '${d.name}' waits for external inputs; nobody answers a pull request's step`,
       );
+    if (d.clusterAccess)
+      ctx.problems.push(
+        `CI step '${d.name}' asks for cluster access; a pull request's code never gets it`,
+      );
     const other = pipelineSteps.get(d.name);
     if (other && contract(other) !== contract(d))
       ctx.problems.push(

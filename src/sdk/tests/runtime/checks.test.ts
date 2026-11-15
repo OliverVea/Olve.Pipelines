@@ -141,6 +141,23 @@ describe('the ci section', () => {
       "CI step 'approve' waits for external inputs; nobody answers a pull request's step",
     ],
     [
+      'a CI step that asks for cluster access',
+      () =>
+        checks().stage(
+          implement(
+            step({
+              name: 'deploy',
+              description: '',
+              image: 'alpine',
+              clusterAccess: true,
+            }),
+            () => undefined,
+          ),
+        ),
+      cd,
+      "CI step 'deploy' asks for cluster access; a pull request's code never gets it",
+    ],
+    [
       'a step in both that declares something else',
       () =>
         checks({ secrets: [TOKEN] })

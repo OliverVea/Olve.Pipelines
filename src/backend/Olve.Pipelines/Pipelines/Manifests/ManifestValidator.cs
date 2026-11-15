@@ -396,6 +396,8 @@ public static partial class ManifestValidator
 
             if (_ci && s.ExternalInputs.Count > 0)
                 Error(ManifestIssueCodes.CiExternalInput, $"{path}.externalInputs", $"CI step '{n}' waits for external inputs; nobody answers a pull request's step", n);
+            if (_ci && s.ClusterAccess)
+                Error(ManifestIssueCodes.CiClusterAccess, $"{path}.clusterAccess", $"CI step '{n}' asks for cluster access; a pull request's code never gets it", n);
             if (s.Preflight && s.ExternalInputs.Count == 0)
                 Error(ManifestIssueCodes.PreflightWithoutExternalInput, $"{path}.preflight", $"step '{n}': a preflight needs at least one external input", n);
 

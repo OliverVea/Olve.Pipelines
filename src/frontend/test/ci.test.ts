@@ -77,6 +77,18 @@ describe('a pull request row', () => {
     ['its latest run', pull(), 'Running', 57],
     ['conflict, with no run shown', pull({ conflict: true }), 'conflict', null],
     ['pending before its first run', pull({ latestRun: null }), 'pending', null],
+    [
+      'merged before its first run',
+      pull({ latestRun: null, state: 'merged' }),
+      'Cancelled',
+      null,
+    ],
+    [
+      'closed before its first run',
+      pull({ latestRun: null, state: 'closed' }),
+      'Cancelled',
+      null,
+    ],
   ] as [string, Pull, string, number | null][])('%s', (_, p, status, number) => {
     expect(pullStatus(p)).toBe(status);
     expect(pullRun(p)?.number ?? null).toBe(number);

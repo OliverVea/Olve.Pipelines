@@ -95,6 +95,7 @@ public static class ServiceConfiguration
         services.AddSingleton<CiSchedulingLock>();
         services.AddTransient<CiScheduler>();
         services.AddTransient<CiReuseService>();
+        services.AddTransient<CiReliabilityService>();
         services.AddTransient<CiCancellationService>();
         services.AddTransient<CiRunStartService>();
         services.AddTransient<CiRunCleanupService>();

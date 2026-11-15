@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type {
   CiRun,
   CiRunStep,
+  CiReliabilityReport,
   CiRunSummary,
   Pipeline,
   PullDetail,
@@ -645,5 +646,67 @@ describe('wait ci', () => {
     expect(result.stderr).toContain(
       'Timed out after 0.05s (alpha#ci7: Running (2/2 steps)).',
     );
+  });
+});
+
+describe('ci reliability', () => {
+  const report: CiReliabilityReport = {
+    fromRun: 3,
+    toRun: 12,
+    runs: 10,
+    requestedRuns: 200,
+    steps: [
+      {
+        step: 'test',
+        attempts: 10,
+        failures: 4,
+        ownFailures: 3,
+        infrastructureFailures: 1,
+        timeouts: 0,
+        flakyFailures: 1,
+        reproducedFailures: 0,
+        caughtFailures: 2,
+        unverifiedFailures: 0,
+        flakyRate: 0.1,
+        flaky: [
+          {
+            failed: { run: 7, step: 'test', attempt: 1 },
+            passed: { run: 8, step: 'test', attempt: 1 },
+            pulls: [12],
+            failedAt: '2026-11-15T10:00:00Z',
+          },
+        ],
+      },
+    ],
+    notes: [],
+  };
+
+  test('lists steps by flakiness with each flaky failure and where it passed; --runs is passed on', async () => {
+    const { fetch, requests } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith(`${ciPath}/runs/reliability`)) return { body: report };
+      return { status: 404 };
+    });
+    const result = await pl(['ci', 'reliability', 'alpha', '--runs', '50'], { fetch });
+    expect(result.code).toBe(0);
+    const lines = result.stdout.split('\n');
+    expect(lines[0]).toBe('CI runs #ci3–#ci12 (10 of the latest 200 asked for)');
+    expect(lines[2]).toMatch(
+      /^STEP +ATTEMPTS +OWN +INFRA +TIMEOUT +FLAKY +RATE +REPRODUCED +CAUGHT +UNVERIFIED$/,
+    );
+    expect(lines[3]).toMatch(/^test +10 +3 +1 +0 +1 +10\.0% +0 +2 +0$/);
+    expect(lines[5]).toBe(
+      'flaky failures (failed, then passed on the same tree and code):',
+    );
+    expect(lines[6]).toMatch(
+      /^ {2}alpha#ci7\/test@1 +passed in alpha#ci8\/test@1 +#12 +\S+/,
+    );
+    expect(requests.at(-1)!.url).toContain('runs=50');
+  });
+
+  test('--runs must be a number', async () => {
+    const { fetch } = fakeFetch(() => ({ body: [alpha] }));
+    const result = await pl(['ci', 'reliability', 'alpha', '--runs', 'x'], { fetch });
+    expect(result.stderr).toBe('error: --runs must be a number.');
   });
 });

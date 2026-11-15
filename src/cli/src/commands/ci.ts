@@ -9,10 +9,12 @@ import {
   ciQueueGet,
   ciRunsCancel,
   ciRunsGet,
+  ciRunsReliability,
   ciRunStepsFiles,
   ciRunStepsLogs,
   ciRunStepsOutput,
   type CiAttemptRef,
+  type CiReliabilityReport,
   type CiRun,
   type CiRunStep,
   type CiRunStepCell,
@@ -485,6 +487,44 @@ export const ciCommands: Command[] = [
   },
   {
     noun: 'ci',
+    verb: 'reliability',
+    operands: 1,
+    options: ['runs'],
+    summary: 'Which CI steps are flaky, and which catch real problems',
+    detail: `pl ci reliability <pipeline> [--runs <n>]
+
+  Over the latest CI runs (default 200, at most 1000). Each failure is judged by the same
+  step (or matrix cell) on the same tree with the same code. Steps are ranked by how flaky
+  they are, never by how often they fail: a step that fails because it catches real problems
+  is doing its job.
+
+  OWN, INFRA, TIMEOUT  Attempts that failed: the step reported it, the platform around it
+                       (pod, image pull, launch, storage), or it ran out of time
+  FLAKY                Failed, and passed on the same tree and code: a false positive
+  REPRODUCED           Failed again on the same tree and code, and never passed
+  CAUGHT               Not run again on that tree, but a later head of the same pull
+                       request passed: the code changed and the step went green
+  UNVERIFIED           None of the above
+
+  A flaky failure shows only when the same tree runs the step again (a rerun, a push back
+  to an earlier tree, a queue run), so FLAKY is a lower bound. Reused steps aren't counted.`,
+    async run(ctx) {
+      const runs = ctx.args.option('runs');
+      if (runs !== undefined && !/^\d+$/.test(runs))
+        throw new CliError('--runs must be a number.');
+      const { id, label } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
+      const report = await call(
+        ciRunsReliability({
+          client: ctx.api,
+          path: { pipelineId: id },
+          query: { runs: runs === undefined ? undefined : Number(runs) },
+        }),
+      );
+      ctx.out.emit(report, () => printReliability(ctx.out, label, report));
+    },
+  },
+  {
+    noun: 'ci',
     verb: 'logs',
     operands: 1,
     flags: ['follow'],
@@ -634,3 +674,59 @@ pl ci file <pipeline>#ci<run>/<step>[@<attempt>]/<path> [-o <file>]
     },
   },
 ];
+
+const percent = (rate: number) => `${(rate * 100).toFixed(1)}%`;
+
+export function printReliability(
+  out: Output,
+  pipeline: string,
+  report: CiReliabilityReport,
+): void {
+  out.line(
+    report.runs === 0
+      ? 'no CI runs yet'
+      : `CI runs #ci${report.fromRun}–#ci${report.toRun} (${report.runs} of the latest ${report.requestedRuns} asked for)`,
+  );
+  if (report.steps.length) {
+    out.line();
+    out.lines(
+      table(
+        [
+          'STEP',
+          'ATTEMPTS',
+          'OWN',
+          'INFRA',
+          'TIMEOUT',
+          'FLAKY',
+          'RATE',
+          'REPRODUCED',
+          'CAUGHT',
+          'UNVERIFIED',
+        ],
+        report.steps.map((s) => [
+          s.step,
+          String(s.attempts),
+          String(s.ownFailures),
+          String(s.infrastructureFailures),
+          String(s.timeouts),
+          String(s.flakyFailures),
+          percent(s.flakyRate),
+          String(s.reproducedFailures),
+          String(s.caughtFailures),
+          String(s.unverifiedFailures),
+        ]),
+      ),
+    );
+  }
+  const flaky = report.steps.filter((s) => s.flaky.length);
+  if (flaky.length) {
+    out.line();
+    out.line('flaky failures (failed, then passed on the same tree and code):');
+    for (const s of flaky)
+      for (const f of s.flaky)
+        out.line(
+          `  ${formatCiAddress(pipeline, f.failed.run, f.failed.step, f.failed.attempt)}  passed in ${formatCiAddress(pipeline, f.passed.run, f.passed.step, f.passed.attempt)}  ${f.pulls.map((n) => `#${n}`).join(' ')}  ${time(f.failedAt)}`,
+        );
+  }
+  for (const note of report.notes) out.line(note);
+}

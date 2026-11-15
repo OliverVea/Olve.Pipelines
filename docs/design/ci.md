@@ -5,7 +5,7 @@ for a PR that changes the definition, on a build of its own, report `olve/ci`, a
 succeeded on an identical tree; the merge queue tests batches of up to 5, lands them and reports
 `olve/merge-queue`; pipeline health counts pull requests. The UI shows the CI tab, CI runs and the
 queue, and `pl ci` and `pl wait ci` cover CI runs and the queue (`pl ci merge|dequeue|queue`,
-`pl wait ci --queue`). Close runs remove pull requests' previews and report `olve/preview`
+`pl wait ci --queue`) and which steps are flaky (`pl ci reliability`). Close runs remove pull requests' previews and report `olve/preview`
 ([Preview environments](preview-environments.md)). The CI scheduler doesn't apply a matrix step's `cascadeFailure`, and CI
 stages can't branch on config (`select`).
 
@@ -197,6 +197,16 @@ tree it has already tested with the same definition, it doesn't run the passing 
   fetches the tested commit, but no step output may depend on which commit with that tree it was.
   The PR number is run metadata, not step input.
 - **CI only.** CD never reads CI results (below).
+
+## Flaky or real
+
+A CI step's failure is judged by the same step (or cell) on the same tree with the same code hash,
+anywhere in the pipeline's CI history: it passed there (**flaky**, a false positive), it failed there
+again and never passed (**reproduced**), or it never ran there again but a later head of the same
+pull request passed it (**caught**: the code changed and the step went green, so it most likely found
+a real problem). The rest is unverified. `GET …/ci/runs/reliability` and `pl ci reliability` rank
+steps by flakiness, never by how often they fail. A flaky failure shows only when the same tree runs
+the step again, so the count is a lower bound; reused steps aren't counted.
 
 ## Without a CI definition
 

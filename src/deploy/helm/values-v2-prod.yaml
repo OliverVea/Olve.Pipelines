@@ -17,6 +17,8 @@ config:
   Distribution__CliPromotedBy: "promote"
   # Stage 2 of the self-deploy runs seven steps; 4 queued three of them.
   Jobs__MaxConcurrent: "8"
+  # Step pods prefer fortress (a k3s agent in WSL, tainted olve.pro/role=helper) and fall back to bulwark-m2.
+  Kubernetes__HelperNodes__Label: "olve.pro/role=helper"
   # Deletes for real; the thresholds are the defaults (183 days and the latest 20), and the deployer
   # sets its own in .pipelines/pipeline.ts.
   Retention__DryRun: "false"

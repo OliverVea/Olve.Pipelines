@@ -980,15 +980,43 @@
       const today = list('open');
       // ===== new =====
       const MAIN = '5d6e7f8';
-      Object.assign(TONE, { conflict: 'wait', queued: 'idle', testing: 'run', merged: 'ok', removed: 'fail' });
+      Object.assign(TONE, {
+        conflict: 'wait',
+        queued: 'idle',
+        testing: 'run',
+        merged: 'ok',
+        removed: 'fail',
+      });
       Object.assign(runs, {
-        60: { queue: [148, 145], sha: 'f1e2d3c', main: MAIN, status: 'running', started: '1 min ago', dur: '1m10s', steps: runningSteps },
-        59: { queue: [148, 145, 147], sha: 'aa11bb2', main: '1a2b3c4', status: 'failed', started: '9 min ago', dur: '6m02s', steps: failedSteps },
+        60: {
+          queue: [148, 145],
+          sha: 'f1e2d3c',
+          main: MAIN,
+          status: 'running',
+          started: '1 min ago',
+          dur: '1m10s',
+          steps: runningSteps,
+        },
+        59: {
+          queue: [148, 145, 147],
+          sha: 'aa11bb2',
+          main: '1a2b3c4',
+          status: 'failed',
+          started: '9 min ago',
+          dur: '6m02s',
+          steps: failedSteps,
+        },
       });
       runs[61] = { ...runs[59], queue: [147], status: 'failed' };
       runs[54].main = '1a2b3c4';
       runs[53].main = '0f0f0f0';
-      prs[150] = { title: 'feat(ui): queue position on the PR row', branch: 'OliverVea/queue-pos', state: 'open', runs: [], conflict: true };
+      prs[150] = {
+        title: 'feat(ui): queue position on the PR row',
+        branch: 'OliverVea/queue-pos',
+        state: 'open',
+        runs: [],
+        conflict: true,
+      };
 
       const toolbar = (f) =>
         `<div class="toolbar"><div class="seg">${['open', 'queue', 'closed'].map((x) => `<button aria-pressed="${x === f}">${{ open: 'Open', queue: 'Queue', closed: 'Closed' }[x]}</button>`).join('')}</div></div>`;
@@ -999,19 +1027,24 @@
         if (p.conflict)
           return `<tr><td><div class="change"><a class="title" href="#">${p.title}</a><span class="branch">#${n} · ${p.branch}</span></div></td>
             <td>${st('conflict')}</td><td class="hide-phone"></td><td class="hide-phone"></td><td class="num">—</td><td class="hide-phone"></td><td class="num hide-phone"></td><td class="hide-phone">${extra ?? ''}</td></tr>`;
-        return row(n, p.branch, p, p.runs).replace(/<\/tr>\s*$/, `<td class="hide-phone">${extra ?? ''}</td></tr>`);
+        return row(n, p.branch, p, p.runs).replace(
+          /<\/tr>\s*$/,
+          `<td class="hide-phone">${extra ?? ''}</td></tr>`,
+        );
       }
       const openTable = (rows) => `<section class="table-wrap"><table><thead><tr>
           <th>Pull request</th><th>Status</th><th class="hide-phone">Steps</th><th class="hide-phone">Commit</th><th>Run</th><th class="hide-phone">Started</th><th class="num hide-phone">Duration</th><th class="hide-phone"></th>
         </tr></thead><tbody>${rows.join('')}</tbody></table></section>`;
-      const stale = (r) => `<span class="pill" title="tested on main ${r.main}; main is now ${MAIN}">stale</span>`;
+      const stale = (r) =>
+        `<span class="pill" title="tested on main ${r.main}; main is now ${MAIN}">stale</span>`;
 
       function queueTable(entries) {
         return `<section class="table-wrap"><table><thead><tr>
             <th>Pull request</th><th>Status</th><th class="hide-phone">Steps</th><th>Run</th><th class="hide-phone">Started</th><th class="hide-phone"></th>
           </tr></thead><tbody>${entries
             .map(([n, s, rn, w]) => {
-              const p = prs[n], r = rn ? runs[rn] : null;
+              const p = prs[n],
+                r = rn ? runs[rn] : null;
               return `<tr><td><div class="change"><a class="title" href="#">${p.title}</a><span class="branch">#${n} · ${p.branch}</span></div></td>
                 <td>${st(s)}</td><td class="hide-phone">${r ? strip(r) : ''}</td>
                 <td class="num">${rn ? `<a href="#"><b>#${rn}</b></a>` : '—'}</td><td class="hide-phone">${r ? r.started : ''}</td>
@@ -1037,37 +1070,74 @@
         // the approved run page, with the main it was tested on as a cell and the stale tag
         return runView(54)
           .replace('</h2>', `</h2>${stale(runs[54])}`)
-          .replace('<div class="cell"><span class="label">Started</span>',
-            `<div class="cell"><span class="label">Main</span><a class="value mono" href="#">${runs[54].main}</a><span class="sub mono">now ${MAIN}</span></div><div class="cell"><span class="label">Started</span>`);
+          .replace(
+            '<div class="cell"><span class="label">Started</span>',
+            `<div class="cell"><span class="label">Main</span><a class="value mono" href="#">${runs[54].main}</a><span class="sub mono">now ${MAIN}</span></div><div class="cell"><span class="label">Started</span>`,
+          );
       }
 
       const specimens = [
         ['1. Today', 'The approved CI tab, unchanged, for comparison.', today],
-        ['2. Open PRs: no Branches, a Queue view, stale and conflict',
-          'New: the filter is Open · Queue · Closed. #144 passed on an older main and is tagged stale (hover: the main it ran on). #150 doesn\'t merge cleanly: conflict, no run. Queued PRs carry their place.',
+        [
+          '2. Open PRs: no Branches, a Queue view, stale and conflict',
+          "New: the filter is Open · Queue · Closed. #144 passed on an older main and is tagged stale (hover: the main it ran on). #150 doesn't merge cleanly: conflict, no run. Queued PRs carry their place.",
           `${header('CI')}${toolbar('open')}${openTable([
-            openRow(150), openRow(149), openRow(148, '<span class="pill">queue 1</span>'),
-            openRow(147), openRow(145, '<span class="pill">queue 1</span>'), openRow(144, stale(runs[53])),
-          ])}`],
-        ['3. Queue: a batch testing',
+            openRow(150),
+            openRow(149),
+            openRow(148, '<span class="pill">queue 1</span>'),
+            openRow(147),
+            openRow(145, '<span class="pill">queue 1</span>'),
+            openRow(144, stale(runs[53])),
+          ])}`,
+        ],
+        [
+          '3. Queue: a batch testing',
           'New: the queue view. #148 and #145 are tested together in queue run #60; #147 waits.',
-          `${header('CI')}${toolbar('queue')}${queueTable([[148, 'testing', 60], [145, 'testing', 60], [147, 'queued']])}`],
-        ['4. Queue: a batch failed and splits',
+          `${header('CI')}${toolbar('queue')}${queueTable([
+            [148, 'testing', 60],
+            [145, 'testing', 60],
+            [147, 'queued'],
+          ])}`,
+        ],
+        [
+          '4. Queue: a batch failed and splits',
           'New: #59 (#148, #145, #147) failed, so the batch splits in halves; #60 tests the first half.',
-          `${header('CI')}${toolbar('queue')}${queueTable([[148, 'testing', 60], [145, 'testing', 60], [147, 'queued', null, 'after a split of <a href="#">#59</a>']])}`],
-        ['5. Queue: merged and removed',
+          `${header('CI')}${toolbar('queue')}${queueTable([
+            [148, 'testing', 60],
+            [145, 'testing', 60],
+            [147, 'queued', null, 'after a split of <a href="#">#59</a>'],
+          ])}`,
+        ],
+        [
+          '5. Queue: merged and removed',
           'New: finished entries stay in the view for a day. A removed PR names the step that failed.',
-          `${header('CI')}${toolbar('queue')}${queueTable([[145, 'merged', 60], [148, 'merged', 60], [147, 'removed', 61, 'test failed']])}`],
-        ['6. A queue run',
+          `${header('CI')}${toolbar('queue')}${queueTable([
+            [145, 'merged', 60],
+            [148, 'merged', 60],
+            [147, 'removed', 61, 'test failed'],
+          ])}`,
+        ],
+        [
+          '6. A queue run',
           'New: a run of the queue rather than of one PR. One run tests a batch: the queued PRs rebased one on another in queue order, onto main. Green merges them all; red splits the batch. It reports olve/merge-queue.',
-          queueRun(60)],
-        ['7. A stale PR run',
+          queueRun(60),
+        ],
+        [
+          '7. A stale PR run',
           'New: the approved run page with a Main cell (the main it was tested on, and where main is now) and the stale tag.',
-          staleRun()],
-        ['8. Empty queue', 'New: the queue view with nothing queued.', `${header('CI')}${toolbar('queue')}<p class="muted">The merge queue is empty.</p>`],
+          staleRun(),
+        ],
+        [
+          '8. Empty queue',
+          'New: the queue view with nothing queued.',
+          `${header('CI')}${toolbar('queue')}<p class="muted">The merge queue is empty.</p>`,
+        ],
       ];
       document.getElementById('app').innerHTML = specimens
-        .map(([t, n, x]) => `<div class="specimen"><h4>${t}</h4><p class="note">${n}</p>${x}</div>`)
+        .map(
+          ([t, n, x]) =>
+            `<div class="specimen"><h4>${t}</h4><p class="note">${n}</p>${x}</div>`,
+        )
         .join('');
     </script>
   </body>

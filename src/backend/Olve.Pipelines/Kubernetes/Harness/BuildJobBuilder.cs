@@ -12,6 +12,7 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 /// tarball fetch through the GitHub API. Null = anonymous download from codeload.github.com (public repos; no API rate limit).</param>
 /// <param name="BinaryPutUrl">Pre-signed PUT for the build's <c>step.tar.gz</c> (<see cref="Pipelines.StorageLayout.BuildBinaryKey"/>).</param>
 /// <param name="TokenSecretKey">Key of the GitHub token in the pipeline Secret (the binding's credentials key); null = <see cref="HarnessOptions.BuildTokenSecretKey"/>.</param>
+/// <param name="Role">The <c>olve-role</c> label: <see cref="BuildJobBuilder.BuildRole"/> for a reconcile, <see cref="BuildJobBuilder.CiBuildRole"/> for a pull request's own definition.</param>
 public sealed record BuildJobRequest(
     string JobName,
     Id<Pipeline> PipelineId,
@@ -20,7 +21,8 @@ public sealed record BuildJobRequest(
     string PipelinePath,
     string? PipelineSecretName,
     string BinaryPutUrl,
-    string? TokenSecretKey = null);
+    string? TokenSecretKey = null,
+    string Role = BuildJobBuilder.BuildRole);
 
 /// <summary>
 /// Builds the build/describe Job: on a glibc Bun image, fetch the repo tarball at the commit, install,
@@ -32,6 +34,8 @@ public sealed record BuildJobRequest(
 public static partial class BuildJobBuilder
 {
     public const string ContainerName = "build";
+    public const string BuildRole = "build";
+    public const string CiBuildRole = "ci-build";
     public const string BinaryUrlKey = "OLVE_BINARY_URL";
 
     [GeneratedRegex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")]
@@ -157,7 +161,7 @@ public static partial class BuildJobBuilder
         {
             ["app"] = "olve-pipelines",
             ["job-name"] = request.JobName,
-            ["olve-role"] = "build",
+            ["olve-role"] = request.Role,
             ["olve-pipeline"] = request.PipelineId.Value.Value.ToString("N"),
         };
 

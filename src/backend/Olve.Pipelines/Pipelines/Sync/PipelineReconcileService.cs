@@ -30,9 +30,7 @@ public sealed record ReconcileReport(
 /// <see cref="Apply"/> is the synchronous domain part.
 /// </summary>
 public class PipelineReconcileService(
-    HarnessJobFactory factory,
-    HarnessJobControl control,
-    IHarnessStorage storage,
+    BuildJobRunner builds,
     PipelineVersionService versions,
     PipelineActivationService activations,
     ConfigActivationService gate,
@@ -40,14 +38,8 @@ public class PipelineReconcileService(
     PipelineService pipelines,
     AttachmentStore<Pipeline, EntityVersionMap> history,
     RunSchedulingLock schedulingLock,
-    HarnessOptions options,
     ILogger<PipelineReconcileService> logger) : IConfigReconciler
 {
-    internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(3);
-    internal TimeSpan DeletePollInterval { get; init; } = TimeSpan.FromSeconds(1);
-
-    private const int LogTailLines = 40;
-
     public async Task<Result<ReconcileReport>> ReconcileAsync(PipelineConfigBinding binding, string commitSha, CancellationToken ct)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -153,106 +145,7 @@ public class PipelineReconcileService(
         => $"olve-build-{pipelineId.Value.Value.ToString("N")[..12]}-{commitSha[..12]}";
 
     /// <summary>Runs (or reattaches to / reuses) the build/describe Job; returns the manifest text.</summary>
-    private async Task<Result<string>> BuildAsync(PipelineConfigBinding binding, string commitSha, CancellationToken ct)
-    {
-        var jobName = BuildJobName(binding.PipelineId, commitSha);
-        var urlSecret = BuildJobBuilder.UrlSecretName(jobName);
-
-        var existing = await control.GetStateAsync(jobName, ct);
-        if (existing is not null && HarnessExitCodes.IsFinished(existing))
-        {
-            var reusable = existing.Main is { ExitCode: 0 }
-                           && await storage.ExistsAsync(StorageLayout.BuildBinaryKey(binding.PipelineId, commitSha), ct);
-            if (reusable)
-            {
-                logger.LogInformation("Reusing finished build Job '{JobName}' of '{Repo}@{Sha}'", jobName, binding.Repo, commitSha);
-                return await ReadManifestAsync(jobName, existing, ct);
-            }
-
-            // A failed build of this commit: rebuild from scratch (the operator asked for a retry).
-            await control.DeleteJobAsync(jobName);
-            if (!await WaitGoneAsync(jobName, ct))
-                return new UnavailableProblem("The previous build Job '{0}' of this commit is still being deleted; retry shortly.", jobName);
-            existing = null;
-        }
-
-        if (existing is null)
-        {
-            var spec = await factory.CreateBuildJobAsync(
-                jobName, binding.PipelineId, binding.Repo, commitSha, binding.Path, binding.CredentialsSecret, ct);
-            if (spec.TryPickProblems(out var specProblems, out var built))
-                return Result.Failure<string>(specProblems);
-
-            await control.SubmitAsync(built, ct);
-            logger.LogInformation("Started build Job '{JobName}' for '{Repo}@{Sha}' ({Path}), pipeline '{PipelineId}'",
-                jobName, binding.Repo, commitSha, binding.Path, binding.PipelineId);
-        }
-        else
-        {
-            logger.LogInformation("Reattaching to build Job '{JobName}' of '{Repo}@{Sha}'", jobName, binding.Repo, commitSha);
-        }
-
-        try
-        {
-            var wait = await control.WaitAsync(jobName, PollInterval, shouldAbort: null,
-                TimeSpan.FromSeconds(options.BuildTimeoutSeconds + options.StartupGraceSeconds), ct);
-
-            switch (wait)
-            {
-                case HarnessWait.Finished finished:
-                    return await ReadManifestAsync(jobName, finished.State, ct);
-                case HarnessWait.TimedOut:
-                    await control.DeleteJobAsync(jobName);
-                    return new ResultProblem("The build/describe Job '{0}' did not finish in time.", jobName);
-                default:
-                    return new ResultProblem("The build/describe Job '{0}' disappeared before it finished.", jobName);
-            }
-        }
-        finally
-        {
-            if (!ct.IsCancellationRequested)
-                await control.DeleteSecretAsync(urlSecret);
-        }
-    }
-
-    private async Task<Result<string>> ReadManifestAsync(string jobName, HarnessPodState state, CancellationToken ct)
-    {
-        var log = await control.TryGetLogsAsync(jobName, BuildJobBuilder.ContainerName, ct);
-
-        if (state.Main is { ExitCode: 0 })
-        {
-            return HarnessSentinels.TryExtractManifest(log) is { } manifest
-                ? manifest
-                : new ResultProblem("The build/describe Job '{0}' succeeded but printed no manifest.", jobName);
-        }
-
-        var reason = state.Main switch
-        {
-            { ExitCode: 65 } => "the repository tarball could not be fetched (exit 65)",
-            { ExitCode: 78 } => "the pipeline is invalid (exit 78)",
-            { ExitCode: 64 } => "olve-build usage error (exit 64)",
-            { ExitCode: 1 } => "the build failed (exit 1)",
-            { ExitCode: { } code } => $"the build exited {code}",
-            _ => HarnessExitCodes.Classify(state)?.Message ?? "the build did not run",
-        };
-        return new ResultProblem("Build/describe failed: {0}.{1}", reason, Tail(log));
-    }
-
-    private async Task<bool> WaitGoneAsync(string jobName, CancellationToken ct)
-    {
-        for (var i = 0; i < 30; i++)
-        {
-            if (await control.GetStateAsync(jobName, ct) is null)
-                return true;
-            await Task.Delay(DeletePollInterval, ct);
-        }
-        return false;
-    }
-
-    private static string Tail(string? log)
-    {
-        if (string.IsNullOrWhiteSpace(log)) return "";
-        var lines = log.TrimEnd('\n').Split('\n');
-        return "\n" + string.Join("\n", lines.Skip(Math.Max(0, lines.Length - LogTailLines)));
-    }
+    private Task<Result<string>> BuildAsync(PipelineConfigBinding binding, string commitSha, CancellationToken ct) =>
+        builds.RunAsync(new BuildJobTarget(BuildJobName(binding.PipelineId, commitSha), BuildJobBuilder.BuildRole, binding.PipelineId,
+            binding.Repo, commitSha, binding.Path, binding.CredentialsSecret), ct);
 }

@@ -264,30 +264,6 @@ public class CiRunTests
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
     }
 
-    public static IEnumerable<Func<(string[] Files, string Problem)>> DefinitionChanges()
-    {
-        yield return () => (["README.md", ".pipelines/ci.ts"],
-            "This pull request changes the pipeline's definition ('.pipelines/ci.ts'). CI runs only with the active version's definition so far, so it can't check this pull request.");
-        yield return () => ([.. Enumerable.Range(0, 300).Select(i => $"src/file{i}.cs")],
-            "This pull request changes more files than GitHub lists (300), so it may change the pipeline's definition. CI runs only with the active version's definition so far, so it can't check this pull request.");
-    }
-
-    [Test]
-    [MethodDataSource(nameof(DefinitionChanges))]
-    public async Task A_pull_request_that_may_change_the_definition_gets_a_failed_run_that_says_why(string[] files, string problem)
-    {
-        await using var s = new CiScenario();
-        s.GitHub.ChangedFiles[CiScenario.Merge(A)] = files;
-        s.Push(7, A);
-
-        await s.SettleAsync();
-
-        var run = s.Run(7);
-        await Assert.That(run.Status).IsEqualTo(RunStatus.Failed);
-        await Assert.That(run.Problems!).IsEquivalentTo([problem]);
-        await Assert.That(s.Attempts.ListByRun(run.Id)).IsEmpty();
-    }
-
     [Test]
     public async Task A_version_without_CI_starts_no_run()
     {

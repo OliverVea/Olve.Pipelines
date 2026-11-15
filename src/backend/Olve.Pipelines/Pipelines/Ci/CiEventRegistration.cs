@@ -46,10 +46,12 @@ public class CiEventRegistration(
 }
 
 /// <summary>Deletes a deleted pipeline's CI runs and attempts. Transient.</summary>
-public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts)
+public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts, CiBuildService builds)
 {
     public void HandlePipelineDeleted(Id<Pipeline> pipelineId)
     {
+        foreach (var build in builds.List().Where(b => b.PipelineId == pipelineId))
+            builds.Forget(pipelineId, build.CommitSha);
         foreach (var run in runs.ListByPipeline(pipelineId))
         {
             foreach (var attempt in attempts.ListByRun(run.Id))
@@ -59,14 +61,19 @@ public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts)
     }
 }
 
-/// <summary>At startup, after persistence loaded: drops CI runs of pipelines that are gone and advances running ones.</summary>
-public class CiStartup(EntityStore<Pipeline> pipelines, CiRunService runs, CiRunCleanupService cleanup, CiScheduler scheduler) : IRunOnStartup
+/// <summary>
+/// At startup, after persistence loaded: drops CI runs of pipelines that are gone, advances running ones and resumes the
+/// builds running runs wait for.
+/// </summary>
+public class CiStartup(EntityStore<Pipeline> pipelines, CiRunService runs, CiRunCleanupService cleanup, CiScheduler scheduler, CiDefinitionService definitions)
+    : IRunOnStartup
 {
     public Result Run()
     {
         foreach (var pipelineId in runs.List().Select(r => r.PipelineId).Distinct().Where(p => !pipelines.Contains(p)).ToList())
             cleanup.HandlePipelineDeleted(pipelineId);
         scheduler.AdvanceRunning();
+        definitions.ResumeBuilding();
         return Result.Success();
     }
 }

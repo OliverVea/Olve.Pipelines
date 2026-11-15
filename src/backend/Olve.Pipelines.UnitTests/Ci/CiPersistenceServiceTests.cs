@@ -16,7 +16,7 @@ public class CiPersistenceServiceTests
     {
         var pulls = new EntityStore<PullRequest>([]);
         var readiness = new PersistenceReadiness();
-        return (new CiPersistenceService(pulls, new EntityStore<CiRun>([]), new EntityStore<CiAttempt>([]), new StorageOptions("bucket"), readiness, NullLogger<CiPersistenceService>.Instance, store), pulls, readiness);
+        return (new CiPersistenceService(pulls, new EntityStore<CiRun>([]), new EntityStore<CiAttempt>([]), new EntityStore<CiBuild>([]), new StorageOptions("bucket"), readiness, NullLogger<CiPersistenceService>.Instance, store), pulls, readiness);
     }
 
     [Test]
@@ -36,6 +36,35 @@ public class CiPersistenceServiceTests
 
         await Assert.That(readerStore.List().OrderBy(p => p.Number)).IsEquivalentTo(writerStore.List().OrderBy(p => p.Number));
         await Assert.That(readiness.IsReady).IsTrue();
+    }
+
+    // Catches: a restart forgetting a pull request's own build, so its runs rebuild it or never settle.
+    [Test]
+    public async Task Builds_of_pull_requests_own_definitions_survive_a_restart()
+    {
+        var snapshots = new MemorySnapshotStore();
+        CiPersistenceService Service(EntityStore<CiBuild> builds) => new(new EntityStore<PullRequest>([]), new EntityStore<CiRun>([]),
+            new EntityStore<CiAttempt>([]), builds, new StorageOptions("bucket"), new PersistenceReadiness(), NullLogger<CiPersistenceService>.Instance, snapshots);
+        var written = new EntityStore<CiBuild>([]);
+        var writer = Service(written);
+        await writer.StartingAsync(default);
+        var service = new CiBuildService(written, new IdProvider(), TimeProvider.System);
+        var pipelineId = Id.New<Pipeline>();
+        service.Finish(service.Start(pipelineId, new string('a', 40)), "{\"apiVersion\":\"2.0\"}", null);
+        service.Finish(service.Start(pipelineId, new string('b', 40)), null, ["Build/describe failed: the build failed (exit 1)."]);
+        service.Start(pipelineId, new string('c', 40));
+        await writer.SaveIfDirtyAsync();
+
+        var read = new EntityStore<CiBuild>([]);
+        await Service(read).StartingAsync(default);
+
+        await Assert.That(read.List().OrderBy(b => b.CommitSha).Select(b => (b.CommitSha[0], b.Status, b.Manifest, string.Join("|", b.Problems ?? []))))
+            .IsEquivalentTo(new[]
+            {
+                ('a', CiBuildStatus.Succeeded, (string?)"{\"apiVersion\":\"2.0\"}", ""),
+                ('b', CiBuildStatus.Failed, null, "Build/describe failed: the build failed (exit 1)."),
+                ('c', CiBuildStatus.Building, null, ""),
+            });
     }
 
     [Test]

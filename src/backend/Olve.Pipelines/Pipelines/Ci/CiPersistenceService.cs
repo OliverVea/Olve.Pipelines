@@ -6,8 +6,8 @@ using Olve.Pipelines.Shared.Persistence;
 
 namespace Olve.Pipelines.Pipelines.Ci;
 
-/// <summary>CI's persisted state (<c>ci-state.json</c>): the tracked pull requests and the index of CI runs.</summary>
-public record CiStateSnapshot(PullRequest[] Pulls, CiRunKey[]? Runs = null);
+/// <summary>CI's persisted state (<c>ci-state.json</c>): the tracked pull requests, the index of CI runs and the builds of pull requests' own definitions.</summary>
+public record CiStateSnapshot(PullRequest[] Pulls, CiRunKey[]? Runs = null, CiBuild[]? Builds = null);
 
 /// <summary>A CI run in the index: its state lives at <c>ci/&lt;p&gt;/&lt;number&gt;/run.json</c>.</summary>
 public record CiRunKey(Id<Pipeline> PipelineId, int Number);
@@ -29,6 +29,7 @@ public class CiPersistenceService(
     EntityStore<PullRequest> pulls,
     EntityStore<CiRun> runs,
     EntityStore<CiAttempt> attempts,
+    EntityStore<CiBuild> builds,
     StorageOptions storageOptions,
     IPersistenceReadiness readiness,
     ILogger<CiPersistenceService> logger,
@@ -53,6 +54,9 @@ public class CiPersistenceService(
         pulls.OnAdded.Subscribe(_ => RequestSave());
         pulls.OnUpdated.Subscribe(_ => RequestSave());
         pulls.OnDeleted.Subscribe(_ => RequestSave());
+        builds.OnAdded.Subscribe(_ => RequestSave());
+        builds.OnUpdated.Subscribe(_ => RequestSave());
+        builds.OnDeleted.Subscribe(_ => RequestSave());
         runs.OnAdded.Subscribe(e => RunChanged(e.Id));
         runs.OnUpdated.Subscribe(e => RunChanged(e.Id));
         runs.OnDeleted.Subscribe(e => RunDeleted(e.Entity));
@@ -99,6 +103,8 @@ public class CiPersistenceService(
         {
             foreach (var pull in snapshot?.Pulls ?? [])
                 pulls.Set(pull);
+            foreach (var build in snapshot?.Builds ?? [])
+                builds.Set(build);
             foreach (var document in documents)
             {
                 runs.Set(document.Run);
@@ -206,7 +212,8 @@ public class CiPersistenceService(
 
             var snapshot = new CiStateSnapshot(
                 [.. pulls.List().OrderBy(p => p.PipelineId.Value.Value).ThenBy(p => p.Number)],
-                [.. runs.List().OrderBy(r => r.PipelineId.Value.Value).ThenBy(r => r.Number).Select(r => new CiRunKey(r.PipelineId, r.Number))]);
+                [.. runs.List().OrderBy(r => r.PipelineId.Value.Value).ThenBy(r => r.Number).Select(r => new CiRunKey(r.PipelineId, r.Number))],
+                [.. builds.List().OrderBy(b => b.PipelineId.Value.Value).ThenBy(b => b.CommitSha, StringComparer.Ordinal)]);
             await store.WriteAsync(Key, JsonSerializer.SerializeToUtf8Bytes(snapshot, CiPersistenceJsonContext.Default.CiStateSnapshot), cancellationToken);
 
             // Only once the index no longer names them.

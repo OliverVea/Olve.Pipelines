@@ -46,8 +46,8 @@ public class ConfigGateTests
         var p = d.CreatePipeline("provisional");
         var secrets = new FakeSecretNames();
         var reconcile = new PipelineReconcileService(
-            factory: null!, control: null!, storage: null!, d.VersionService, d.ActivationService, d.Gate, secrets,
-            d.PipelineService, d.EntityVersions, d.SchedulingLock, new HarnessOptions(), NullLogger<PipelineReconcileService>.Instance);
+            builds: null!, d.VersionService, d.ActivationService, d.Gate, secrets,
+            d.PipelineService, d.EntityVersions, d.SchedulingLock, NullLogger<PipelineReconcileService>.Instance);
         var config = new ConfigService(d.PipelineService, d.VersionService, d.ActivationService, d.ConfigSnapshots, d.Gate, secrets,
             d.Services, NullLogger<ConfigService>.Instance);
         return new World(d, p, reconcile, config, secrets);

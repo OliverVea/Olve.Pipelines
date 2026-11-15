@@ -27,6 +27,7 @@ public class ChangeEventRegistration(
     PullRequestEvents pullEvents,
     CiRunEvents ciRunEvents,
     CiAttemptEvents ciAttemptEvents,
+    CiQueueEvents ciQueueEvents,
     ChangeBroadcaster broadcaster) : IRunOnStartup
 {
     public Result Run()
@@ -70,6 +71,9 @@ public class ChangeEventRegistration(
         ciRunEvents.OnDeleted.Subscribe(e => broadcaster.Publish(ChangeEvent.CiRun(e.Entity, deleted: true)));
         ciAttemptEvents.OnAdded.Subscribe(e => broadcaster.Publish(ChangeEvent.CiAttempt(e.Entity)));
         ciAttemptEvents.OnUpdated.Subscribe(e => broadcaster.Publish(ChangeEvent.CiAttempt(e.After)));
+        ciQueueEvents.OnAdded.Subscribe(e => broadcaster.Publish(ChangeEvent.CiQueue(e.Entity.PipelineId)));
+        ciQueueEvents.OnUpdated.Subscribe(e => broadcaster.Publish(ChangeEvent.CiQueue(e.After.PipelineId)));
+        ciQueueEvents.OnDeleted.Subscribe(e => broadcaster.Publish(ChangeEvent.CiQueue(e.Entity.PipelineId)));
 
         return Result.Success();
     }

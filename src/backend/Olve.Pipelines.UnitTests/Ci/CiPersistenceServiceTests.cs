@@ -67,6 +67,38 @@ public class CiPersistenceServiceTests
             });
     }
 
+    // Catches: a restart forgetting the queue's order, an entry mid-test, or a split batch's limit (bisect would start over).
+    [Test]
+    public async Task The_merge_queue_and_its_batch_limit_survive_a_restart()
+    {
+        var snapshots = new MemorySnapshotStore();
+        var pulls = new EntityStore<PullRequest>([]);
+        var tracked = new PullRequestService(pulls, new IdProvider());
+        var pipelineId = Id.New<Pipeline>();
+        tracked.Observe(pipelineId, "main", Pull(number: 3), DateTimeOffset.UnixEpoch);
+        tracked.Observe(pipelineId, "main", Pull(number: 4), DateTimeOffset.UnixEpoch);
+        CiPersistenceService Service(EntityStore<CiQueueEntry> entries, CiQueueService queue) => new(new EntityStore<PullRequest>([]), new EntityStore<CiRun>([]),
+            new EntityStore<CiAttempt>([]), new EntityStore<CiBuild>([]), new StorageOptions("bucket"), new PersistenceReadiness(),
+            NullLogger<CiPersistenceService>.Instance, snapshots, entries, queue);
+        var written = new EntityStore<CiQueueEntry>([]);
+        var writtenQueue = new CiQueueService(written, new IdProvider(), TimeProvider.System);
+        var writer = Service(written, writtenQueue);
+        await writer.StartingAsync(default);
+        tracked.TryGet(pipelineId, 3, out var three);
+        tracked.TryGet(pipelineId, 4, out var four);
+        writtenQueue.Testing(TestRunDomain.Pick(writtenQueue.Enqueue(three!, CiQueueVia.Api, "oliver")), 12);
+        TestRunDomain.Pick(writtenQueue.Enqueue(four!, CiQueueVia.AutoMerge, null));
+        writtenQueue.Split(pipelineId, 3);
+        await writer.SaveIfDirtyAsync();
+
+        var read = new EntityStore<CiQueueEntry>([]);
+        var readQueue = new CiQueueService(read, new IdProvider(), TimeProvider.System);
+        await Service(read, readQueue).StartingAsync(default);
+
+        await Assert.That(readQueue.Unfinished(pipelineId)).IsEquivalentTo(writtenQueue.Unfinished(pipelineId), TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        await Assert.That(readQueue.Limit(pipelineId)).IsEqualTo(new CiQueueLimit(pipelineId, 2, 3));
+    }
+
     [Test]
     public async Task A_snapshot_that_cant_be_read_fails_startup_without_overwriting_it()
     {

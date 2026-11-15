@@ -80,6 +80,7 @@ public static class PipelineViews
         HeldRuns = [.. h.HeldRuns.Select(ToApi)],
         Pending = h.Pending is null ? null : ToApi(h.Pending),
         ExpiringSecrets = [.. (h.ExpiringSecrets ?? []).Select(e => new Api.ExpiringSecret { Name = e.Name, ExpiresAt = e.ExpiresAt, Expired = e.Expired })],
+        Ci = h.Ci is { } ci ? new Api.CiHealth { Open = ci.Open, Failing = ci.Failing, Running = ci.Running, Queued = ci.Queued } : null,
     };
 
     public static Api.RunSummary ToApi(RunSummary r) => new()

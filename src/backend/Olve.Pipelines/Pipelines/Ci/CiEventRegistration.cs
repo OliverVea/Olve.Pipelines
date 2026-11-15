@@ -12,6 +12,8 @@ public class CiEventRegistration(
     CiAttemptEvents attemptEvents,
     PullRequestEvents pullEvents,
     PipelineEvents pipelineEvents,
+    EntityStore<CiQueueEntry> queueStore,
+    CiQueueEvents queueEvents,
     IServiceProvider sp) : IRunOnStartup
 {
     public Result Run()
@@ -22,16 +24,24 @@ public class CiEventRegistration(
         attemptStore.OnAdded.Subscribe(attemptEvents.OnAdded.Invoke);
         attemptStore.OnUpdated.Subscribe(attemptEvents.OnUpdated.Invoke);
         attemptStore.OnDeleted.Subscribe(attemptEvents.OnDeleted.Invoke);
+        queueStore.OnAdded.Subscribe(queueEvents.OnAdded.Invoke);
+        queueStore.OnUpdated.Subscribe(queueEvents.OnUpdated.Invoke);
+        queueStore.OnDeleted.Subscribe(queueEvents.OnDeleted.Invoke);
 
         pullEvents.OnAdded.Subscribe(e => Trigger().Observe(null, e.Entity));
         pullEvents.OnUpdated.Subscribe(e => Trigger().Observe(e.Before, e.After));
         pullEvents.OnDeleted.Subscribe(e => Trigger().Forget(e.Entity));
+        pullEvents.OnAdded.Subscribe(e => Queue().Observe(null, e.Entity));
+        pullEvents.OnUpdated.Subscribe(e => Queue().Observe(e.Before, e.After));
+        pullEvents.OnDeleted.Subscribe(e => Queue().Forget(e.Entity));
 
         runEvents.OnAdded.Subscribe(e => Statuses().Report(e.Entity));
         runEvents.OnUpdated.Subscribe(e =>
         {
             if (e.Before.Status != e.After.Status || e.Before.Building != e.After.Building)
                 Statuses().Report(e.After);
+            if (e.After.IsQueue && e.Before.Status != e.After.Status)
+                sp.GetRequiredService<CiQueueProcessor>().Nudge();
         });
 
         attemptEvents.OnAdded.Subscribe(e =>
@@ -57,14 +67,17 @@ public class CiEventRegistration(
 
     private CiTriggerService Trigger() => sp.GetRequiredService<CiTriggerService>();
 
+    private CiQueueActions Queue() => sp.GetRequiredService<CiQueueActions>();
+
     private CiStatusReporter Statuses() => sp.GetRequiredService<CiStatusReporter>();
 }
 
-/// <summary>Deletes a deleted pipeline's CI runs and attempts. Transient.</summary>
-public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts, CiBuildService builds)
+/// <summary>Deletes a deleted pipeline's CI runs, attempts and merge queue. Transient.</summary>
+public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts, CiBuildService builds, CiQueueService queue)
 {
     public void HandlePipelineDeleted(Id<Pipeline> pipelineId)
     {
+        queue.DeletePipeline(pipelineId);
         foreach (var build in builds.List().Where(b => b.PipelineId == pipelineId))
             builds.Forget(pipelineId, build.CommitSha);
         foreach (var run in runs.ListByPipeline(pipelineId))

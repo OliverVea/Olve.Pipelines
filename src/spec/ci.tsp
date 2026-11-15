@@ -180,6 +180,12 @@ model QueueEntry {
   failedStep: string | null;
 }
 
+/** The merge queue: entries still to merge in order, then those merged or removed in the last day, newest first. */
+model Queue {
+  entries: QueueEntry[];
+  finished: QueueEntry[];
+}
+
 /** A pull request into `main` and its CI. */
 model Pull {
   number: int32;
@@ -212,6 +218,10 @@ model PullList {
 model PullDetail {
   ...Pull;
   runs: CiRunSummary[];
+}
+
+model EnqueuePull {
+  pull: int32;
 }
 
 @tag("CI")
@@ -306,4 +316,25 @@ interface CiRunSteps {
     @path step: string,
     @query attempt?: int32,
   ): SSEStream<LogEvent> | NotFound;
+}
+
+@tag("CI")
+@route("/api/pipelines/{pipelineId}/ci/queue")
+interface CiQueue {
+  @summary("Get the merge queue")
+  @get get(@path @format("uuid") pipelineId: string): Queue | NotFound;
+
+  /** Adds an open pull request into `main` to the merge queue. Refused for a draft, a conflicting pull request and one from a fork; the binding's token must be able to write. */
+  @summary("Enqueue a pull request")
+  @post enqueue(
+    @path @format("uuid") pipelineId: string,
+    @body body: EnqueuePull,
+  ): QueueEntry | NotFound | BadRequest | Conflict | ServiceUnavailable;
+
+  /** Takes the pull request out of the queue; a queue run testing it is cancelled and the rest of its batch queued again. */
+  @summary("Dequeue a pull request")
+  @delete @route("{pull}") dequeue(
+    @path @format("uuid") pipelineId: string,
+    @path pull: int32,
+  ): QueueEntry | NotFound | Conflict | ServiceUnavailable;
 }

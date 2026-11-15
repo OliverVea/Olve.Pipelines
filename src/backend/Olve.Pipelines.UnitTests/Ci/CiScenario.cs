@@ -121,6 +121,110 @@ internal sealed class FakeGitHub : IPullRequestSource
         Task.FromResult(Result.Success(ChangedFiles.TryGetValue(head, out var files) ? files : (IReadOnlyList<string>)["src/app.cs"]));
 }
 
+/// <summary>
+/// The merge queue's side of GitHub: branches as heads, commits made by merges with trees that compose (a tree after
+/// merging head <c>a…</c> onto tree <c>t</c> is <c>t+a</c>, whether merged into the batch branch or landed by rebase), so
+/// the queue's tree checks hold exactly when GitHub would land what was tested. Merging a pull request also answers
+/// it as merged through <see cref="FakeGitHub"/>.
+/// </summary>
+internal sealed class FakeQueueGitHub(FakeGitHub github) : ICiQueueGitHub
+{
+    private readonly Lock _gate = new();
+    private int _commits;
+
+    public Dictionary<string, string> Heads { get; } = new() { ["main"] = CiScenario.MainSha };
+    public HashSet<string> Conflicts { get; } = [];
+    public List<string> Created { get; } = [];
+    public List<string> Deleted { get; } = [];
+    public List<int> Merged { get; } = [];
+
+    /// <summary>Answers for <see cref="MergePullAsync"/> in order (the merge itself still happens for <see cref="GitHubWriteOutcome.Retry"/>
+    /// when <c>Lost</c>); empty = merged.</summary>
+    public Queue<(GitHubWriteOutcome Outcome, bool Lost)> MergeAnswers { get; } = new();
+
+    /// <summary>Runs after a pull request is merged, before the queue checks the branch (e.g. a push outside the queue).</summary>
+    public Action<int>? AfterMerge { get; set; }
+
+    public string TreeOf(string sha) => github.Commits.TryGetValue(sha, out var commit) ? commit.Tree.Sha : "tree-" + sha;
+
+    public Task<Result<string>> BranchHeadAsync(PipelineConfigBinding binding, string branch, CancellationToken ct)
+    {
+        lock (_gate)
+            return Task.FromResult(Heads.TryGetValue(branch, out var head)
+                ? Result.Success(head)
+                : Result.Failure<string>(new ResultProblem("no branch '{0}'", branch)));
+    }
+
+    public Task<GitHubWrite> CreateBranchAsync(PipelineConfigBinding binding, string branch, string sha, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            if (Heads.ContainsKey(branch))
+                return Task.FromResult(new GitHubWrite(GitHubWriteOutcome.Refused, 422, Message: "Reference already exists"));
+            Heads[branch] = sha;
+            Created.Add(branch);
+            return Task.FromResult(new GitHubWrite(GitHubWriteOutcome.Done, 201));
+        }
+    }
+
+    public Task<GitHubWrite> DeleteBranchAsync(PipelineConfigBinding binding, string branch, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            if (!Heads.Remove(branch))
+                return Task.FromResult(new GitHubWrite(GitHubWriteOutcome.Refused, 422, Message: "Reference does not exist"));
+            Deleted.Add(branch);
+            return Task.FromResult(new GitHubWrite(GitHubWriteOutcome.Done, 204));
+        }
+    }
+
+    public Task<GitHubWrite> MergeIntoAsync(PipelineConfigBinding binding, string branch, string head, string message, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            if (Conflicts.Contains(head))
+                return Task.FromResult(new GitHubWrite(GitHubWriteOutcome.Conflict, 409, Message: "Merge conflict"));
+            var (sha, tree) = Commit(Heads[branch], head);
+            Heads[branch] = sha;
+            return Task.FromResult(new GitHubWrite(GitHubWriteOutcome.Done, 201, sha, tree));
+        }
+    }
+
+    public Task<GitHubWrite> MergePullAsync(PipelineConfigBinding binding, int number, string headSha, CancellationToken ct)
+    {
+        (GitHubWriteOutcome Outcome, bool Lost) answer;
+        lock (_gate)
+        {
+            answer = MergeAnswers.Count > 0 ? MergeAnswers.Dequeue() : (GitHubWriteOutcome.Done, false);
+            if (answer.Outcome == GitHubWriteOutcome.Done || answer.Lost)
+            {
+                (Heads["main"], _) = Commit(Heads["main"], headSha);
+                Merged.Add(number);
+                var pull = github.Pulls[number].Peek();
+                github.Answer(pull with { State = "closed", MergedAt = DateTimeOffset.Parse("2026-11-15T11:00:00Z") });
+            }
+        }
+
+        if (answer.Outcome == GitHubWriteOutcome.Done || answer.Lost)
+            AfterMerge?.Invoke(number);
+        return Task.FromResult(new GitHubWrite(answer.Outcome, answer.Outcome switch
+        {
+            GitHubWriteOutcome.Done => 200,
+            GitHubWriteOutcome.Refused => 405,
+            GitHubWriteOutcome.Denied => 403,
+            _ => 502,
+        }, Message: answer.Outcome == GitHubWriteOutcome.Refused ? "Required status check \"olve/merge-queue\" is expected." : null));
+    }
+
+    private (string Sha, string Tree) Commit(string onto, string head)
+    {
+        var sha = $"c{++_commits:D39}";
+        var tree = $"{TreeOf(onto)}+{head[..1]}";
+        github.Commits[sha] = new GitHubGitCommit(sha, new GitHubShaRef(tree), [new GitHubShaRef(onto), new GitHubShaRef(head)]);
+        return (sha, tree);
+    }
+}
+
 /// <summary>GitHub's statuses endpoint: records each post; answers from <see cref="Outcomes"/> in order, then Posted.</summary>
 internal sealed class FakeCommitStatuses : ICommitStatusClient
 {
@@ -223,6 +327,8 @@ internal sealed class CiScenario : IAsyncDisposable
         services.AddSingleton<IPullRequestSource>(GitHub);
         services.AddSingleton<ICiDefinitionBuilder>(Builder);
         services.AddSingleton<ICommitStatusClient>(Statuses);
+        QueueGitHub = new FakeQueueGitHub(GitHub);
+        services.AddSingleton<ICiQueueGitHub>(QueueGitHub);
         services.AddSingleton(new StorageOptions("bucket", Mode: StorageMode.Ephemeral));
         services.AddPipelineServices();
         Provider = services.BuildServiceProvider();
@@ -244,6 +350,7 @@ internal sealed class CiScenario : IAsyncDisposable
     public FakeGitHub GitHub { get; } = new();
     public FakeCiBuilder Builder { get; } = new();
     public FakeCommitStatuses Statuses { get; } = new();
+    public FakeQueueGitHub QueueGitHub { get; }
     public ServiceProvider Provider { get; }
     public Pipeline Pipeline { get; }
     public PipelineConfigBinding Binding { get; }
@@ -256,10 +363,10 @@ internal sealed class CiScenario : IAsyncDisposable
     public CiTriggerService Trigger => Get<CiTriggerService>();
 
     /// <summary>A push to pull request <paramref name="number"/>, as the webhook reports it; GitHub then answers with it decided.</summary>
-    public void Push(int number, string head, bool? mergeable = true, bool draft = false)
+    public void Push(int number, string head, bool? mergeable = true, bool draft = false, bool autoMerge = false)
     {
         var pull = PullRequestFixtures.Pull(number, headSha: head, draft: draft, mergeable: mergeable, mergeCommitSha: Merge(head),
-            updatedAt: Clock.GetUtcNow());
+            updatedAt: Clock.GetUtcNow(), autoMerge: autoMerge);
         GitHub.Answer(pull);
         Get<PullRequestService>().Observe(Pipeline.Id, "main", pull with { Mergeable = null, MergeCommitSha = null }, Clock.GetUtcNow());
     }
@@ -284,6 +391,32 @@ internal sealed class CiScenario : IAsyncDisposable
     }
 
     public CiRun Run(int number) => Runs.ListByPull(Pipeline.Id, number).Last();
+
+    public CiQueueService Queue => Get<CiQueueService>();
+    public CiQueueActions QueueActions => Get<CiQueueActions>();
+
+    /// <summary>One pass of the merge queue.</summary>
+    public async Task ProcessQueueAsync()
+    {
+        // Statuses go out as the hosted delivery would send them, so a merge's own status never waits on an undelivered one.
+        await Get<CiStatusDelivery>().DrainAsync();
+        await Get<CiQueueProcessor>().ProcessAsync(Pipeline.Id);
+        await Get<CiStatusDelivery>().DrainAsync();
+    }
+
+    /// <summary>The latest queue run.</summary>
+    public CiRun QueueRun() => Runs.ListByPipeline(Pipeline.Id).Where(r => r.IsQueue).MaxBy(r => r.Number)
+                               ?? throw new InvalidOperationException("no queue run");
+
+    /// <summary>Every step of the run succeeds (checkout, then build and test).</summary>
+    public void SucceedAll(CiRun run)
+    {
+        Succeed(run, "checkout");
+        Succeed(run, "build");
+        Succeed(run, "test");
+    }
+
+    public CiQueueEntry Entry(int pull) => Queue.Latest(Pipeline.Id, pull) ?? throw new InvalidOperationException($"#{pull} was never queued");
 
     public CiRun Get(CiRun run) => Runs.TryGet(run.Id, out var current) ? current : throw new InvalidOperationException("run is gone");
 

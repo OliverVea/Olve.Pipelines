@@ -16,11 +16,15 @@ public record GitHubPullRequest(
     [property: JsonPropertyName("head")] GitHubPullRequestRef Head,
     [property: JsonPropertyName("base")] GitHubPullRequestRef Base,
     [property: JsonPropertyName("mergeable")] bool? Mergeable = null,
-    [property: JsonPropertyName("merge_commit_sha")] string? MergeCommitSha = null)
+    [property: JsonPropertyName("merge_commit_sha")] string? MergeCommitSha = null,
+    [property: JsonPropertyName("auto_merge")] GitHubAutoMerge? AutoMerge = null)
 {
     /// <summary>From another repository; a fork whose repository was deleted has none.</summary>
     public bool FromFork => !string.Equals(Head.Repo?.FullName, Base.Repo?.FullName, StringComparison.OrdinalIgnoreCase);
 }
+
+/// <summary>Set while GitHub auto-merge is turned on for the pull request.</summary>
+public record GitHubAutoMerge([property: JsonPropertyName("merge_method")] string? MergeMethod);
 
 public record GitHubPullRequestRef(
     [property: JsonPropertyName("ref")] string Ref,
@@ -54,10 +58,47 @@ public record GitHubCommitStatusRequest(
     [property: JsonPropertyName("context")] string Context,
     [property: JsonPropertyName("target_url"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TargetUrl);
 
+/// <summary>A git reference (<c>GET …/git/ref/heads/{branch}</c>): the commit it points at.</summary>
+public record GitHubGitRef(
+    [property: JsonPropertyName("ref")] string Ref,
+    [property: JsonPropertyName("object")] GitHubShaRef Object);
+
+/// <summary>The body of <c>POST …/git/refs</c>.</summary>
+public record GitHubCreateRefRequest(
+    [property: JsonPropertyName("ref")] string Ref,
+    [property: JsonPropertyName("sha")] string Sha);
+
+/// <summary>The body of <c>POST …/merges</c>: merges <c>head</c> into the branch <c>base</c>.</summary>
+public record GitHubMergeRequest(
+    [property: JsonPropertyName("base")] string Base,
+    [property: JsonPropertyName("head")] string Head,
+    [property: JsonPropertyName("commit_message")] string CommitMessage);
+
+/// <summary>The merge commit <c>POST …/merges</c> made.</summary>
+public record GitHubMergeCommit(
+    [property: JsonPropertyName("sha")] string Sha,
+    [property: JsonPropertyName("commit")] GitHubMergeCommitDetail Commit);
+
+public record GitHubMergeCommitDetail([property: JsonPropertyName("tree")] GitHubShaRef Tree);
+
+/// <summary>The body of <c>PUT …/pulls/{n}/merge</c>: <c>sha</c> is the head that must still be the pull request's.</summary>
+public record GitHubMergePullRequest(
+    [property: JsonPropertyName("merge_method")] string MergeMethod,
+    [property: JsonPropertyName("sha")] string Sha);
+
+/// <summary>GitHub's answer to a write it refused: <c>message</c> says why.</summary>
+public record GitHubMessage([property: JsonPropertyName("message")] string? Message);
+
 [JsonSerializable(typeof(GitHubPullRequest))]
 [JsonSerializable(typeof(GitHubPullRequest[]))]
 [JsonSerializable(typeof(GitHubPullRequestEvent))]
 [JsonSerializable(typeof(GitHubGitCommit))]
 [JsonSerializable(typeof(GitHubComparedFiles))]
 [JsonSerializable(typeof(GitHubCommitStatusRequest))]
+[JsonSerializable(typeof(GitHubGitRef))]
+[JsonSerializable(typeof(GitHubCreateRefRequest))]
+[JsonSerializable(typeof(GitHubMergeRequest))]
+[JsonSerializable(typeof(GitHubMergeCommit))]
+[JsonSerializable(typeof(GitHubMergePullRequest))]
+[JsonSerializable(typeof(GitHubMessage))]
 internal partial class GitHubPullRequestJsonContext : JsonSerializerContext;

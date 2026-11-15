@@ -41,7 +41,7 @@ public class JobRunner(
 
     /// <summary>
     /// CI's attempts that want a watcher (Scheduled, or InProgress after a restart). None of CD's per-step rules
-    /// apply; a draft pull request's attempts go after a ready one's.
+    /// apply; a queue run's attempts go first, a draft pull request's after a ready one's.
     /// </summary>
     private List<JobCandidate> CiCandidates()
     {
@@ -62,9 +62,10 @@ public class JobRunner(
     }
 
     internal static JobPriority PriorityOf(CiAttempt attempt, CiRunService runs, PullRequestService pulls) =>
-        runs.TryGet(attempt.RunId, out var run) && (pulls.TryGet(run.PipelineId, run.Pull, out var pull) ? pull.Draft : run.Draft)
-            ? JobPriority.DraftPull
-            : JobPriority.ReadyPull;
+        !runs.TryGet(attempt.RunId, out var run) ? JobPriority.ReadyPull
+        : run.IsQueue ? JobPriority.MergeQueue
+        : (pulls.TryGet(run.PipelineId, run.Pull, out var pull) ? pull.Draft : run.Draft) ? JobPriority.DraftPull
+        : JobPriority.ReadyPull;
 
     /// <summary>
     /// CD's attempts that want a watcher: Scheduled ones, and InProgress ones whose watcher is gone (after a restart

@@ -17,6 +17,7 @@ namespace Olve.Pipelines.Pipelines;
 /// <param name="HeldRuns">Running runs held at a blocked step.</param>
 /// <param name="Pending">A version waiting for its config or secrets (or the active one, held), with the reasons.</param>
 /// <param name="ExpiringSecrets">Secrets expired or expiring within <see cref="PipelineSecretExpiryService.Warning"/>, soonest first.</param>
+/// <param name="Ci">Open pull requests and the merge queue; null when the pipeline declares no CI.</param>
 public record PipelineHealth(
     string Status,
     RunSummary? LastRun,
@@ -27,7 +28,8 @@ public record PipelineHealth(
     string[] BlockedSteps,
     RunSummary[] HeldRuns,
     PendingVersionInfo? Pending = null,
-    ExpiringSecret[]? ExpiringSecrets = null);
+    ExpiringSecret[]? ExpiringSecrets = null,
+    Ci.CiHealth? Ci = null);
 
 /// <summary>Computes <see cref="PipelineHealth"/>. Stateless query; transient.</summary>
 public class PipelineHealthService(
@@ -36,7 +38,8 @@ public class PipelineHealthService(
     PipelineActivationService activations,
     StepBlockService blocks,
     AttachmentStore<Pipeline, PendingVersion> pendingVersions,
-    PipelineSecretExpiryService secretExpiries)
+    PipelineSecretExpiryService secretExpiries,
+    Ci.CiHealthService? ci = null)
 {
     public PipelineHealth Get(Id<Pipeline> pipelineId)
     {
@@ -55,7 +58,8 @@ public class PipelineHealthService(
             blocks.ListBlocked(pipelineId).ToArray(),
             running.Where(r => r.HeldAt is not null).Select(views.Summarize).ToArray(),
             PendingInfo(pendingVersions, activation, pipelineId),
-            secretExpiries.Expiring(pipelineId));
+            secretExpiries.Expiring(pipelineId),
+            ci?.Get(pipelineId));
     }
 
     /// <summary>The pending version of a pipeline as the health and binding views show it.</summary>

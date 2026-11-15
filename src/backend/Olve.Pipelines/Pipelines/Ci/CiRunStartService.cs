@@ -168,7 +168,7 @@ public class CiRunStartService(
     /// The tested commit changes a watched path against the commit of the active version's binary, or GitHub's list of
     /// changed files is cut short so it may: then it needs a definition of its own.
     /// </summary>
-    private async Task<Result<bool>> ChangesDefinitionAsync(PipelineConfigBinding binding, PipelineVersion version, string tested, CancellationToken ct)
+    internal async Task<Result<bool>> ChangesDefinitionAsync(PipelineConfigBinding binding, PipelineVersion version, string tested, CancellationToken ct)
     {
         if (version.CommitSha is not { } built)
             return false;
@@ -179,7 +179,7 @@ public class CiRunStartService(
                || files.Any(f => watched.Any(w => w.Length == 0 || f == w || f.StartsWith(w + "/", StringComparison.Ordinal)));
     }
 
-    private (int? Snapshot, string? Config) PinVersionConfig(Id<Pipeline> pipelineId, PipelineVersion version, List<string> problems) =>
+    internal (int? Snapshot, string? Config) PinVersionConfig(Id<Pipeline> pipelineId, PipelineVersion version, List<string> problems) =>
         plans.Get(version.Id).TryPickProblems(out _, out var plan)
             ? (null, null)
             : CiConfig.Pin(pipelineId, plan.Manifest, $"version {version.Number}", configSnapshots, problems);

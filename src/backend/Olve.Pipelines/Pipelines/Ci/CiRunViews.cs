@@ -14,7 +14,8 @@ public class CiRunViewService(
     CiAttemptService attempts,
     CiPlanCache plans,
     PipelineVersionService versions,
-    EntityStore<PipelineConfigBinding> bindings)
+    EntityStore<PipelineConfigBinding> bindings,
+    CiQueueService queue)
 {
     public Contract.CiRunSummary Summarize(CiRun run)
     {
@@ -25,9 +26,9 @@ public class CiRunViewService(
         {
             Id = run.Id.Value.Value,
             Number = run.Number,
-            Kind = Contract.CiRunKind.Pull,
+            Kind = run.IsQueue ? Contract.CiRunKind.Queue : Contract.CiRunKind.Pull,
             Status = PipelineViews.ToApi(run.Status),
-            Pulls = [run.Pull],
+            Pulls = run.IsQueue ? [.. (run.Batch ?? []).Select(p => p.Number)] : [run.Pull],
             TestedSha = run.TestedSha,
             Tree = run.Tree,
             MainSha = run.MainSha,
@@ -64,7 +65,9 @@ public class CiRunViewService(
             SupersededByNumber = s.SupersededByNumber,
             CancelReason = s.CancelReason,
             Steps = s.Steps,
-            PullHeads = [new Contract.CiRunPull { Number = run.Pull, Title = run.Title, Branch = run.Branch, HeadSha = run.HeadSha }],
+            PullHeads = run.IsQueue
+                ? [.. (run.Batch ?? []).Select(p => new Contract.CiRunPull { Number = p.Number, Title = p.Title, Branch = p.Branch, HeadSha = p.HeadSha })]
+                : [new Contract.CiRunPull { Number = run.Pull, Title = run.Title, Branch = run.Branch, HeadSha = run.HeadSha }],
             DefinitionSha = run.OwnDefinition ? run.TestedSha : versions.TryGet(run.VersionId, out var version) && version.CommitSha is { } built ? built : run.MainSha,
             Stages = stages,
             Problems = run.Problems ?? [],
@@ -90,7 +93,7 @@ public class CiRunViewService(
             Conflict = pull.Mergeable == false,
             Stale = latest is not null && BranchHead(pull.PipelineId) is { } head && latest.MainSha != head,
             LatestRun = latest is null ? null : Summarize(latest),
-            Queue = null,
+            Queue = queue.Latest(pull.PipelineId, pull.Number) is { } entry ? Entry(entry) : null,
             UpdatedAt = pull.UpdatedAt,
         };
     }
@@ -111,7 +114,47 @@ public class CiRunViewService(
             LatestRun = view.LatestRun,
             Queue = view.Queue,
             UpdatedAt = view.UpdatedAt,
-            Runs = [.. runs.ListByPull(pull.PipelineId, pull.Number).Reverse().Select(Summarize)],
+            Runs = [.. runs.ListByPull(pull.PipelineId, pull.Number)
+                .Concat(runs.ListByPipeline(pull.PipelineId).Where(r => r.IsQueue && (r.Batch ?? []).Any(p => p.Number == pull.Number)))
+                .OrderByDescending(r => r.Number).Select(Summarize)],
+        };
+    }
+
+    /// <summary>The merge queue: unfinished entries in order, then those finished within a day, newest first.</summary>
+    public Contract.Queue Queue(Id<Pipeline> pipelineId)
+    {
+        var all = queue.ListByPipeline(pipelineId);
+        return new Contract.Queue
+        {
+            Entries = [.. all.Where(e => !e.IsFinished).Select(Entry)],
+            Finished = [.. all.Where(e => e.IsFinished).OrderByDescending(e => e.FinishedAt).ThenByDescending(e => e.Sequence).Select(Entry)],
+        };
+    }
+
+    public Contract.QueueEntry Entry(CiQueueEntry entry)
+    {
+        var position = entry.IsFinished ? (int?)null : queue.Unfinished(entry.PipelineId).ToList().FindIndex(e => e.Id == entry.Id) + 1;
+        return new Contract.QueueEntry
+        {
+            Pull = entry.Pull,
+            Title = entry.Title,
+            Branch = entry.Branch,
+            HeadSha = entry.HeadSha,
+            State = entry.State switch
+            {
+                CiQueueState.Testing => Contract.QueueEntryState.Testing,
+                CiQueueState.Merged => Contract.QueueEntryState.Merged,
+                CiQueueState.Removed => Contract.QueueEntryState.Removed,
+                _ => Contract.QueueEntryState.Queued,
+            },
+            Position = position is > 0 ? position : null,
+            EnqueuedAt = entry.EnqueuedAt,
+            Via = entry.Via == CiQueueVia.AutoMerge ? Contract.QueueEntryVia.AutoMerge : Contract.QueueEntryVia.Api,
+            EnqueuedBy = entry.EnqueuedBy,
+            Runs = entry.Runs,
+            FinishedAt = entry.FinishedAt,
+            Reason = entry.Reason,
+            FailedStep = entry.FailedStep,
         };
     }
 

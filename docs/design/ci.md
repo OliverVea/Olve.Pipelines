@@ -2,9 +2,10 @@
 
 Status: partly built. Pull requests get CI runs, on the active version's definition and binary or,
 for a PR that changes the definition, on a build of its own, report `olve/ci`, and reuse steps that
-succeeded on an identical tree; `pl ci` and `pl wait ci` cover them. The merge queue (with
-`olve/merge-queue`, `pl ci merge|dequeue`) and the UI are not built. The CI scheduler
-doesn't apply a matrix step's `cascadeFailure`, and CI stages can't branch on config (`select`).
+succeeded on an identical tree; the merge queue tests batches of up to 5, lands them and reports
+`olve/merge-queue`; pipeline health counts pull requests. `pl ci` and `pl wait ci` cover CI runs
+(`pl ci merge|dequeue` are not built). The UI is not built. The CI scheduler doesn't apply a matrix
+step's `cascadeFailure`, and CI stages can't branch on config (`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has
 its own runs, scheduling and tab in the UI. What they share is the SDK and the execution layer. The
@@ -69,13 +70,17 @@ UI mocks are `src/frontend/mocks/ci.html` (the CI tab and a CI run) and
   `olve/ci`. Turning on GitHub auto-merge only enqueues the PR. The service sets `olve/merge-queue`
   to success on the head it tested and merges it, so nothing reaches `main` untested.
 - **Landing a batch:** the PRs are merged one by one through the merge API, in queue order, each
-  pinned to the head SHA it was tested at. After each merge, `main`'s tree has to equal the tested
-  tree at that point. If it doesn't (`main` moved outside the queue), the queue stops and the rest of
-  the batch is tested again. The PRs show as merged on GitHub.
-- **Batching:** while one entry is tested, others gather. The next test takes up to N queued PRs
-  rebased one on top of the other. Green merges all of them in order. Red splits the batch in
+  pinned to the head SHA it was tested at. Before each merge `main` has to be at the tree the batch
+  had before that PR, and after it at the tree the batch had with it. If either doesn't hold (`main`
+  moved outside the queue), the queue stops and the rest of the batch is tested again. The PRs show
+  as merged on GitHub. Landing resumes after a restart: a PR GitHub already merged isn't merged again.
+- **Batching:** while one entry is tested, others gather. The next test takes up to 5 queued PRs
+  merged one on top of the other. Green merges all of them in order. Red splits the batch in
   halves until the failing PR is found; that PR leaves the queue and its author is told through the
-  PR's status.
+  PR's status. The halved limit holds until each PR of the failed batch has merged or left the queue.
+- A PR leaves the queue when it is pushed to, closed, retargeted, turned back into a draft, dequeued
+  or (when auto-merge queued it) auto-merge is turned off; a run testing it is cancelled and the rest
+  of its batch queued again.
 - `main` can still move outside the queue (Olve.Trains pushes non-game changes straight to main).
   If it moved while an entry was tested, that entry is tested again on the new `main`.
 - Queue runs always fail fast: the first failed step cancels the rest.
@@ -109,8 +114,10 @@ The service reports commit statuses from CI run state, with the binding's token:
 - Statuses are sent in the background, the latest state per commit, with retries on server errors.
   A token that can't write statuses (403/404) shows as a warning on the binding. At startup the latest
   run of each open PR reports again, in case a status was lost with the process.
-- `olve/merge-queue` on the head of a queued PR: queued, testing, merged, or removed with the
-  failing step.
+- `olve/merge-queue` on the head of a queued PR: pending ("Waiting in the merge queue", "Testing in
+  queue run #n"), success ("Passed in queue run #n", set and delivered right before the merge, since
+  branch protection requires it), or failure ("Removed: test failed", or why else it left). A token
+  that can't write branches or merge (Contents: write) shows as a warning on the binding too.
 
 ## Definition
 

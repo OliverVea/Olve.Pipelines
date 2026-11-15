@@ -70,7 +70,7 @@ public class ProductionWiringTests
             typeof(BindingHookRegistrationService), typeof(BindingHookPersistenceService), typeof(DeployPollService), typeof(PushTriggerService),
             typeof(PollScheduler), typeof(WebhookTriggerService), typeof(JobRunner), typeof(StartupRunner),
             typeof(ConfigurationPersistenceService), typeof(RunPersistenceService), typeof(RetentionService),
-            typeof(PullRequestCatchUpService), typeof(CiPersistenceService), typeof(CiTriggerService), typeof(CiStatusDelivery),
+            typeof(PullRequestCatchUpService), typeof(CiPersistenceService), typeof(CiTriggerService), typeof(CiStatusDelivery), typeof(CiQueueProcessor),
         });
         await Assert.That(provider.GetServices<IRunOnStartup>().Select(s => s.GetType())).IsEquivalentTo(new[]
         {

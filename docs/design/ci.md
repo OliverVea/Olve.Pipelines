@@ -6,7 +6,7 @@ succeeded on an identical tree; the merge queue tests batches of up to 5, lands 
 `olve/merge-queue`; pipeline health counts pull requests. The UI shows the CI tab, CI runs and the
 queue, and `pl ci` and `pl wait ci` cover CI runs and the queue (`pl ci merge|dequeue|queue`,
 `pl wait ci --queue`). Close runs remove pull requests' previews and report `olve/preview`
-([Preview environments](preview-environments.md)); the SDK can't declare `reuse` or `onClose` yet. The CI scheduler doesn't apply a matrix step's `cascadeFailure`, and CI
+([Preview environments](preview-environments.md)). The CI scheduler doesn't apply a matrix step's `cascadeFailure`, and CI
 stages can't branch on config (`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has

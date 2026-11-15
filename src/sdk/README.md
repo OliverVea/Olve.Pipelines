@@ -296,10 +296,19 @@ export { ci } from "./ci";
 export default pipeline({ … });
 ```
 
-- **Input.** `checks()` has no name, input model or triggers. Its input is `CiInput` `{ repo, sha }`: the repository and the commit tested. `.stage` and `.when` work as on a pipeline; `.when` matches `CiInput` fields.
+- **Input.** `checks()` has no name, input model or triggers. Its input is `CiInput` `{ repo, sha, kind, pull }`: the repository, the commit tested, the run's kind (`pull`, `queue` or `close`) and the pull request (0 for a queue run). `.stage` and `.when` work as on a pipeline; `.when` matches `CiInput` fields.
 - **Secrets.** `secrets` lists the pipeline secrets CI steps may declare; a CI step declaring any other is a describe problem, and so is a listed secret no step declares.
 - **Shared steps.** A step in both the pipeline and CI is one step: it must declare the same things (its mappings aside) and carry the same implementation, so stage the same value in both. CI steps can't have external inputs.
-- **Reuse.** A CI step that already succeeded on the same tree with the same `codeHash` isn't run again; the service reuses its output and files. So in CI no step output may depend on which commit with that tree it ran on: `gitHubSource`'s `sha` and `ctx.run.version` are those of the run that ran it.
+- **Reuse.** A CI step that already succeeded on the same tree with the same `codeHash` isn't run again; the service reuses its output and files. So in CI no step output may depend on which commit with that tree it ran on: `gitHubSource`'s `sha` and `ctx.run.version` are those of the run that ran it. A step declaring `reuse: false` always runs; a reused step may not read `input.pull` or the output of one (reconcile refuses it).
+- **Previews.** Steps that deploy a pull request's preview declare `reuse: false` and sit under `.when({ kind: "pull" }, …)`; `.onClose(...)` declares the one stage a close run runs once the pull request closes or merges, with the definition of the run that deployed the preview. It sees only `CiInput` and its steps are never reused:
+
+  ```ts
+  export const ci = checks({ secrets: [PREVIEW_KUBECONFIG] })
+    .stage([source, (from) => ({ repo: from.input.repo, sha: from.input.sha })])
+    .stage(imageBuild, test)
+    .when({ kind: "pull" }, (c) => c.stage([deployPreview, (from) => ({ image: from.imageBuild, pull: from.input.pull })]))
+    .onClose([removePreview, (from) => ({ pull: from.input.pull })]);
+  ```
 
 ### Testing handlers
 

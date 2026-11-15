@@ -79,7 +79,21 @@ runs for it. Failed, skipped and cancelled steps always run again, so running a 
 after a failure runs only what didn't succeed. This relies on a rule for CI steps: no output may depend
 on which commit with that tree it ran on. `gitHubSource` reports the commit it fetched, so a reused
 source step names the earlier commit, and a step that puts `ctx.run.version` into its output keeps the
-earlier run's.
+earlier run's. A step declaring `reuse: false` always runs.
+
+CI steps get `CiInput` `{ repo, sha, kind, pull }`: `kind` is `pull` for a pull request's run and
+`queue` for a merge-queue run (`pull` is then 0). A pull request's CI can deploy a **preview**, a
+live instance of the app for that pull request: steps declaring `reuse: false` deploy it (under
+`.when({ kind: 'pull' }, …)` so queue runs don't), and `checks().onClose(…)` declares the one stage
+that removes it. When the pull request closes or merges, a **close run** (`kind: 'close'`) runs that
+stage with the definition and commit of the run that deployed the preview. It waits until no deploy
+of the pull request is still running, reports no `olve/ci`, and a failed one is tried again (1, 5, 15,
+then every 60 minutes) while the pull request stays closed, shown as a warning in `pl binding
+status`. A new deploy of the pull request waits for its running close run. The status `olve/preview`
+on the deployed head says where the preview is: `pending` "Deploying the preview" or "Removing the
+preview", `success` "Preview is live" (linking the deploy step's link) or "Preview removed", `error`
+"Deploy failed, see olve/ci". It is never `failure` and never a required check: a preview is for
+people to look at, and tests that gate a merge run in the queue run.
 
 CI reports the commit status `olve/ci` on each pull request's head, linking the run's page:
 

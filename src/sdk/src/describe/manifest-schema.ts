@@ -180,6 +180,12 @@ export const StepDescriptor = z
       .describe(
         "The step pod gets the instance's step ServiceAccount token (Kubernetes:StepServiceAccount), if the instance grants one. Omitted = no token.",
       ),
+    reuse: z
+      .literal(false)
+      .optional()
+      .describe(
+        'CI always runs the step, even on a tree that already passed. Omitted = a CI step that succeeded on the same tree with the same code is reused. CD ignores it.',
+      ),
     preflight: z
       .literal(true)
       .optional()
@@ -398,6 +404,12 @@ export const Manifest = z
           .array(secretName)
           .describe('The pipeline secrets CI steps may declare, sorted by name.'),
         stages: z.array(Stage),
+        onClose: z
+          .strictObject({ steps: z.array(StepDescriptor).min(1) })
+          .optional()
+          .describe(
+            'The stage a close run runs once a pull request closes or merges, to remove its preview, with the definition of the run that deployed it. It sees only the CI input; its steps are never reused.',
+          ),
       })
       .optional()
       .describe(

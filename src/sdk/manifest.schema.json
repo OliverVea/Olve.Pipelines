@@ -64,6 +64,23 @@
               "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
               "type": "string"
             },
+            "onClose": {
+              "additionalProperties": false,
+              "description": "The stage a close run runs once a pull request closes or merges, to remove its preview, with the definition of the run that deployed it. It sees only the CI input; its steps are never reused.",
+              "properties": {
+                "steps": {
+                  "items": {
+                    "$ref": "#/$defs/Step"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "steps"
+              ],
+              "type": "object"
+            },
             "secrets": {
               "description": "The pipeline secrets CI steps may declare, sorted by name.",
               "items": {
@@ -731,6 +748,11 @@
           "maximum": 9007199254740991,
           "minimum": 0,
           "type": "integer"
+        },
+        "reuse": {
+          "const": false,
+          "description": "CI always runs the step, even on a tree that already passed. Omitted = a CI step that succeeded on the same tree with the same code is reused. CD ignores it.",
+          "type": "boolean"
         },
         "secrets": {
           "description": "Declared secrets (sorted). Mount exactly these, as env vars of the same name.",

@@ -137,6 +137,17 @@ function describeCi(
     data.nodes,
     new Map([['input', { model: ciCtx.useModel(CiInput, 'CI input'), maybe: false }]]),
   );
+  const onCloseSteps = data.checks!.onClose;
+  const onClose = onCloseSteps
+    ? describeStages(
+        ciCtx,
+        CiInput,
+        [{ kind: 'stage', steps: [...onCloseSteps] }],
+        new Map([
+          ['input', { model: ciCtx.useModel(CiInput, 'CI input'), maybe: false }],
+        ]),
+      )[0]
+    : undefined;
   const allowed = new Set(data.checks!.secrets.map((s) => s.name));
   const pipelineSteps = new Map<string, StepDescriptorT>();
   for (const d of descriptors(pipelineStages))
@@ -144,7 +155,7 @@ function describeCi(
   for (const fh of failureHandlers)
     if (!pipelineSteps.has(fh.step.name)) pipelineSteps.set(fh.step.name, fh.step);
   const pipelineObjects = stepObjects(pipeline);
-  for (const d of descriptors(stages)) {
+  for (const d of descriptors(onClose ? [...stages, onClose] : stages)) {
     for (const secret of d.secrets ?? [])
       if (!allowed.has(secret))
         ctx.problems.push(
@@ -183,6 +194,7 @@ function describeCi(
     input: CiInput.name,
     secrets: [...allowed].sort(),
     stages,
+    ...(onClose && 'steps' in onClose ? { onClose: { steps: onClose.steps } } : {}),
   };
 }
 

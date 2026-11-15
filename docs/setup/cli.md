@@ -89,6 +89,9 @@ pl ci output <pipeline>#ci<run>/<step>[@<attempt>]
 pl ci files <pipeline>#ci<run>/<step>[@<attempt>]
 pl ci file <pipeline>#ci<run>/<step>[@<attempt>] <path> [-o <file>]
 pl ci logs <pipeline>#ci<run>/<step>[@<attempt>] [--follow]   # --follow streams until the attempt ends
+pl ci merge <pipeline> <pr>                            # add to the merge queue: tested rebased onto main, merged when green; refused for a draft, a conflict or a fork
+pl ci dequeue <pipeline> <pr>                          # take it out; a queue run testing it is cancelled
+pl ci queue <pipeline>                                 # the entries in order (state, place, runs, how they entered), then those merged or removed in the last day with why
 
 # what's running (scheduled/in-progress attempts across pipelines)
 pl attempts
@@ -106,6 +109,7 @@ pl wait run <pipeline>#<run>[/<step>[@<attempt>]] [--until finished|started|held
 pl wait push <pipeline> <sha> [--until started|finished]   # the run the push trigger started for <sha> (a prefix); prints its address: addr=$(pl wait push p <sha>)
 pl wait reconcile <pipeline> <sha>                         # the binding applied that config commit
 pl wait ci <pipeline> <pr> [--timeout 30m] [--no-follow]   # the CI run of the PR's current head (a run of an older head doesn't count); 1 also for a conflict or a PR closed without a run
+pl wait ci <pipeline> <pr> --queue [--timeout 2h]           # the PR's latest queue entry: 0 merged; 1 removed (prints why and the failed step) or not in the queue
 
 # secrets and bindings
 pl secret list <pipeline>                              # declared-by, set/unset and expiry per secret

@@ -4,6 +4,9 @@ import {
   ciPullsGet,
   ciPullsList,
   ciPullsRun,
+  ciQueueDequeue,
+  ciQueueEnqueue,
+  ciQueueGet,
   ciRunsCancel,
   ciRunsGet,
   ciRunStepsFiles,
@@ -16,6 +19,7 @@ import {
   type CiRunSummary,
   type CiStepState,
   type Pull,
+  type QueueEntry,
 } from '@olve/api';
 import { ciLogEvents } from '@olve/client';
 import {
@@ -96,6 +100,30 @@ export function runRows(runs: readonly CiRunSummary[]): string[] {
       time(r.createdAt),
       duration(r.createdAt, r.finishedAt),
       runNote(r),
+    ]),
+  );
+}
+
+/** A queue entry's state: its place while queued, the run testing it, why it was removed. */
+export function queueState(e: QueueEntry): string {
+  if (e.state === 'queued' && e.position != null) return `queued #${e.position}`;
+  if (e.state === 'testing' && e.runs.length) return `testing in #ci${e.runs[0]}`;
+  if (e.state === 'removed' && e.reason)
+    return `removed (${e.reason}${e.failedStep ? `: ${e.failedStep}` : ''})`;
+  return e.state;
+}
+
+export function queueRows(entries: readonly QueueEntry[], finished: boolean): string[] {
+  return table(
+    ['PR', 'STATE', 'RUNS', 'VIA', finished ? 'FINISHED' : 'ENQUEUED', 'TITLE', 'NOTE'],
+    entries.map((e) => [
+      `#${e.pull}`,
+      e.state === 'queued' && e.position != null ? `queued #${e.position}` : e.state,
+      e.runs.length ? e.runs.map((n) => `#ci${n}`).join(' ') : '-',
+      e.via === 'api' && e.enqueuedBy ? `api (${e.enqueuedBy})` : e.via,
+      time(finished ? e.finishedAt : e.enqueuedAt),
+      e.title,
+      e.reason ? `${e.reason}${e.failedStep ? `: ${e.failedStep}` : ''}` : '',
     ]),
   );
 }
@@ -385,6 +413,73 @@ export const ciCommands: Command[] = [
       ctx.out.emit(run, () => {
         ctx.out.line(formatCiAddress(label, run.number));
         ctx.out.line(`started CI run #ci${run.number} of #${number} (${run.status})`);
+      });
+    },
+  },
+  {
+    noun: 'ci',
+    verb: 'merge',
+    operands: 2,
+    summary: 'Add a pull request to the merge queue',
+    detail: `pl ci merge <pipeline> <pr>
+
+  The queue tests the pull request rebased onto the current main (in a batch with the ones
+  ahead of it) and merges it when that succeeds. Refused for a draft, a pull request that
+  conflicts with main and one from a fork. Wait for it with \`pl wait ci <pipeline> <pr> --queue\`.`,
+    async run(ctx) {
+      const number = parsePull(ctx.args.operand(1)!);
+      const { id, label } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
+      const entry = await call(
+        ciQueueEnqueue({
+          client: ctx.api,
+          path: { pipelineId: id },
+          body: { pull: number },
+        }),
+      );
+      ctx.out.emit(entry, () =>
+        ctx.out.line(`${label} #${entry.pull}  ${queueState(entry)}`),
+      );
+    },
+  },
+  {
+    noun: 'ci',
+    verb: 'dequeue',
+    operands: 2,
+    summary: 'Take a pull request out of the merge queue',
+    detail: `pl ci dequeue <pipeline> <pr>
+
+  A queue run testing it is cancelled and the rest of its batch queued again.`,
+    async run(ctx) {
+      const number = parsePull(ctx.args.operand(1)!);
+      const { id, label } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
+      const entry = await call(
+        ciQueueDequeue({ client: ctx.api, path: { pipelineId: id, pull: number } }),
+      );
+      ctx.out.emit(entry, () =>
+        ctx.out.line(`${label} #${entry.pull}  ${queueState(entry)}`),
+      );
+    },
+  },
+  {
+    noun: 'ci',
+    verb: 'queue',
+    operands: 1,
+    summary: 'Show the merge queue, then what merged or left it in the last day',
+    detail: `pl ci queue <pipeline>
+
+  The entries still to merge, in order: queued (with their place) or testing, the queue runs
+  that tested each, and how it entered (api with who asked, or auto-merge). Then the entries
+  merged or removed in the last day, newest first, with why a removed one left.`,
+    async run(ctx) {
+      const { id } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
+      const queue = await call(ciQueueGet({ client: ctx.api, path: { pipelineId: id } }));
+      ctx.out.emit(queue, () => {
+        if (queue.entries.length === 0) ctx.out.line('(the queue is empty)');
+        else ctx.out.lines(queueRows(queue.entries, false));
+        if (queue.finished.length === 0) return;
+        ctx.out.line();
+        ctx.out.line('finished in the last day:');
+        ctx.out.lines(queueRows(queue.finished, true));
       });
     },
   },

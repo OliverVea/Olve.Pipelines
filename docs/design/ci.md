@@ -4,9 +4,9 @@ Status: partly built. Pull requests get CI runs, on the active version's definit
 for a PR that changes the definition, on a build of its own, report `olve/ci`, and reuse steps that
 succeeded on an identical tree; the merge queue tests batches of up to 5, lands them and reports
 `olve/merge-queue`; pipeline health counts pull requests. The UI shows the CI tab, CI runs and the
-queue, and `pl ci` and `pl wait ci` cover CI runs (`pl ci merge|dequeue` are not built). The CI
-scheduler doesn't apply a matrix step's `cascadeFailure`, and CI stages can't branch on config
-(`select`).
+queue, and `pl ci` and `pl wait ci` cover CI runs and the queue (`pl ci merge|dequeue|queue`,
+`pl wait ci --queue`). The CI scheduler doesn't apply a matrix step's `cascadeFailure`, and CI
+stages can't branch on config (`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has
 its own runs, scheduling and tab in the UI. What they share is the SDK and the execution layer.
@@ -245,8 +245,9 @@ number:
 - Change notices on `/api/events` for PRs, CI runs, attempts and the queue, like CD's.
 
 `pl` has `pl ci ls|show|get|cancel|rerun|logs|output|files|file` and `pl wait ci <pipeline> <pr>`
-(until the run of the PR's current head ends, following a superseded run), with `pl ci merge|dequeue`
-and a wait on the queue entry for the queue. A CI run's address is `<pipeline>#ci<run>[/<step>[@<attempt>]]`:
+(until the run of the PR's current head ends, following a superseded run), and for the queue
+`pl ci merge|dequeue|queue` and `pl wait ci <pipeline> <pr> --queue` (until the PR's latest queue
+entry merged or was removed). A CI run's address is `<pipeline>#ci<run>[/<step>[@<attempt>]]`:
 its own sequence, apart from the deploy runs' `<pipeline>#<run>`. The `ovea-olve-pipelines` skill
 learns them in the same work.
 

@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import type { CiRun, CiRunStep, CiRunSummary, Pipeline, PullDetail } from '@olve/api';
+import type {
+  CiRun,
+  CiRunStep,
+  CiRunSummary,
+  Pipeline,
+  PullDetail,
+  Queue,
+  QueueEntry,
+} from '@olve/api';
 import {
   formatCiAddress,
   parseAddress,
@@ -107,6 +115,23 @@ const pull = (overrides: Partial<PullDetail> = {}): PullDetail => ({
   queue: null,
   updatedAt: '2026-11-15T09:59:00Z',
   runs: [summary(7, 'Succeeded'), summary(6, 'Superseded', { supersededByNumber: 7 })],
+  ...overrides,
+});
+
+const entry = (overrides: Partial<QueueEntry> = {}): QueueEntry => ({
+  pull: 12,
+  title: 'Add CI',
+  branch: 'feat/ci',
+  headSha: HEAD,
+  state: 'queued',
+  position: 1,
+  enqueuedAt: '2026-11-15T10:00:00Z',
+  via: 'api',
+  enqueuedBy: 'oliver',
+  runs: [],
+  finishedAt: null,
+  reason: null,
+  failedStep: null,
   ...overrides,
 });
 
@@ -345,6 +370,176 @@ describe('ci commands', () => {
     const typo = await pl(['ci', 'logs', 'alpha#ci7/tset', '-f'], { fetch: missing });
     expect(typo.code).toBe(1);
     expect(typo.stderr).toBe("error: CI run #ci7 has no step 'tset'.");
+  });
+});
+
+describe('merge queue', () => {
+  test('merge enqueues the pull request; dequeue takes it out', async () => {
+    const { fetch, requests } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path === `${ciPath}/queue` && req.method === 'POST')
+        return { body: entry({ position: 2 }) };
+      if (req.path === `${ciPath}/queue/12` && req.method === 'DELETE')
+        return {
+          body: entry({ state: 'removed', position: null, reason: 'dequeued by oliver' }),
+        };
+      return { status: 404 };
+    });
+    const merged = await pl(['ci', 'merge', 'alpha', '#12'], { fetch });
+    expect({ code: merged.code, stdout: merged.stdout }).toEqual({
+      code: 0,
+      stdout: 'alpha #12  queued #2\n',
+    });
+    expect(requests.at(-1)!.body).toEqual({ pull: 12 });
+
+    const dequeued = await pl(['ci', 'dequeue', 'alpha', '12'], { fetch });
+    expect(dequeued.stdout).toBe('alpha #12  removed (dequeued by oliver)\n');
+
+    const before = requests.length;
+    const usage = await pl(['ci', 'merge', 'alpha', 'x'], { fetch });
+    expect(usage.code).toBe(2);
+    expect(requests.length).toBe(before);
+  });
+
+  test('a refused merge prints the problem, exit 1', async () => {
+    const { fetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      return {
+        status: 409,
+        body: {
+          status: 409,
+          code: 'conflict',
+          errors: [{ message: 'Pull request #7 is a draft.' }],
+        },
+      };
+    });
+    const result = await pl(['ci', 'merge', 'alpha', '7'], { fetch });
+    expect({ code: result.code, stderr: result.stderr }).toEqual({
+      code: 1,
+      stderr: 'error: Pull request #7 is a draft.',
+    });
+  });
+
+  test('queue lists the entries in order, then the finished ones', async () => {
+    const queue: Queue = {
+      entries: [
+        entry({ state: 'testing', position: 1, runs: [9] }),
+        entry({
+          pull: 14,
+          title: 'Fix',
+          position: 2,
+          via: 'auto-merge',
+          enqueuedBy: null,
+        }),
+      ],
+      finished: [
+        entry({
+          pull: 9,
+          title: 'Old',
+          state: 'removed',
+          position: null,
+          runs: [8, 7],
+          finishedAt: '2026-11-15T09:00:00Z',
+          reason: 'test failed',
+          failedStep: 'test',
+        }),
+      ],
+    };
+    const { fetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path === `${ciPath}/queue`) return { body: queue };
+      return { status: 404 };
+    });
+    const result = await pl(['ci', 'queue', 'alpha'], { fetch });
+    expect(result.code).toBe(0);
+    const lines = result.stdout.split('\n');
+    expect(lines[0]).toMatch(/^PR +STATE +RUNS +VIA +ENQUEUED +TITLE +NOTE$/);
+    expect(lines[1]).toMatch(/^#12 +testing +#ci9 +api \(oliver\) +\S+ \S+ +Add CI$/);
+    expect(lines[2]).toMatch(/^#14 +queued #2 +- +auto-merge +\S+ \S+ +Fix$/);
+    expect(lines[4]).toBe('finished in the last day:');
+    expect(lines[5]).toMatch(/^PR +STATE +RUNS +VIA +FINISHED +TITLE +NOTE$/);
+    expect(lines[6]).toMatch(
+      /^#9 +removed +#ci8 #ci7 +api \(oliver\) .* Old +test failed: test$/,
+    );
+
+    const { fetch: empty } = fakeFetch((req) =>
+      req.path === '/api/pipelines'
+        ? { body: [alpha] }
+        : { body: { entries: [], finished: [] } },
+    );
+    expect((await pl(['ci', 'queue', 'alpha'], { fetch: empty })).stdout).toBe(
+      '(the queue is empty)\n',
+    );
+  });
+
+  test('wait ci --queue: merged exits 0, removed or absent exits 1 with why', async () => {
+    const rows: [Queue, number, string][] = [
+      [
+        { entries: [], finished: [entry({ state: 'merged', position: null })] },
+        0,
+        'alpha #12  merged\n',
+      ],
+      [
+        {
+          entries: [],
+          finished: [
+            entry({
+              state: 'removed',
+              position: null,
+              reason: 'test failed',
+              failedStep: 'test',
+            }),
+          ],
+        },
+        1,
+        'alpha #12  removed (test failed: test)\n',
+      ],
+      [
+        { entries: [entry({ pull: 14 })], finished: [] },
+        1,
+        'alpha #12  not in the queue\n',
+      ],
+    ];
+    for (const [queue, code, stdout] of rows) {
+      const { fetch } = fakeFetch((req) => {
+        if (req.path === '/api/pipelines') return { body: [alpha] };
+        if (req.path.startsWith('/api/events')) return events;
+        return { body: queue };
+      });
+      const result = await pl(['wait', 'ci', 'alpha', '12', '--queue'], { fetch });
+      expect({ code: result.code, stdout: result.stdout }).toEqual({ code, stdout });
+    }
+  });
+
+  test('wait ci --queue follows the entry until it merges; a re-enqueued PR is its open entry', async () => {
+    let checks = 0;
+    const { fetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith('/api/events')) return events;
+      checks += 1;
+      const old = entry({ state: 'removed', position: null, reason: 'pushed' });
+      const open =
+        checks === 1
+          ? entry({ position: 2 })
+          : checks === 2
+            ? entry({ state: 'testing', runs: [9] })
+            : undefined;
+      return {
+        body: open
+          ? { entries: [open], finished: [old] }
+          : { entries: [], finished: [entry({ state: 'merged', position: null }), old] },
+      };
+    });
+    const result = await pl(['wait', 'ci', 'alpha', '12', '--queue'], { fetch });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toBe('alpha #12  merged\n');
+    expect(result.stderr).toContain('alpha #12: queued #2');
+    expect(result.stderr).toContain('alpha #12: testing in #ci9');
+
+    const both = await pl(['wait', 'ci', 'alpha', '12', '--queue', '--no-follow'], {
+      fetch,
+    });
+    expect(both.code).toBe(2);
   });
 });
 

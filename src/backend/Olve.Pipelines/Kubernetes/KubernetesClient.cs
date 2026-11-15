@@ -297,7 +297,7 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
     // K8s deletes a finished step Job (and its pod) after this. The controller copies the pod's logs
     // to storage as soon as it sees the Job finish, so this only has to outlast a controller outage —
     // a week is generous.
-    internal const int StepJobTtlSeconds = 7 * 24 * 60 * 60;
+    internal const int StepJobTtlSeconds = 24 * 60 * 60;
 
     private static Dictionary<string, string> EncodeSecretData(Dictionary<string, string> data)
         => data.ToDictionary(

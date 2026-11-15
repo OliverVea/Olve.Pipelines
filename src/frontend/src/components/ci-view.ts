@@ -24,7 +24,14 @@ import {
 } from '../styles/ui.js';
 import { LiveController, forPipeline } from '../api/events.js';
 import { navigate } from '../router.js';
-import { pullRun, pullStatus, queuePill, queueWhy, staleTitle } from '../model/ci.js';
+import {
+  previewCell,
+  pullRun,
+  pullStatus,
+  queuePill,
+  queueWhy,
+  staleTitle,
+} from '../model/ci.js';
 import { ciStyles, ciStatus, stepStrip, commitUrl } from './ci-parts.js';
 import './pipeline-header.js';
 import './relative-time.js';
@@ -170,6 +177,7 @@ export class CiView extends LitElement {
             <th>Run</th>
             <th class="hide-phone">Started</th>
             <th class="num hide-phone">Duration</th>
+            <th class="hide-phone">Preview</th>
             <th class="hide-phone"></th>
           </tr>
         </thead>
@@ -221,8 +229,25 @@ export class CiView extends LitElement {
       <td class="num hide-phone">
         ${run ? formatDuration(run.createdAt, run.finishedAt) : nothing}
       </td>
+      <td class="hide-phone preview">${this._preview(p)}</td>
       <td class="hide-phone">${pill}</td>
     </tr>`;
+  }
+
+  private _preview(p: Pull) {
+    const cell = previewCell(p);
+    if (!cell) return html`<span class="muted">—</span>`;
+    return html`<span class="st t-${cell.tone}"
+        ><span class="dot"></span>${cell.label ?? nothing}</span
+      >${cell.links.map(
+        (l, i) =>
+          html`${i ? html`<span class="sep">·</span>` : nothing}<a
+              href=${l.href}
+              title=${l.href}
+              target="_blank"
+              >${l.text}</a
+            >`,
+      )}`;
   }
 
   private _renderQueue() {

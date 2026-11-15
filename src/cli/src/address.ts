@@ -1,9 +1,9 @@
 import { pipelinesList, type Pipeline } from '@olve/api';
 import type { Client } from '@olve/api/client';
 import { call } from './api';
-import { CliError } from './errors';
+import { CliError, UsageError } from './errors';
 
-/** `<pipeline>#<run>[/<step>[@<attempt>][/<path>]]`. */
+/** `<pipeline>#<run>[/<step>[@<attempt>][/<path>]]`; a CI run is `<pipeline>#ci<run>…`. */
 export type RunAddress = {
   pipeline: string;
   run: number;
@@ -12,17 +12,37 @@ export type RunAddress = {
   path?: string;
 };
 
+/** Deploy runs (`#412`) or CI runs (`#ci12`): numbered in sequences of their own. */
+export type RunKind = 'cd' | 'ci';
+
+const prefix = (kind: RunKind) => (kind === 'ci' ? 'ci' : '');
+
 // The pipeline part is lazy: the first "#<digits>" followed by "/" or the end splits it, so a
 // file path containing '#' stays in the path. Step names take anything but '/' and '@'.
-const pattern =
-  /^(?<pipeline>.+?)#(?<run>\d+)(?:\/(?<step>[^/@]+)(?:@(?<attempt>[^/]*))?(?:\/(?<path>.+))?)?$/s;
+const patterns: Record<RunKind, RegExp> = {
+  cd: /^(?<pipeline>.+?)#(?<run>\d+)(?:\/(?<step>[^/@]+)(?:@(?<attempt>[^/]*))?(?:\/(?<path>.+))?)?$/s,
+  ci: /^(?<pipeline>.+?)#ci(?<run>\d+)(?:\/(?<step>[^/@]+)(?:@(?<attempt>[^/]*))?(?:\/(?<path>.+))?)?$/s,
+};
 
-export function parseAddress(text: string): RunAddress {
-  const match = pattern.exec(text);
-  if (!match?.groups)
-    throw new CliError(
-      `Expected an address like <pipeline>#<run>[/<step>[@<attempt>]] (e.g. olve-pipelines#412/deploy-beta@1), got '${text}'.`,
+function mismatch(text: string, kind: RunKind): CliError {
+  if (kind === 'cd') {
+    const hint = patterns.ci.test(text)
+      ? ` '${text}' is a CI run: use \`pl ci …\` (\`pl ci get\`, \`pl ci logs\`, \`pl wait ci\`).`
+      : '';
+    return new CliError(
+      `Expected an address like <pipeline>#<run>[/<step>[@<attempt>]] (e.g. olve-pipelines#412/deploy-beta@1), got '${text}'.${hint}`,
     );
+  }
+  const run = patterns.cd.exec(text)?.groups?.run;
+  const hint = run ? ` '#${run}' is a deploy run; CI run ${run} is '#ci${run}'.` : '';
+  return new CliError(
+    `Expected a CI run address like <pipeline>#ci<run>[/<step>[@<attempt>]] (e.g. olve-pipelines#ci12/test@1), got '${text}'.${hint}`,
+  );
+}
+
+export function parseAddress(text: string, kind: RunKind = 'cd'): RunAddress {
+  const match = patterns[kind].exec(text);
+  if (!match?.groups) throw mismatch(text, kind);
   const run = Number(match.groups.run);
   if (!Number.isInteger(run) || run < 1)
     throw new CliError(`Run number in '${text}' must be a positive integer.`);
@@ -37,11 +57,11 @@ export function parseAddress(text: string): RunAddress {
   return { pipeline, run, step: match.groups.step, attempt, path: match.groups.path };
 }
 
-export function parseRunAddress(text: string): RunAddress {
-  const address = parseAddress(text);
+export function parseRunAddress(text: string, kind: RunKind = 'cd'): RunAddress {
+  const address = parseAddress(text, kind);
   if (address.step !== undefined)
     throw new CliError(
-      `Expected a run address <pipeline>#<run>, got the step address '${text}'.`,
+      `Expected a run address <pipeline>#${prefix(kind)}<run>, got the step address '${text}'.`,
     );
   return address;
 }
@@ -49,31 +69,49 @@ export function parseRunAddress(text: string): RunAddress {
 export function parseStepAddress(
   text: string,
   allowPath = false,
+  kind: RunKind = 'cd',
 ): RunAddress & { step: string } {
-  const address = parseAddress(text);
+  const address = parseAddress(text, kind);
   if (address.step === undefined)
     throw new CliError(
-      `Expected a step address <pipeline>#<run>/<step>[@<attempt>], got '${text}'.`,
+      `Expected a step address <pipeline>#${prefix(kind)}<run>/<step>[@<attempt>], got '${text}'.`,
     );
   if (address.path !== undefined && !allowPath)
     throw new CliError(`Unexpected file path in step address '${text}'.`);
   return address as RunAddress & { step: string };
 }
 
-export function formatAddress(
+function format(
+  kind: RunKind,
   pipeline: string,
   run: number,
   step?: string,
   attempt?: number,
   path?: string,
 ): string {
-  let text = `${pipeline}#${run}`;
+  let text = `${pipeline}#${prefix(kind)}${run}`;
   if (step === undefined) return text;
   text += `/${step}`;
   if (attempt !== undefined) text += `@${attempt}`;
   if (path !== undefined) text += `/${path}`;
   return text;
 }
+
+export const formatAddress = (
+  pipeline: string,
+  run: number,
+  step?: string,
+  attempt?: number,
+  path?: string,
+): string => format('cd', pipeline, run, step, attempt, path);
+
+export const formatCiAddress = (
+  pipeline: string,
+  run: number,
+  step?: string,
+  attempt?: number,
+  path?: string,
+): string => format('ci', pipeline, run, step, attempt, path);
 
 /** `<pipeline>/<step>`, for the pipeline-scoped step commands. */
 export function parseStepRef(text: string): { pipeline: string; step: string } {
@@ -122,8 +160,12 @@ export function matchPipeline(pipelines: readonly Pipeline[], name: string): Pip
 
 export type ResolvedAddress = ResolvedPipeline & { address: RunAddress };
 
-export async function resolveRun(api: Client, text: string): Promise<ResolvedAddress> {
-  const address = parseRunAddress(text);
+export async function resolveRun(
+  api: Client,
+  text: string,
+  kind: RunKind = 'cd',
+): Promise<ResolvedAddress> {
+  const address = parseRunAddress(text, kind);
   return { ...(await resolvePipeline(api, address.pipeline)), address };
 }
 
@@ -131,7 +173,19 @@ export async function resolveStep(
   api: Client,
   text: string,
   allowPath = false,
+  kind: RunKind = 'cd',
 ): Promise<ResolvedAddress & { address: RunAddress & { step: string } }> {
-  const address = parseStepAddress(text, allowPath);
+  const address = parseStepAddress(text, allowPath, kind);
   return { ...(await resolvePipeline(api, address.pipeline)), address };
+}
+
+/** A pull request number: `12` or `#12`. */
+export function parsePull(text: string): number {
+  const match = /^#?(\d+)$/.exec(text.trim());
+  const n = match ? Number(match[1]) : NaN;
+  if (!(n >= 1))
+    throw new UsageError(
+      `Expected a pull request number (e.g. 12 or #12), got '${text}'.`,
+    );
+  return n;
 }

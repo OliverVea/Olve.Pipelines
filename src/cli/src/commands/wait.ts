@@ -1,5 +1,8 @@
 import {
   bindingsStatus,
+  ciPullsGet,
+  ciRunsGet,
+  type CiRun,
   runsGet,
   runsList,
   type Run,
@@ -8,12 +11,19 @@ import {
   type RunStatus,
   type RunStepStatus,
 } from '@olve/api';
-import { formatAddress, parseAddress, resolvePipeline } from '../address';
+import {
+  formatAddress,
+  formatCiAddress,
+  parseAddress,
+  parsePull,
+  resolvePipeline,
+} from '../address';
 import { call } from '../api';
 import { CliError } from '../errors';
 import { short } from '../format';
 import type { Command, CommandContext } from '../registry';
 import { done, held, needsInput, pending, waitFor, type WaitCheck } from '../wait';
+import { stepCounts } from './ci';
 import { describePending } from './pipeline';
 
 const clock = () => {
@@ -126,6 +136,32 @@ function stepState(
   if (run.heldAt && !isTerminal(run.status) && !ACTIVE.includes(view.status))
     return held(`${name}  held at ${run.heldAt}`);
   return runEnded() ?? pending(`${name}: ${view.status}`);
+}
+
+/** A CI run's outcome: the failed steps or why it was cancelled; pending with its steps passed. */
+export function ciRunFinished(label: string, run: CiRun): WaitCheck {
+  const address = formatCiAddress(label, run.number);
+  if (!isTerminal(run.status))
+    return pending(
+      run.stages.length
+        ? `${address}: ${run.status} (${stepCounts(run.steps)} steps)`
+        : `${address}: ${run.status} (building its definition)`,
+    );
+  const failed = run.steps.filter((s) => s.status === 'failed').map((s) => s.name);
+  const why =
+    run.status === 'Failed'
+      ? failed.length
+        ? failed.join(', ')
+        : run.problems.join('; ')
+      : run.status === 'Cancelled'
+        ? (run.cancelReason ?? '')
+        : run.status === 'Superseded' && run.supersededByNumber != null
+          ? `by #ci${run.supersededByNumber}`
+          : '';
+  return done(
+    `${address}  ${run.status}${why ? ` (${why})` : ''}`,
+    run.status === 'Succeeded',
+  );
 }
 
 const inputSha = (run: Run) => (typeof run.input.sha === 'string' ? run.input.sha : '');
@@ -275,6 +311,65 @@ export const waitCommands: Command[] = [
             ? `no run of ${sha} yet (reconciling)`
             : `no run of ${sha} yet`,
         );
+      });
+    },
+  },
+  {
+    noun: 'wait',
+    verb: 'ci',
+    operands: 2,
+    options: ['timeout'],
+    flags: ['no-follow'],
+    summary: "Wait for a pull request's latest CI run to finish; exit 0 if it succeeded",
+    detail: `pl wait ci <pipeline> <pr> [--timeout 30m] [--no-follow]
+
+  Blocks until the CI run of the pull request's current head finishes, and prints its address
+  and status (e.g. olve-pipelines#ci12  Succeeded). Right after a push, the run of the new
+  head starts once the head has been still for a minute: until then the wait keeps waiting
+  rather than report the previous head's result. A superseded run is followed to the run
+  that superseded it (printed on stderr); --no-follow stops there instead (exit 1).
+
+  Exit 0: Succeeded. Exit 1: Failed or Cancelled, or no run of the head can come: the PR
+  conflicts with main (no run until a push lets it merge), or it closed without one. A run of
+  the head that started before main moved on still counts. 124: --timeout elapsed.`,
+    async run(ctx) {
+      const number = parsePull(ctx.args.operand(1)!);
+      const { id, label } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
+      const follow = !ctx.args.flag('no-follow');
+      const pr = `${label} #${number}`;
+      const getRun = (n: number) =>
+        call(ciRunsGet({ client: ctx.api, path: { pipelineId: id, number: n } }));
+      let locked: number | undefined;
+      let following: { number: number; running: boolean } | undefined;
+      await waitFor(ctx, id, new Set(['pull', 'ci-run', 'ci-attempt']), async () => {
+        if (locked !== undefined) return ciRunFinished(label, await getRun(locked));
+        const pull = await call(
+          ciPullsGet({ client: ctx.api, path: { pipelineId: id, pull: number } }),
+        );
+        const conflict = `${pr}  conflict: no CI run until a push lets it merge onto main`;
+        if (!pull.latestRun)
+          return pull.conflict
+            ? done(conflict, false)
+            : pull.state === 'open'
+              ? pending(`${pr}: no CI run yet`)
+              : done(`${pr}  ${pull.state} without a CI run`, false);
+        let run = await getRun(pull.latestRun.number);
+        while (follow && run.status === 'Superseded' && run.supersededByNumber != null)
+          run = await getRun(run.supersededByNumber);
+        if (following && following.number !== run.number && following.running)
+          ctx.stderr(
+            `${clock()}  ${formatCiAddress(label, following.number)} superseded by #ci${run.number}, following`,
+          );
+        following = { number: run.number, running: !isTerminal(run.status) };
+        const tested = run.pullHeads.find((p) => p.number === number)?.headSha;
+        if (pull.state === 'open' && tested !== pull.headSha)
+          return pull.conflict
+            ? done(conflict, false)
+            : pending(
+                `${pr}: waiting for a CI run of ${short(pull.headSha)} (${formatCiAddress(label, run.number)} tested ${short(tested)})`,
+              );
+        if (!follow) locked = run.number;
+        return ciRunFinished(label, run);
       });
     },
   },

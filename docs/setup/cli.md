@@ -79,6 +79,17 @@ pl step blocked <pipeline>
 pl step block <pipeline>/<step>                        # a matrix step holds all its cells; a cell can't be blocked
 pl step unblock <pipeline>/<step>
 
+# CI of pull requests. CI runs have numbers of their own: <pipeline>#ci<run>[/<step>[@<attempt>]] (<pipeline>#<run> is a deploy run); <pr> is 12 or #12
+pl ci ls <pipeline> [--closed] [--page <n>] [--page-size <n>]   # PRs with their latest run: status, steps passed, run, commit; draft/conflict/stale
+pl ci show <pipeline> <pr>                             # the PR and every CI run that tested it
+pl ci get <pipeline>#ci<run>                           # what it tested, stages and steps; a reused step names the attempt it reuses
+pl ci cancel <pipeline>#ci<run>
+pl ci rerun <pipeline> <pr>                            # a new run of the PR's head; steps that succeeded on the same tree are reused
+pl ci output <pipeline>#ci<run>/<step>[@<attempt>]
+pl ci files <pipeline>#ci<run>/<step>[@<attempt>]
+pl ci file <pipeline>#ci<run>/<step>[@<attempt>] <path> [-o <file>]
+pl ci logs <pipeline>#ci<run>/<step>[@<attempt>] [--follow]   # --follow streams until the attempt ends
+
 # what's running (scheduled/in-progress attempts across pipelines)
 pl attempts
 
@@ -94,6 +105,7 @@ pl watch [<pipeline>] [--json]
 pl wait run <pipeline>#<run>[/<step>[@<attempt>]] [--until finished|started|held] [--timeout 45m]   # a step wait follows its latest attempt, also a rerun in an ended run
 pl wait push <pipeline> <sha> [--until started|finished]   # the run the push trigger started for <sha> (a prefix); prints its address: addr=$(pl wait push p <sha>)
 pl wait reconcile <pipeline> <sha>                         # the binding applied that config commit
+pl wait ci <pipeline> <pr> [--timeout 30m] [--no-follow]   # the CI run of the PR's current head (a run of an older head doesn't count); 1 also for a conflict or a PR closed without a run
 
 # secrets and bindings
 pl secret list <pipeline>                              # declared-by, set/unset and expiry per secret

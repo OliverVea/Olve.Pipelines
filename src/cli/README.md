@@ -29,10 +29,10 @@ src/cli/
 │   ├── main.ts           # Entry: real stdio, signals, the browser opener → cli.run
 │   ├── cli.ts            # One invocation: parse, profile and token, the API client, dispatch, exit code
 │   ├── registry.ts       # Command and CommandContext
-│   ├── commands/         # One file per noun (run, step, wait, …); index.ts lists them in `pl help` order
+│   ├── commands/         # One file per noun (run, step, ci, wait, …); index.ts lists them in `pl help` order
 │   ├── api.ts            # The client for an invocation (verbose request log) and call(): data, or a CliError
 │   ├── events.ts         # readChanges: the change events, as CliErrors on failure
-│   ├── address.ts        # <pipeline>#<run>/<step>[@<attempt>] parsing, pipeline lookup by name
+│   ├── address.ts        # <pipeline>#<run>/<step>[@<attempt>] (CI: #ci<run>) and PR parsing, pipeline lookup by name
 │   ├── args.ts, help.ts  # Flags, options, operands; help text
 │   ├── output.ts         # --json or the human rendering; tables
 │   ├── profiles.ts       # ~/.pl: profiles, logins, token refresh

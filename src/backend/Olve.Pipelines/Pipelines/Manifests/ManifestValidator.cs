@@ -75,6 +75,7 @@ public static partial class ManifestValidator
         private string _input = m.Input;
         private string _inputLabel = "the pipeline input";
         private bool _ci;
+        private bool _onClose;
 
         private void Error(string code, string path, string message, string? step = null) =>
             _errors.Add(new ManifestIssue(code, ManifestIssueSeverity.Error, message, path, step));
@@ -399,7 +400,7 @@ public static partial class ManifestValidator
                 Error(ManifestIssueCodes.CiExternalInput, $"{path}.externalInputs", $"CI step '{n}' waits for external inputs; nobody answers a pull request's step", n);
             if (_ci && s.ClusterAccess)
                 Error(ManifestIssueCodes.CiClusterAccess, $"{path}.clusterAccess", $"CI step '{n}' asks for cluster access; a pull request's code never gets it", n);
-            if (_ci && s.NeverReused)
+            if (_ci && (s.NeverReused || _onClose))
                 _neverReused.Add(n);
             else if (_ci)
                 foreach (var (key, mapping) in s.Input)
@@ -537,7 +538,7 @@ public static partial class ManifestValidator
             if (!avail.TryGetValue(r.Root, out a))
             {
                 var hint = optionalTarget ? " (optional() means maybe-skipped; there must still be an earlier producer)" : "";
-                var where = _stageSteps.ContainsKey(r.Root) ? " (it runs in the same or a later stage)" : "";
+                var where = _onClose ? " (onClose sees only the CI input)" : _stageSteps.ContainsKey(r.Root) ? " (it runs in the same or a later stage)" : "";
                 Error(ManifestIssueCodes.RefUnavailable, path, $"{at}: '{r.Root}' is not available at this stage{where}{hint}", step);
                 return false;
             }
@@ -857,6 +858,8 @@ public static partial class ManifestValidator
             };
             WalkStages(ci.Stages, "ci.stages", avail);
             CheckUnusedOutputs();
+            if (ci.OnClose is { } onClose)
+                CheckOnClose(onClose, avail[ManifestRoots.Input]);
 
             foreach (var (name, placed) in _scopeSteps)
             {
@@ -869,6 +872,24 @@ public static partial class ManifestValidator
                             $"CI step '{name}' differs from the pipeline's step '{name}' at {otherPath}; a step in both must be the same step", name);
                 }
             }
+        }
+
+        /// <summary>A close run's one stage: it sees only the CI input, and its steps are never reused.</summary>
+        private void CheckOnClose(StepsStage stage, Avail input)
+        {
+            _onClose = true;
+            var avail = new Dictionary<string, Avail>(StringComparer.Ordinal) { [ManifestRoots.Input] = input };
+            if (stage.Steps.Count == 0) Error(ManifestIssueCodes.StageEmpty, "ci.onClose.steps", "a stage needs at least one step");
+            for (var j = 0; j < stage.Steps.Count; j++)
+            {
+                var step = stage.Steps[j];
+                var path = $"ci.onClose.steps[{j}]";
+                RegisterStageStep(step, path, []);
+                CheckStep(step, path, avail, failureHandler: false);
+                if (!_scopeSteps.TryGetValue(step.Name, out var seen)) _scopeSteps[step.Name] = seen = [];
+                seen.Add((path, step));
+            }
+            _onClose = false;
         }
 
         private static string Contract(StepDescriptor s) =>

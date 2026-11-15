@@ -137,12 +137,23 @@ public static class ManifestParser
 
     private static ManifestCi? ParseCi(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["input", "secrets", "stages"], ["description"])) return null;
+        if (!ctx.Object(e, path, ["input", "secrets", "stages"], ["description", "onClose"])) return null;
         var description = ctx.OptionalString(e, "description", path);
         var input = ctx.String(e, "input", path);
         var secrets = ctx.StringArray(e, "secrets", path);
         var stages = ctx.Array(e, "stages", path, (v, sp) => ParseStage(ctx, v, sp));
-        return input is null || secrets is null || stages is null ? null : new ManifestCi(description, input, secrets, stages);
+        StepsStage? onClose = null;
+        var onCloseOk = true;
+        if (e.TryGetProperty("onClose", out var onCloseEl))
+        {
+            var closePath = Ctx.Child(path, "onClose");
+            if (ctx.Expect(onCloseEl, JsonValueKind.Object, closePath, "an object") && !onCloseEl.TryGetProperty("steps", out _))
+                ctx.Error(ManifestIssueCodes.WrongType, closePath, "onClose must be one stage of steps");
+            else
+                onClose = ParseStage(ctx, onCloseEl, closePath) as StepsStage;
+            onCloseOk = onClose is not null;
+        }
+        return input is null || secrets is null || stages is null || !onCloseOk ? null : new ManifestCi(description, input, secrets, stages) { OnClose = onClose };
     }
 
     private static ManifestRetention? ParseRetention(Ctx ctx, JsonElement e, string path)

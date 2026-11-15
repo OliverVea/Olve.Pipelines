@@ -66,7 +66,8 @@ public sealed class GetBindingStatusHandler(
     PipelineActivationService activations,
     PipelineVersionService versions,
     ConfigActivationService gate,
-    CiStatusWarnings ciWarnings)
+    CiStatusWarnings ciWarnings,
+    PreviewWarnings previewWarnings)
     : Contract.IBindingsStatusHandler
 {
     public Task<Contract.BindingsStatusResponse> HandleAsync(Contract.BindingsStatusRequest request, CancellationToken cancellationToken)
@@ -88,7 +89,7 @@ public sealed class GetBindingStatusHandler(
             Result = BindingViews.ToApi(status.Result),
             LastSyncTime = status.LastSyncTime,
             Problems = status.Problems,
-            Warnings = [.. status.Warnings ?? [], .. ciWarnings.For(id)],
+            Warnings = [.. status.Warnings ?? [], .. ciWarnings.For(id), .. previewWarnings.For(id)],
             ReconcileSha = status.Sha,
             ReconcileInProgress = status.InProgress,
             // Snapshots from before VersionNumber existed: the version built from the reconciled commit.

@@ -99,6 +99,28 @@ public class CiPersistenceServiceTests
         await Assert.That(readQueue.Limit(pipelineId)).IsEqualTo(new CiQueueLimit(pipelineId, 2, 3));
     }
 
+    // Catches: a restart forgetting a preview, so its pull request closing would leave it up for good.
+    [Test]
+    public async Task Previews_survive_a_restart()
+    {
+        var snapshots = new MemorySnapshotStore();
+        CiPersistenceService Service(EntityStore<Preview> previews) => new(new EntityStore<PullRequest>([]), new EntityStore<CiRun>([]),
+            new EntityStore<CiAttempt>([]), new EntityStore<CiBuild>([]), new StorageOptions("bucket"), new PersistenceReadiness(),
+            NullLogger<CiPersistenceService>.Instance, snapshots, previews: previews);
+        var written = new EntityStore<Preview>([]);
+        var writer = Service(written);
+        await writer.StartingAsync(default);
+        var preview = new Preview(Id.New<Preview>(), Id.New<Pipeline>(), 7, PreviewState.Failing, Id.New<CiRun>(), 12, DateTimeOffset.UnixEpoch,
+            "https://pr-7.example", Id.New<CiRun>(), 2, DateTimeOffset.UnixEpoch.AddMinutes(5));
+        written.Set(preview);
+        await writer.SaveIfDirtyAsync();
+
+        var read = new EntityStore<Preview>([]);
+        await Service(read).StartingAsync(default);
+
+        await Assert.That(read.List()).IsEquivalentTo([preview]);
+    }
+
     [Test]
     public async Task A_snapshot_that_cant_be_read_fails_startup_without_overwriting_it()
     {

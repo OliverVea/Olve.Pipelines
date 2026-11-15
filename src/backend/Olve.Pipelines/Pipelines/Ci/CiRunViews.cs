@@ -15,7 +15,8 @@ public class CiRunViewService(
     CiPlanCache plans,
     PipelineVersionService versions,
     EntityStore<PipelineConfigBinding> bindings,
-    CiQueueService queue)
+    CiQueueService queue,
+    PreviewService previews)
 {
     public Contract.CiRunSummary Summarize(CiRun run)
     {
@@ -26,7 +27,12 @@ public class CiRunViewService(
         {
             Id = run.Id.Value.Value,
             Number = run.Number,
-            Kind = run.IsQueue ? Contract.CiRunKind.Queue : Contract.CiRunKind.Pull,
+            Kind = run.Kind switch
+            {
+                CiRunKind.Queue => Contract.CiRunKind.Queue,
+                CiRunKind.Close => Contract.CiRunKind.Close,
+                _ => Contract.CiRunKind.Pull,
+            },
             Status = PipelineViews.ToApi(run.Status),
             Pulls = run.IsQueue ? [.. (run.Batch ?? []).Select(p => p.Number)] : [run.Pull],
             TestedSha = run.TestedSha,
@@ -94,7 +100,7 @@ public class CiRunViewService(
             Stale = latest is not null && BranchHead(pull.PipelineId) is { } head && latest.MainSha != head,
             LatestRun = latest is null ? null : Summarize(latest),
             Queue = queue.Latest(pull.PipelineId, pull.Number) is { } entry ? Entry(entry) : null,
-            Preview = null,
+            Preview = previews.TryGet(pull.PipelineId, pull.Number, out var preview) ? Preview(preview) : null,
             UpdatedAt = pull.UpdatedAt,
         };
     }
@@ -117,6 +123,7 @@ public class CiRunViewService(
             Preview = view.Preview,
             UpdatedAt = view.UpdatedAt,
             Runs = [.. runs.ListByPull(pull.PipelineId, pull.Number)
+                .Concat(runs.ListCloseRuns(pull.PipelineId, pull.Number))
                 .Concat(runs.ListByPipeline(pull.PipelineId).Where(r => r.IsQueue && (r.Batch ?? []).Any(p => p.Number == pull.Number)))
                 .OrderByDescending(r => r.Number).Select(Summarize)],
         };
@@ -132,6 +139,21 @@ public class CiRunViewService(
             Finished = [.. all.Where(e => e.IsFinished).OrderByDescending(e => e.FinishedAt).ThenByDescending(e => e.Sequence).Select(Entry)],
         };
     }
+
+    public static Contract.Preview Preview(Preview preview) => new()
+    {
+        State = preview.State switch
+        {
+            PreviewState.Live => Contract.PreviewState.Live,
+            PreviewState.Removing => Contract.PreviewState.Removing,
+            PreviewState.Removed => Contract.PreviewState.Removed,
+            PreviewState.Failing => Contract.PreviewState.Failing,
+            _ => Contract.PreviewState.Deploying,
+        },
+        Url = preview.Url,
+        DeployedBy = preview.DeployedByNumber,
+        DeployedAt = preview.DeployedAt,
+    };
 
     public Contract.QueueEntry Entry(CiQueueEntry entry)
     {

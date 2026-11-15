@@ -18,6 +18,8 @@ public class CiPlanCache(RunPlanCache plans, PipelineVersionService versions, Ci
     private readonly ConcurrentDictionary<Id<PipelineVersion>, Result<RunPlan>> _plans = new();
     private readonly ConcurrentDictionary<Id<CiBuild>, Result<Manifest>> _manifests = new();
     private readonly ConcurrentDictionary<Id<CiBuild>, Result<RunPlan>> _buildPlans = new();
+    private readonly ConcurrentDictionary<Id<PipelineVersion>, Result<RunPlan>> _closePlans = new();
+    private readonly ConcurrentDictionary<Id<CiBuild>, Result<RunPlan>> _buildClosePlans = new();
 
     /// <summary>The binary the run's steps run: its version's, or its own build's.</summary>
     public bool BinaryKey(CiRun run, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? key)
@@ -32,16 +34,25 @@ public class CiPlanCache(RunPlanCache plans, PipelineVersionService versions, Ci
         return key is not null;
     }
 
+    /// <summary>The run's plan: its definition's CI stages, or for a close run its <c>onClose</c> stage.</summary>
     public Result<RunPlan> Get(CiRun run)
     {
         if (!run.OwnDefinition)
-            return Get(run.VersionId);
+            return run.IsClose ? GetClose(run.VersionId) : Get(run.VersionId);
         if (!builds.TryGet(run.PipelineId, run.TestedSha, out var build) || build.Status is not CiBuildStatus.Succeeded)
             return new ConflictProblem("The pull request's definition isn't built.");
-        return _buildPlans.GetOrAdd(build.Id, _ => Manifest(build).TryPickProblems(out var problems, out var manifest)
+        return (run.IsClose ? _buildClosePlans : _buildPlans).GetOrAdd(build.Id, _ => Manifest(build).TryPickProblems(out var problems, out var manifest)
             ? problems
-            : FromCi(manifest, "The pull request's definition declares no CI."));
+            : run.IsClose ? FromOnClose(manifest) : FromCi(manifest, "The pull request's definition declares no CI."));
     }
+
+    private Result<RunPlan> GetClose(Id<PipelineVersion> versionId) => _closePlans.GetOrAdd(versionId, id =>
+        plans.Get(id).TryPickProblems(out var problems, out var plan) ? problems : FromOnClose(plan.Manifest));
+
+    private static Result<RunPlan> FromOnClose(Manifest manifest) =>
+        manifest.Ci?.OnClose is { } onClose
+            ? RunPlan.From(manifest with { Stages = [onClose] })
+            : new ConflictProblem("The definition declares no onClose.");
 
     public Result<RunPlan> Get(Id<PipelineVersion> versionId) => _plans.GetOrAdd(versionId, id =>
         plans.Get(id).TryPickProblems(out var problems, out var plan) ? problems : FromCi(plan.Manifest, "The version declares no CI."));
@@ -122,6 +133,9 @@ public class CiScheduler(
     CiPlanCache plans,
     CiSchedulingLock schedulingLock,
     CiReuseService reuse,
+    PreviewGate previewGate,
+    PreviewService previews,
+    TimeProvider time,
     ILogger<CiScheduler> logger)
 {
     public void Advance(Id<CiRun> runId) => schedulingLock.Advance(runId, () => AdvanceOnce(runId));
@@ -151,6 +165,13 @@ public class CiScheduler(
             return;
         }
 
+        if (run.IsClose && previewGate.LiveDeploys(run) is { Count: > 0 } live)
+        {
+            if (live.All(a => a.Status.IsTerminal()))
+                previewGate.WhenStopped(live).ContinueWith(_ => Advance(runId), TaskScheduler.Default);
+            return;
+        }
+
         var pool = new CiRunPool(run.Id, input, plan, attempts);
         foreach (var stage in plan.Stages)
         {
@@ -173,7 +194,14 @@ public class CiScheduler(
                     continue;
                 if (IsSettled(latest, decision) && !RetryDue(run, unit, decision))
                     continue;
+                if (decision is StepDecision.Schedule && unit.Step.NeverReused && previewGate.CloseRunning(run) is not null)
+                {
+                    waiting = true;
+                    continue;
+                }
 
+                if (decision is StepDecision.Schedule && unit.Step.NeverReused && run.Kind == CiRunKind.Pull && plan.Manifest.Ci?.OnClose is not null)
+                    previews.Deploying(run, time.GetUtcNow());
                 Act(run, unit, decision, plan.Manifest.CodeHash);
                 if (Latest(run.Id, unit.Name) is { } created && created.Status.IsActive())
                     waiting = true;
@@ -243,7 +271,7 @@ public class CiScheduler(
         var result = decision switch
         {
             StepDecision.Skip skip => attempts.RecordSkipped(run.Id, unit.Name, skip.Reason),
-            StepDecision.Schedule schedule when !unit.Step.NeverReused && reuse.FindOrigin(run, codeHash, unit.Name) is { } origin =>
+            StepDecision.Schedule schedule when !unit.Step.NeverReused && !run.IsClose && reuse.FindOrigin(run, codeHash, unit.Name) is { } origin =>
                 attempts.RecordReused(run.Id, unit.Name, schedule.Hash, schedule.Json, origin),
             StepDecision.Schedule schedule => attempts.Schedule(run.Id, unit.Name, schedule.Hash, schedule.Json),
             StepDecision.Fail fail => attempts.RecordFailed(run.Id, unit.Name, fail.Reason, fail.Hash),

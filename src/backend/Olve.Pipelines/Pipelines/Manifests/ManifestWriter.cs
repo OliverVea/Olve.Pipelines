@@ -106,6 +106,11 @@ public static class ManifestWriter
         w.WriteStartArray("stages");
         foreach (var s in ci.Stages) Write(w, s);
         w.WriteEndArray();
+        if (ci.OnClose is { } onClose)
+        {
+            w.WritePropertyName("onClose");
+            Write(w, onClose);
+        }
         w.WriteEndObject();
     }
 

@@ -60,7 +60,8 @@ public class BindingApiTests
             new GetBindingHandler(Bindings).HandleAsync(new Contract.BindingsGetRequest(id), default);
 
         public Task<Contract.BindingsStatusResponse> Status(Guid id) =>
-            new GetBindingStatusHandler(Bindings, Get<PipelineActivationService>(), Get<PipelineVersionService>(), Get<ConfigActivationService>(), new CiStatusWarnings())
+            new GetBindingStatusHandler(Bindings, Get<PipelineActivationService>(), Get<PipelineVersionService>(), Get<ConfigActivationService>(), new CiStatusWarnings(),
+                new PreviewWarnings(new PreviewService(new EntityStore<Preview>(), new Olve.Pipelines.Jobs.IdProvider())))
                 .HandleAsync(new Contract.BindingsStatusRequest(id), default);
 
         public Task<Contract.BindingsUpdateResponse> Update(Guid id, string? credentials) =>

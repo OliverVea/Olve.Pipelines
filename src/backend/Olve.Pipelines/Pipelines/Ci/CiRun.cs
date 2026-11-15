@@ -21,8 +21,9 @@ namespace Olve.Pipelines.Pipelines.Ci;
 /// <param name="Problems">Why the run failed before any step ran (its definition can't be used); empty otherwise.</param>
 /// <param name="OwnDefinition">The pull request changes the definition, so the run uses the build of its tested commit.</param>
 /// <param name="Building">The run waits for that build; its steps start once it is described and its config pinned.</param>
-/// <param name="Kind">A pull request's run, or a merge-queue run testing <see cref="Batch"/> (then <see cref="Pull"/> is 0
-/// and <see cref="Branch"/> is the batch branch).</param>
+/// <param name="Kind">A pull request's run, a merge-queue run testing <see cref="Batch"/> (then <see cref="Pull"/> is 0
+/// and <see cref="Branch"/> is the batch branch), or a close run removing the pull request's preview with the definition
+/// and commit of the run that deployed it (<see cref="Preview"/>).</param>
 /// <param name="Batch">A queue run's pull requests in queue order, each with the batch commit after merging it.</param>
 /// <param name="Outdated">Started because the active version changed the checks the pull request's latest run used (its Jobs go
 /// after ready pull requests' own runs).</param>
@@ -58,20 +59,25 @@ public sealed record CiRun(
     [JsonIgnore]
     public bool IsQueue => Kind == CiRunKind.Queue;
 
+    [JsonIgnore]
+    public bool IsClose => Kind == CiRunKind.Close;
+
     /// <summary>What a pod sees as <c>OLVE_VERSION_STAMP</c>: <c>ci.&lt;number&gt;</c>.</summary>
     [JsonIgnore]
     public string VersionStamp => $"ci.{Number}";
 }
 
 /// <summary>
-/// The CI input a run's steps get (<c>CiInput</c>): the repository, the commit tested, the run's kind and the pull
-/// request (0 for a queue run).
+/// The CI input a run's steps get (<c>CiInput</c>): the repository, the commit tested (for a close run, the one the
+/// preview was deployed from), the run's kind and the pull request (0 for a queue run).
 /// </summary>
 public static class CiInputs
 {
     public static string Pull(string repo, string sha, int pull) => Of(repo, sha, "pull", pull);
 
     public static string Queue(string repo, string sha) => Of(repo, sha, "queue", 0);
+
+    public static string Close(string repo, string sha, int pull) => Of(repo, sha, "close", pull);
 
     private static string Of(string repo, string sha, string kind, int pull) =>
         new System.Text.Json.Nodes.JsonObject { ["repo"] = repo, ["sha"] = sha, ["kind"] = kind, ["pull"] = pull }.ToJsonString();
@@ -82,6 +88,7 @@ public enum CiRunKind
 {
     Pull,
     Queue,
+    Close,
 }
 
 /// <summary>

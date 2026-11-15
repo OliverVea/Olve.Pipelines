@@ -96,9 +96,15 @@ public class ManifestParserTests
         var node = Node();
         WithCi(node);
         node["ci"]!["description"] = "Checks a pull request.";
+        CiStep(node, "test")["reuse"] = false;
+        var remove = CiStep(node, "checkout").DeepClone().AsObject();
+        remove["name"] = "remove-preview";
+        node["ci"]!["onClose"] = new JsonObject { ["steps"] = new JsonArray(remove) };
 
         var m = ParseNode(node);
 
+        await Assert.That(m.Ci!.OnClose!.Steps.Select(s => s.Name)).IsEquivalentTo(["remove-preview"]);
+        await Assert.That(((StepsStage)m.Ci.Stages[1]).Steps.Select(s => (s.Name, s.NeverReused))).IsEquivalentTo([("build", false), ("test", true)]);
         await Assert.That(m.Ci!.Input).IsEqualTo("DeployRequest");
         await Assert.That(m.Ci.Secrets).IsEquivalentTo(["GITHUB_TOKEN"]);
         await Assert.That(m.Ci.Stages.Count).IsEqualTo(2);

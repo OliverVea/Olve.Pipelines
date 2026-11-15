@@ -35,7 +35,7 @@ public class CiStatusPlanner(CiRunViewService views, PullRequestService pulls, C
 {
     public CiCommitStatus? For(CiRun run)
     {
-        if (run.IsQueue || run.Status is RunStatus.Superseded)
+        if (run.IsQueue || run.IsClose || run.Status is RunStatus.Superseded)
             return null;
         if (run.Status is RunStatus.Cancelled)
             return run.CancelReason is CiCancelReason.Closed or CiCancelReason.Merged
@@ -357,7 +357,7 @@ public class CiStatusReporter(CiRunService runs, CiStatusPlanner planner, CiStat
     public void ReportLatest(IEnumerable<PullRequest> openPulls)
     {
         foreach (var pull in openPulls)
-            if (runs.ListByPipeline(pull.PipelineId).Where(r => r.Pull == pull.Number && !r.IsQueue).MaxBy(r => r.Number) is { } latest)
+            if (runs.ListByPipeline(pull.PipelineId).Where(r => r.Pull == pull.Number && r.Kind == CiRunKind.Pull).MaxBy(r => r.Number) is { } latest)
                 Report(latest);
     }
 }

@@ -1,7 +1,8 @@
 # Preview environments
 
-Status: designed, not built, apart from the CI trust it needs: `Ci:Authors` and no `clusterAccess`
-in CI are live (see [CI](ci.md)).
+Status: partly built. The server runs it: `kind`/`pull` in the CI input, `reuse: false`, `onClose`
+close runs, Preview records and `olve/preview`; `Ci:Authors` and no `clusterAccess` in CI are live
+(see [CI](ci.md)). The SDK, the UI's preview cell, the homelab pieces and Trains are not built.
 
 A preview environment is a live instance of an app for one open pull request, deployed by the PR's
 CI runs and torn down when the PR closes or merges. Previews are reachable over the tailnet only.
@@ -64,10 +65,14 @@ PR's CI:
   the status, the re-report at startup, `stale`, the PR list and the failing count.
 - A push to the PR doesn't supersede it. A PR run's preview step waits for the PR's running close
   run to end, so a teardown never removes a preview that was just deployed again.
-- A failed close run is retried with backoff and shows in pipeline health until it succeeds.
+- A failed close run is tried again with backoff (1, 5, 15, then every 60 minutes) while the PR
+  stays closed, and shows as a warning on the binding until it succeeds.
 - A close run's steps start only once no `reuse: false` attempt of the PR still has a Job: a
   cancelled deploy's helm may run on for a moment, and a teardown before it ends would leak the
   preview.
+
+A PR reopened at the head it closed at keeps that head's run, so its preview comes back with the next
+push or `pl ci rerun`.
 
 The steps in `onClose` read only the input: `removePreview` needs the PR number, not what the deploy
 produced. The deploying run's binary is used so the teardown is the code that matches the deploy.

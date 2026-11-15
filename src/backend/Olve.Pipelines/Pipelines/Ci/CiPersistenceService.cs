@@ -8,10 +8,10 @@ namespace Olve.Pipelines.Pipelines.Ci;
 
 /// <summary>
 /// CI's persisted state (<c>ci-state.json</c>): the tracked pull requests, the index of CI runs, the builds of pull
-/// requests' own definitions, the merge queue's entries and its batch limits.
+/// requests' own definitions, the merge queue's entries and its batch limits, and the previews.
 /// </summary>
 public record CiStateSnapshot(PullRequest[] Pulls, CiRunKey[]? Runs = null, CiBuild[]? Builds = null, CiQueueEntry[]? Queue = null,
-    CiQueueLimit[]? QueueLimits = null);
+    CiQueueLimit[]? QueueLimits = null, Preview[]? Previews = null);
 
 /// <summary>A CI run in the index: its state lives at <c>ci/&lt;p&gt;/&lt;number&gt;/run.json</c>.</summary>
 public record CiRunKey(Id<Pipeline> PipelineId, int Number);
@@ -39,7 +39,8 @@ public class CiPersistenceService(
     ILogger<CiPersistenceService> logger,
     ISnapshotStore? store = null,
     EntityStore<CiQueueEntry>? queueEntries = null,
-    CiQueueService? queue = null) : IHostedLifecycleService, IDisposable
+    CiQueueService? queue = null,
+    EntityStore<Preview>? previews = null) : IHostedLifecycleService, IDisposable
 {
     internal const string Key = "ci-state.json";
     private const string ReadinessKey = "ci";
@@ -66,6 +67,9 @@ public class CiPersistenceService(
         queueEntries?.OnAdded.Subscribe(_ => RequestSave());
         queueEntries?.OnUpdated.Subscribe(_ => RequestSave());
         queueEntries?.OnDeleted.Subscribe(_ => RequestSave());
+        previews?.OnAdded.Subscribe(_ => RequestSave());
+        previews?.OnUpdated.Subscribe(_ => RequestSave());
+        previews?.OnDeleted.Subscribe(_ => RequestSave());
         if (queue is not null)
             queue.LimitChanged += _ => RequestSave();
         runs.OnAdded.Subscribe(e => RunChanged(e.Id));
@@ -118,6 +122,8 @@ public class CiPersistenceService(
                 builds.Set(build);
             foreach (var entry in snapshot?.Queue ?? [])
                 queueEntries?.Set(entry);
+            foreach (var preview in snapshot?.Previews ?? [])
+                previews?.Set(preview);
             foreach (var limit in snapshot?.QueueLimits ?? [])
                 queue?.Restore(limit);
             foreach (var document in documents)
@@ -230,7 +236,8 @@ public class CiPersistenceService(
                 [.. runs.List().OrderBy(r => r.PipelineId.Value.Value).ThenBy(r => r.Number).Select(r => new CiRunKey(r.PipelineId, r.Number))],
                 [.. builds.List().OrderBy(b => b.PipelineId.Value.Value).ThenBy(b => b.CommitSha, StringComparer.Ordinal)],
                 [.. (queueEntries?.List() ?? []).OrderBy(e => e.PipelineId.Value.Value).ThenBy(e => e.Sequence)],
-                [.. (queue?.Limits() ?? []).OrderBy(l => l.PipelineId.Value.Value)]);
+                [.. (queue?.Limits() ?? []).OrderBy(l => l.PipelineId.Value.Value)],
+                [.. (previews?.List() ?? []).OrderBy(p => p.PipelineId.Value.Value).ThenBy(p => p.Pull)]);
             await store.WriteAsync(Key, JsonSerializer.SerializeToUtf8Bytes(snapshot, CiPersistenceJsonContext.Default.CiStateSnapshot), cancellationToken);
 
             // Only once the index no longer names them.

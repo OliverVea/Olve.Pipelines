@@ -3,14 +3,13 @@
 Status: partly built. Pull requests get CI runs, on the active version's definition and binary or,
 for a PR that changes the definition, on a build of its own, report `olve/ci`, and reuse steps that
 succeeded on an identical tree; the merge queue tests batches of up to 5, lands them and reports
-`olve/merge-queue`; pipeline health counts pull requests. `pl ci` and `pl wait ci` cover CI runs
-(`pl ci merge|dequeue` are not built). The UI shows the CI tab, CI runs and the queue. The CI scheduler doesn't apply a matrix
-step's `cascadeFailure`, and CI stages can't branch on config (`select`).
+`olve/merge-queue`; pipeline health counts pull requests. The UI shows the CI tab, CI runs and the
+queue, and `pl ci` and `pl wait ci` cover CI runs (`pl ci merge|dequeue` are not built). The CI
+scheduler doesn't apply a matrix step's `cascadeFailure`, and CI stages can't branch on config
+(`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has
-its own runs, scheduling and tab in the UI. What they share is the SDK and the execution layer. The
-UI mocks are `src/frontend/mocks/ci.html` (the CI tab and a CI run) and
-`src/frontend/mocks/ci-surfaces.html` (CI on the homepage and the pipeline overview).
+its own runs, scheduling and tab in the UI. What they share is the SDK and the execution layer.
 
 ## Shared and separate
 

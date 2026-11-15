@@ -73,6 +73,7 @@ export {
   type OutputValue,
 } from './core/steps.ts';
 export type { Simplify } from './core/types.ts';
+export { checks, CiInput, type Checks, type ChecksDef } from './builder/checks.ts';
 export {
   implement,
   type Implementation,

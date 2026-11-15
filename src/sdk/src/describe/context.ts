@@ -44,9 +44,9 @@ const byName = ([a]: [string, unknown], [b]: [string, unknown]) =>
 /** The problems found so far and the models, secrets, config entries and step names the pipeline uses. */
 export class DescribeContext {
   readonly problems: string[];
-  readonly models = new Map<string, { schemas: ModelSchemasT; key: string }>();
-  readonly secrets = new Map<string, string>();
-  readonly configs = new Map<string, ConfigUse>();
+  readonly models: Map<string, { schemas: ModelSchemasT; key: string }>;
+  readonly secrets: Map<string, string>;
+  readonly configs: Map<string, ConfigUse>;
   readonly steps = new Map<string, AnyStep>();
   private readonly placements = new Map<
     string,
@@ -56,6 +56,22 @@ export class DescribeContext {
 
   constructor(problems: readonly string[]) {
     this.problems = [...problems];
+    this.models = new Map();
+    this.secrets = new Map();
+    this.configs = new Map();
+  }
+
+  /** A scope of its own for step names (CI's stages), sharing the problems, models, secrets and config. */
+  scope(problems: readonly string[] = []): DescribeContext {
+    const c = new DescribeContext([]);
+    this.problems.push(...problems);
+    Object.assign(c, {
+      problems: this.problems,
+      models: this.models,
+      secrets: this.secrets,
+      configs: this.configs,
+    });
+    return c;
   }
 
   nextSelectId(): number {

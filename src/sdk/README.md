@@ -281,6 +281,25 @@ export default pipeline({ name: "Olve.Pipelines", description: "…", input: M.D
 - **Retention.** `pipeline({ …, retention: { keepLatestRuns?, minRunAgeDays?, buildGraceDays? } })` overrides the instance's retention thresholds for this pipeline's runs and binaries, field by field (non-negative integers; unset = the instance's value). Recorded on the manifest root as `retention`; the service applies the active version's.
 - **Failure handlers.** `.onFailure(handler, { steps? })` takes a step whose inputs are all `FailureContext`. When a run fails, the service runs each handler whose scope (default: any step) contains a failed step, once per failure: `run <handler>` in the handler's image with its declared secrets, from the run's pinned binary. It is untracked and best-effort — not an attempt of the run, never retried, and its own failure triggers nothing; its log is kept at `runs/<p>/<run>/_failure/<handler>/<id>/log`. `FailureContext` carries `pipeline {id, name}`, `run {id, number, address, versionStamp, trigger, url}`, `version {number, commit}`, the run's `input`, a one-line `reason`, and `failedSteps[]` (`step, attempt, address, reason, logUrl`) — only the steps in the handler's scope, never empty.
 
+### CI
+
+A pipeline's CI checks pull requests into the binding's branch, apart from its runs. Declare it with `checks()`, usually in a file of its own, and export it as `ci` from the package's entry point:
+
+```ts
+// ci.ts
+export const ci = checks({ description: "…", secrets: [GITHUB_TOKEN] })
+  .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(build, test);
+
+// the entry point (package.json `main`)
+export { ci } from "./ci";
+export default pipeline({ … });
+```
+
+- **Input.** `checks()` has no name, input model or triggers. Its input is `CiInput` `{ repo, sha }`: the repository and the commit tested. `.stage` and `.when` work as on a pipeline; `.when` matches `CiInput` fields.
+- **Secrets.** `secrets` lists the pipeline secrets CI steps may declare; a CI step declaring any other is a describe problem, and so is a listed secret no step declares.
+- **Shared steps.** A step in both the pipeline and CI is one step: it must declare the same things (its mappings aside) and carry the same implementation, so stage the same value in both. CI steps can't have external inputs.
+
 ### Testing handlers
 
 ```ts
@@ -308,7 +327,7 @@ This section is everything the C# side needs in order to run the binary.
 | Mode | Reads | Writes | Notes |
 |---|---|---|---|
 | `describe [--sentinels]` | the binary itself | stdout: the manifest (canonical JSON) | With `--sentinels`, stdout gets the manifest between `---OLVE-MANIFEST-BEGIN---` and `---OLVE-MANIFEST-END---`. Needs no env and no files. |
-| `run <step>` | `$OLVE_DIR/input.json` | `$OLVE_DIR/work/output.json`, `$OLVE_DIR/work/files/…` | Steps in stages and failure-handler steps. A matrix step's cell runs as `run <step>` (the step's own name) with `OLVE_CELL`. |
+| `run <step>` | `$OLVE_DIR/input.json` | `$OLVE_DIR/work/output.json`, `$OLVE_DIR/work/files/…` | Steps in stages, failure-handler steps and CI's steps. A matrix step's cell runs as `run <step>` (the step's own name) with `OLVE_CELL`. |
 | `preflight <step>` | `$OLVE_DIR/input.json` | `$OLVE_DIR/work/output.json` | A step's preflight (manifest `preflight: true`). Validates only the step's regular inputs (external values already in the input are ignored) and writes `{"status":"succeeded","output":null}` with the preflight's `links`, or a failed envelope whose message names the preflight. Keeps no files; the service sets no `OLVE_RESULT_URL` and reads the envelope from the log. |
 | `map-trigger <trigger>` | `$OLVE_DIR/input.json` (the event) | `$OLVE_DIR/work/output.json` | `<trigger>` is the trigger's `name` from the manifest. |
 

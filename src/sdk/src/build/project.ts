@@ -42,12 +42,19 @@ function entryOf(dirArg: string, dir: string): string {
 
 /** The default export of the entry point. */
 export async function loadPipeline(project: Project): Promise<unknown> {
-  const mod = (await import(project.pipelineFile)) as { default?: unknown };
+  return (await loadEntry(project)).pipeline;
+}
+
+/** The entry point's default export (the pipeline) and its `ci` export (undefined when it has none). */
+export async function loadEntry(
+  project: Project,
+): Promise<{ pipeline: unknown; ci: unknown }> {
+  const mod = (await import(project.pipelineFile)) as { default?: unknown; ci?: unknown };
   if (!mod.default)
     throw new ProjectError(
       `${project.pipelineFile} has no default export (export default pipeline({...})...)`,
     );
-  return mod.default;
+  return { pipeline: mod.default, ci: mod.ci };
 }
 
 function listFiles(dir: string): string[] {

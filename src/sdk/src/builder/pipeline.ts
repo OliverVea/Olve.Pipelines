@@ -31,7 +31,7 @@ interface Slot<
   value: V;
   maybe: Maybe;
 }
-type AvailMap = { [step: string]: Slot };
+export type AvailMap = { [step: string]: Slot };
 export type InitialAvail<In extends AnyModel> = {
   input: Slot<In['name'], Infer<In>, false>;
 };
@@ -150,7 +150,7 @@ export type CheckStage<E extends readonly unknown[], A extends AvailMap> = {
 };
 
 // A matrix step's slot holds its cells, under `cells:<model>`: only cells() inputs match it.
-type OutputsOf<E extends readonly unknown[], Maybe extends boolean> = {
+export type OutputsOf<E extends readonly unknown[], Maybe extends boolean> = {
   [S in StepOfEntry<E[number]> as S['name']]: [CellOf<S>] extends [never]
     ? Slot<
         S['output'] extends AnyModel ? S['output']['name'] : null,
@@ -163,7 +163,7 @@ type OutputsOf<E extends readonly unknown[], Maybe extends boolean> = {
         Maybe
       >;
 };
-type MakeMaybe<X extends AvailMap> = {
+export type MakeMaybe<X extends AvailMap> = {
   [K in keyof X]: Slot<X[K]['model'], X[K]['value'], true>;
 };
 
@@ -323,6 +323,15 @@ export interface PipelineData {
   readonly failureHandlers: FailureHandlerNode[];
   /** Structural problems found while building (reported by describe). */
   readonly problems: string[];
+  /** Set on the value `checks()` returns: a pipeline's CI, not a pipeline. */
+  readonly checks?: ChecksMeta;
+}
+
+/** What `checks({...})` declares besides its stages. */
+export interface ChecksMeta {
+  readonly description: string | undefined;
+  /** The pipeline secrets CI steps may declare. */
+  readonly secrets: readonly Secret[];
 }
 
 export function pipelineData(p: unknown): PipelineData {

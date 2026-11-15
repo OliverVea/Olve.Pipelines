@@ -75,11 +75,22 @@ on which commit with that tree it ran on. `gitHubSource` reports the commit it f
 source step names the earlier commit, and a step that puts `ctx.run.version` into its output keeps the
 earlier run's.
 
-Each CI run reports the commit status `olve/ci` on its pull request's head, linking the run's page:
-`pending` with how many steps are done, then `success` ("Succeeded in 6m12s") or `failure` naming the
-failed steps, or the problem with the definition. A cancelled or superseded run reports nothing more
-(the run replacing it reports), and neither does a run still building its own definition, so a pull
-request whose definition removes CI gets no status. Statuses go out in the background; a newer state
+CI reports the commit status `olve/ci` on each pull request's head, linking the run's page:
+
+| When | Status |
+|---|---|
+| A push, while the run waits to start | `pending` "Waiting to start" |
+| The run is going | `pending` "3 of 8 steps done" |
+| It succeeded | `success` "Succeeded in 6m12s" |
+| It failed | `failure` "Failed: test" (the failed steps, or the problem with the definition) |
+| It was cancelled, and the pull request is still at that head | `error` "Cancelled": no result; running it again replaces it |
+| A waiting head doesn't merge onto the branch | `error` "Doesn't merge onto 'main'" |
+| A waiting head turns out to have no CI | `success` "No CI to run" |
+
+A push that changes the pipeline's definition gets nothing until its own build shows whether its
+definition keeps CI, so a pull request whose definition removes CI gets no status. A superseded run
+reports nothing more (the run replacing it reports), and neither does a run cancelled because its pull
+request closed or merged. Statuses go out in the background; a newer state
 replaces one not yet sent, and a GitHub server error is tried again. This needs the binding's token to
 have **Commit statuses: write** (a classic token: `repo`). Without it, `pl binding status` shows a
 warning saying so until a status gets through.

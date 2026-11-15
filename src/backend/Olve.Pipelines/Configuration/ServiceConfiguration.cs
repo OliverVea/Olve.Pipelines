@@ -120,6 +120,7 @@ public static class ServiceConfiguration
         services.AddTransient<CiStatusPlanner>();
         services.AddTransient<CiStatusReporter>();
         services.AddSingleton<CiStatusWarnings>();
+        services.AddSingleton<CiWaitingHeads>();
         services.TryAddSingleton<ICommitStatusClient, GitHubCommitStatusClient>();
         services.AddSingleton<CiStatusDelivery>();
         services.AddHostedService(sp => sp.GetRequiredService<CiStatusDelivery>());

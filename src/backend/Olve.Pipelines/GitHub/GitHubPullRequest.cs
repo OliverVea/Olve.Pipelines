@@ -15,7 +15,8 @@ public record GitHubPullRequest(
     [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
     [property: JsonPropertyName("head")] GitHubPullRequestRef Head,
     [property: JsonPropertyName("base")] GitHubPullRequestRef Base,
-    [property: JsonPropertyName("mergeable")] bool? Mergeable = null)
+    [property: JsonPropertyName("mergeable")] bool? Mergeable = null,
+    [property: JsonPropertyName("merge_commit_sha")] string? MergeCommitSha = null)
 {
     /// <summary>From another repository; a fork whose repository was deleted has none.</summary>
     public bool FromFork => !string.Equals(Head.Repo?.FullName, Base.Repo?.FullName, StringComparison.OrdinalIgnoreCase);
@@ -28,6 +29,19 @@ public record GitHubPullRequestRef(
 
 public record GitHubRepositoryName([property: JsonPropertyName("full_name")] string FullName);
 
+/// <summary>A git commit as <c>GET …/git/commits/{sha}</c> reads it: its tree and parents.</summary>
+public record GitHubGitCommit(
+    [property: JsonPropertyName("sha")] string Sha,
+    [property: JsonPropertyName("tree")] GitHubShaRef Tree,
+    [property: JsonPropertyName("parents")] GitHubShaRef[] Parents);
+
+public record GitHubShaRef([property: JsonPropertyName("sha")] string Sha);
+
+/// <summary>The files a comparison (<c>GET …/compare/{base}...{head}</c>) changes; GitHub lists at most 300.</summary>
+public record GitHubComparedFiles([property: JsonPropertyName("files")] GitHubComparedFile[]? Files);
+
+public record GitHubComparedFile([property: JsonPropertyName("filename")] string Filename);
+
 /// <summary>A <c>pull_request</c> webhook delivery.</summary>
 public record GitHubPullRequestEvent(
     [property: JsonPropertyName("action")] string Action,
@@ -36,4 +50,6 @@ public record GitHubPullRequestEvent(
 [JsonSerializable(typeof(GitHubPullRequest))]
 [JsonSerializable(typeof(GitHubPullRequest[]))]
 [JsonSerializable(typeof(GitHubPullRequestEvent))]
+[JsonSerializable(typeof(GitHubGitCommit))]
+[JsonSerializable(typeof(GitHubComparedFiles))]
 internal partial class GitHubPullRequestJsonContext : JsonSerializerContext;

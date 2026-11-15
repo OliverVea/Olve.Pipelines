@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
@@ -36,7 +37,34 @@ public class JobRunner(
     }
 
     internal void DispatchTick() =>
-        JobDispatch.Run(CdCandidates(), () => registry.ActiveCount < MaxConcurrentJobs);
+        JobDispatch.Run([.. CdCandidates(), .. CiCandidates()], () => registry.ActiveCount < MaxConcurrentJobs);
+
+    /// <summary>
+    /// CI's attempts that want a watcher (Scheduled, or InProgress after a restart). None of CD's per-step rules
+    /// apply; a draft pull request's attempts go after a ready one's.
+    /// </summary>
+    private List<JobCandidate> CiCandidates()
+    {
+        using var scope = sp.CreateScope();
+        if (scope.ServiceProvider.GetService<CiAttemptService>() is not { } attempts)
+            return [];
+        var runs = scope.ServiceProvider.GetRequiredService<CiRunService>();
+        var pulls = scope.ServiceProvider.GetRequiredService<PullRequestService>();
+        return attempts.List()
+            .Where(a => a.Status is Scheduled or InProgress && !registry.IsRunning(JobWatchKey.Of(a.Id)))
+            .Select(a => new JobCandidate(PriorityOf(a, runs, pulls), a.CreatedAt, () =>
+            {
+                using var start = sp.CreateScope();
+                start.ServiceProvider.GetRequiredService<IJobExecutor>().EnsureRunning(a.Id);
+                return true;
+            }))
+            .ToList();
+    }
+
+    internal static JobPriority PriorityOf(CiAttempt attempt, CiRunService runs, PullRequestService pulls) =>
+        runs.TryGet(attempt.RunId, out var run) && (pulls.TryGet(run.PipelineId, run.Pull, out var pull) ? pull.Draft : run.Draft)
+            ? JobPriority.DraftPull
+            : JobPriority.ReadyPull;
 
     /// <summary>
     /// CD's attempts that want a watcher: Scheduled ones, and InProgress ones whose watcher is gone (after a restart

@@ -109,6 +109,24 @@ model SecretsChanged {
   @format("uuid") pipelineId: string;
 }
 
+/** A CI run was created, changed status or was deleted (`status: "Deleted"`). */
+model CiRunChanged {
+  type: "ci-run";
+  @format("uuid") pipelineId: string;
+  run: int32;
+  status: RunChangeStatus;
+}
+
+/** A CI attempt was created or changed status. */
+model CiAttemptChanged {
+  type: "ci-attempt";
+  @format("uuid") pipelineId: string;
+  run: int32;
+  step: string;
+  attempt: int32;
+  status: AttemptState;
+}
+
 /** A pull request changed: opened, pushed, retitled, marked ready or draft, closed or merged, or its mergeability. */
 model PullChanged {
   type: "pull";
@@ -143,6 +161,8 @@ union ChangeEvent {
   @TypeSpec.Events.contentType("application/json") queued: QueuedChanged,
   @TypeSpec.Events.contentType("application/json") secrets: SecretsChanged,
   @TypeSpec.Events.contentType("application/json") poll: PollChanged,
+  @TypeSpec.Events.contentType("application/json") `ci-run`: CiRunChanged,
+  @TypeSpec.Events.contentType("application/json") `ci-attempt`: CiAttemptChanged,
   @TypeSpec.Events.contentType("application/json") pull: PullChanged,
 }
 

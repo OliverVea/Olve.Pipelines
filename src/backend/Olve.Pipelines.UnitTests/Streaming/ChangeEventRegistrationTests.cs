@@ -34,7 +34,7 @@ public class ChangeEventRegistrationTests
         var registration = new ChangeEventRegistration(
             d.PipelineEvents, d.RunEvents, d.AttemptEvents, d.VersionEvents, new PipelineConfigBindingEvents(),
             d.Activations, d.BlockedSteps, d.PendingVersions, d.PendingStarts, d.PollTriggers, d.ConfigSnapshotStore,
-            secrets, pullEvents, broadcaster);
+            secrets, pullEvents, new CiRunEvents(), new CiAttemptEvents(), broadcaster);
         if (registration.Run().TryPickProblems(out var problems))
             throw new InvalidOperationException(string.Join("; ", problems));
         return new Wired(s, secrets, new PullRequestService(pullStore, new IdProvider()), broadcaster.Subscribe(s.Pipeline.Id, lastEventId: null));

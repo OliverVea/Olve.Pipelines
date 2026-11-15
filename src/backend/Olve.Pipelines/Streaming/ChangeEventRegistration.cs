@@ -25,6 +25,8 @@ public class ChangeEventRegistration(
     EntityStore<ConfigSnapshot> configSnapshots,
     PipelineSecretEvents secretEvents,
     PullRequestEvents pullEvents,
+    CiRunEvents ciRunEvents,
+    CiAttemptEvents ciAttemptEvents,
     ChangeBroadcaster broadcaster) : IRunOnStartup
 {
     public Result Run()
@@ -62,6 +64,12 @@ public class ChangeEventRegistration(
         pullEvents.OnAdded.Subscribe(e => broadcaster.Publish(ChangeEvent.Pull(e.Entity)));
         pullEvents.OnUpdated.Subscribe(e => broadcaster.Publish(ChangeEvent.Pull(e.After)));
         pullEvents.OnDeleted.Subscribe(e => broadcaster.Publish(ChangeEvent.Pull(e.Entity)));
+
+        ciRunEvents.OnAdded.Subscribe(e => broadcaster.Publish(ChangeEvent.CiRun(e.Entity)));
+        ciRunEvents.OnUpdated.Subscribe(e => broadcaster.Publish(ChangeEvent.CiRun(e.After)));
+        ciRunEvents.OnDeleted.Subscribe(e => broadcaster.Publish(ChangeEvent.CiRun(e.Entity, deleted: true)));
+        ciAttemptEvents.OnAdded.Subscribe(e => broadcaster.Publish(ChangeEvent.CiAttempt(e.Entity)));
+        ciAttemptEvents.OnUpdated.Subscribe(e => broadcaster.Publish(ChangeEvent.CiAttempt(e.After)));
 
         return Result.Success();
     }

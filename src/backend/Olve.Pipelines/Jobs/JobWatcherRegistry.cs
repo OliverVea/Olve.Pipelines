@@ -8,6 +8,8 @@ public readonly record struct JobWatchKey(string Value)
 {
     public static JobWatchKey Of(Id<Attempt> id) => new($"attempt/{id.Value.Value:N}");
 
+    public static JobWatchKey Of(Id<Pipelines.Ci.CiAttempt> id) => new($"ci-attempt/{id.Value.Value:N}");
+
     public override string ToString() => Value;
 }
 

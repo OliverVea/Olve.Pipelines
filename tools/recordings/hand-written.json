@@ -15,6 +15,16 @@
     "notRecordedBecause": "it scripts closes, merges and retargets; RecordedGitHubPullRequestTests covers the real exchanges"
   },
   {
+    "path": "src/backend/Olve.Pipelines.UnitTests/Ci/CiScenario.cs",
+    "standsFor": "GitHub pull request reads, git commits and comparisons, as FakeGitHub",
+    "notRecordedBecause": "it scripts pushes, undecided mergeability and definition changes; RecordedGitHubPullRequestTests covers the real exchanges"
+  },
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/Ci/CiRunTests.cs",
+    "standsFor": "a signed pull_request webhook delivery around the recorded pull request",
+    "notRecordedBecause": "a delivery needs a hook on a repo, which is a write to GitHub"
+  },
+  {
     "path": "src/backend/Olve.Pipelines.UnitTests/BindingHookRegistrationTests.cs",
     "standsFor": "GitHub hook create, update and delete",
     "notRecordedBecause": "these are writes to GitHub and need a token"

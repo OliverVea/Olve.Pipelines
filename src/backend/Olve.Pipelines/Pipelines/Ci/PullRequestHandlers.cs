@@ -5,7 +5,7 @@ namespace Olve.Pipelines.Pipelines.Ci;
 
 /// <summary>Open pull requests newest first (by number); closed and merged ones by when GitHub last changed them, newest first.</summary>
 [OperationHandler]
-public sealed class ListPullsHandler(PipelineService pipelines, PullRequestService pulls) : Contract.ICiPullsListHandler
+public sealed class ListPullsHandler(PipelineService pipelines, PullRequestService pulls, CiRunViewService views) : Contract.ICiPullsListHandler
 {
     public Task<Contract.CiPullsListResponse> HandleAsync(Contract.CiPullsListRequest request, CancellationToken cancellationToken)
     {
@@ -21,7 +21,7 @@ public sealed class ListPullsHandler(PipelineService pipelines, PullRequestServi
         var limit = Math.Clamp(request.Limit ?? 50, 1, 500);
         return Task.FromResult<Contract.CiPullsListResponse>(new Contract.PullList
         {
-            Items = [.. listed.Skip(offset).Take(limit).Select(PullViews.ToApi)],
+            Items = [.. listed.Skip(offset).Take(limit).Select(views.Pull)],
             Offset = offset,
             Limit = limit,
             Total = listed.Count,
@@ -30,7 +30,7 @@ public sealed class ListPullsHandler(PipelineService pipelines, PullRequestServi
 }
 
 [OperationHandler]
-public sealed class GetPullHandler(PipelineService pipelines, PullRequestService pulls) : Contract.ICiPullsGetHandler
+public sealed class GetPullHandler(PipelineService pipelines, PullRequestService pulls, CiRunViewService views) : Contract.ICiPullsGetHandler
 {
     public Task<Contract.CiPullsGetResponse> HandleAsync(Contract.CiPullsGetRequest request, CancellationToken cancellationToken)
     {
@@ -41,44 +41,6 @@ public sealed class GetPullHandler(PipelineService pipelines, PullRequestService
             return Task.FromResult<Contract.CiPullsGetResponse>(new Contract.CiPullsGetResponse.NotFound(
                 ApiProblems.Of(new NotFoundProblem("Pull request #{0} not found in pipeline '{1}'.", request.Pull, id))));
 
-        var view = PullViews.ToApi(pull);
-        return Task.FromResult<Contract.CiPullsGetResponse>(new Contract.PullDetail
-        {
-            Number = view.Number,
-            Title = view.Title,
-            Branch = view.Branch,
-            HeadSha = view.HeadSha,
-            Draft = view.Draft,
-            State = view.State,
-            Conflict = view.Conflict,
-            Stale = view.Stale,
-            LatestRun = view.LatestRun,
-            Queue = view.Queue,
-            UpdatedAt = view.UpdatedAt,
-            Runs = [],
-        });
+        return Task.FromResult<Contract.CiPullsGetResponse>(views.PullDetail(pull));
     }
-}
-
-public static class PullViews
-{
-    public static Contract.Pull ToApi(PullRequest pull) => new()
-    {
-        Number = pull.Number,
-        Title = pull.Title,
-        Branch = pull.Branch,
-        HeadSha = pull.HeadSha,
-        Draft = pull.Draft,
-        State = pull.State switch
-        {
-            PullRequestState.Merged => Contract.PullState.Merged,
-            PullRequestState.Closed => Contract.PullState.Closed,
-            _ => Contract.PullState.Open,
-        },
-        Conflict = pull.Mergeable == false,
-        Stale = false,
-        LatestRun = null,
-        Queue = null,
-        UpdatedAt = pull.UpdatedAt,
-    };
 }

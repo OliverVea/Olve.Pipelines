@@ -42,9 +42,13 @@ public class AttemptFileService(IAmazonS3 s3, StorageOptions storageOptions)
         return isDirectory ? trimmed + ".tar" : trimmed;
     }
 
-    public async Task<AttemptFilesResponse> ListAsync(Attempt attempt, CancellationToken ct)
+    public Task<AttemptFilesResponse> ListAsync(Attempt attempt, CancellationToken ct) =>
+        ListAsync(StorageLayout.AttemptFilesPrefix(attempt), attempt.RunNumber, attempt.StepName, attempt.Number, ct);
+
+    /// <summary>The files under an attempt's <paramref name="filesPrefix"/> (a CD or CI attempt's <c>…/files</c>).</summary>
+    public async Task<AttemptFilesResponse> ListAsync(string filesPrefix, int runNumber, string stepName, int attemptNumber, CancellationToken ct)
     {
-        var prefix = StorageLayout.AttemptFilesPrefix(attempt) + "/";
+        var prefix = filesPrefix + "/";
         var files = new List<AttemptFileEntry>();
         string? token = null;
         do
@@ -62,7 +66,7 @@ public class AttemptFileService(IAmazonS3 s3, StorageOptions storageOptions)
             token = response.IsTruncated == true ? response.NextContinuationToken : null;
         } while (token is not null);
 
-        return new AttemptFilesResponse(attempt.RunNumber, attempt.StepName, attempt.Number,
+        return new AttemptFilesResponse(runNumber, stepName, attemptNumber,
             files.OrderBy(f => f.Path, StringComparer.Ordinal).ToArray());
     }
 
@@ -85,14 +89,18 @@ public class AttemptFileService(IAmazonS3 s3, StorageOptions storageOptions)
     }
 
     /// <summary>Opens a stored object for streaming; null when it does not exist.</summary>
-    public async Task<AttemptFileDownload?> OpenAsync(Attempt attempt, string objectPath, CancellationToken ct)
+    public Task<AttemptFileDownload?> OpenAsync(Attempt attempt, string objectPath, CancellationToken ct) =>
+        OpenAsync(StorageLayout.AttemptFileKey(attempt.PipelineId, attempt.RunNumber, attempt.StepName, attempt.Number, objectPath), objectPath, ct);
+
+    /// <summary>Opens the stored object at <paramref name="key"/>; null when it does not exist.</summary>
+    public async Task<AttemptFileDownload?> OpenAsync(string key, string objectPath, CancellationToken ct)
     {
         try
         {
             var response = await s3.GetObjectAsync(new GetObjectRequest
             {
                 BucketName = storageOptions.Bucket,
-                Key = StorageLayout.AttemptFileKey(attempt.PipelineId, attempt.RunNumber, attempt.StepName, attempt.Number, objectPath),
+                Key = key,
             }, ct);
             return new AttemptFileDownload(response, objectPath.Split('/')[^1]);
         }

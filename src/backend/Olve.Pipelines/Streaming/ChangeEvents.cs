@@ -28,6 +28,31 @@ public sealed record ChangeEvent(Id<Pipeline> PipelineId, Contract.ChangeEvent P
             },
         });
 
+    public static ChangeEvent CiRun(CiRun run, bool deleted = false)
+        => new(run.PipelineId, new Contract.CiRunChanged
+        {
+            PipelineId = run.PipelineId.Value.Value,
+            Run = run.Number,
+            Status = deleted ? Contract.RunChangeStatus.Deleted : run.Status switch
+            {
+                RunStatus.Running => Contract.RunChangeStatus.Running,
+                RunStatus.Succeeded => Contract.RunChangeStatus.Succeeded,
+                RunStatus.Failed => Contract.RunChangeStatus.Failed,
+                RunStatus.Cancelled => Contract.RunChangeStatus.Cancelled,
+                _ => Contract.RunChangeStatus.Superseded,
+            },
+        });
+
+    public static ChangeEvent CiAttempt(CiAttempt attempt)
+        => new(attempt.PipelineId, new Contract.CiAttemptChanged
+        {
+            PipelineId = attempt.PipelineId.Value.Value,
+            Run = attempt.RunNumber,
+            Step = attempt.StepName,
+            Attempt = attempt.Number,
+            Status = attempt.Status.State(),
+        });
+
     public static ChangeEvent Attempt(Attempt attempt)
         => new(attempt.PipelineId, new Contract.AttemptChanged
         {

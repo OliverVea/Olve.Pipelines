@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Distribution;
 using Olve.Pipelines.Kubernetes;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
@@ -95,7 +96,11 @@ public class RetentionService(
             activations,
             objects, jobs, secrets,
             PinnedRuns(sp),
-            policies);
+            policies)
+        {
+            CiJobs = (sp.GetService<EntityStore<CiAttempt>>()?.List() ?? []).ToDictionary(a => a.KubernetesJobName, a => a.Status.IsActive(), StringComparer.Ordinal),
+            CiVersions = (sp.GetService<EntityStore<CiRun>>()?.List() ?? []).Where(r => r.Status is RunStatus.Running).Select(r => r.VersionId).ToHashSet(),
+        };
 
         var plan = RetentionPlanner.Plan(inputs, options);
         LogItems(plan, names);

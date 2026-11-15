@@ -18,6 +18,8 @@ namespace Olve.Pipelines.Pipelines;
 /// runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;a&gt;/log
 /// runs/&lt;p&gt;/&lt;run&gt;/_failure/&lt;handler&gt;/&lt;id&gt;/{input.json,log}   failure-handler runs
 /// config/&lt;p&gt;/&lt;n&gt;.yaml                config snapshot n, as written (write-once)
+/// ci/&lt;p&gt;/&lt;run&gt;/run.json              persisted state of one CI run and its attempts
+/// ci/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;a&gt;/…        a CI attempt's input, output, files and log, laid out like a run's
 /// </code>
 /// </summary>
 public static class StorageLayout
@@ -74,6 +76,15 @@ public static class StorageLayout
     /// </summary>
     public static string FailureHandlerPrefix(Id<Pipeline> pipelineId, int runNumber, string handlerName, string dispatchId)
         => $"{RunPrefix(pipelineId, runNumber)}/_failure/{handlerName}/{dispatchId}";
+
+    public static string CiRunPrefix(Id<Pipeline> pipelineId, int runNumber)
+        => $"ci/{Format(pipelineId)}/{runNumber}";
+
+    public static string CiRunStateKey(Id<Pipeline> pipelineId, int runNumber)
+        => $"{CiRunPrefix(pipelineId, runNumber)}/run.json";
+
+    public static string CiAttemptPrefix(Id<Pipeline> pipelineId, int runNumber, string stepName, int attemptNumber)
+        => $"{CiRunPrefix(pipelineId, runNumber)}/{stepName}/{attemptNumber}";
 
     public static string ConfigSnapshotKey(Id<Pipeline> pipelineId, int snapshotNumber)
         => $"config/{Format(pipelineId)}/{snapshotNumber}.yaml";

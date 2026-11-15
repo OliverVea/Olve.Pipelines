@@ -123,8 +123,17 @@ public static partial class HarnessFileRefs
     /// the stored object (<see cref="HarnessStorageKeys.FileObjectKey"/>). The ref's own run/step/attempt
     /// address the object — continues and reruns reference earlier runs. Fails on an invalid ref.
     /// </summary>
-    public static async Task<Result<IReadOnlyDictionary<string, string>>> BuildUrlMapAsync(
+    public static Task<Result<IReadOnlyDictionary<string, string>>> BuildUrlMapAsync(
         Id<Pipeline> pipelineId,
+        IEnumerable<HarnessFileRef> refs,
+        S3UrlPresigner presigner,
+        TimeSpan expiry,
+        CancellationToken ct = default)
+        => BuildUrlMapAsync(fileRef => HarnessStorageKeys.FileObjectKey(pipelineId, fileRef), refs, presigner, expiry, ct);
+
+    /// <summary>As above, each ref's object at <paramref name="objectKey"/> (CI refs live under <c>ci/</c>).</summary>
+    public static async Task<Result<IReadOnlyDictionary<string, string>>> BuildUrlMapAsync(
+        Func<HarnessFileRef, string> objectKey,
         IEnumerable<HarnessFileRef> refs,
         S3UrlPresigner presigner,
         TimeSpan expiry,
@@ -137,7 +146,7 @@ public static partial class HarnessFileRefs
                 return Result.Failure<IReadOnlyDictionary<string, string>>(problems);
             if (map.ContainsKey(fileRef.UrlKey))
                 continue;
-            map[fileRef.UrlKey] = await presigner.PresignGetAsync(HarnessStorageKeys.FileObjectKey(pipelineId, fileRef), expiry, ct);
+            map[fileRef.UrlKey] = await presigner.PresignGetAsync(objectKey(fileRef), expiry, ct);
         }
         return map;
     }

@@ -1,0 +1,36 @@
+{
+  "system": "github",
+  "name": "git-commit",
+  "source": "https://api.github.com (anonymous)",
+  "capturedAt": "2026-11-15",
+  "systemVersion": "2022-11-28",
+  "elided": "author, committer, html_url, message, node_id, url, verification, tree.url, parents.url, parents.html_url",
+  "request": {
+    "method": "GET",
+    "url": "/repos/OliverVea/Olve.Pipelines/git/commits/443905815a7c4608f2eb4a680295215b76259712",
+    "headers": {
+      "accept": "application/vnd.github+json",
+      "user-agent": "olve-pipelines"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "W/\"890d31999b8da1bf8415e1023c005a231949b20c4f7e898258132ad022cc62ad\"",
+      "x-github-api-version-selected": "2022-11-28",
+      "x-github-media-type": "github.v3; format=json"
+    },
+    "body": {
+      "sha": "443905815a7c4608f2eb4a680295215b76259712",
+      "tree": {
+        "sha": "33300d6e32ae35b759c8bac6c4e603cbbcc8821d"
+      },
+      "parents": [
+        {
+          "sha": "a31f28eba8cad5d67d3e9ee3aae28a2a3e1d9427"
+        }
+      ]
+    }
+  }
+}

@@ -61,6 +61,15 @@ public class DeployPollService(
 
     private readonly CancellationTokenSource _lifetime = new();
 
+    /// <summary>
+    /// The paths whose changes make up the binding's config: the bound directory and, once a sync read them, the
+    /// local path dependencies of its <c>package.json</c>.
+    /// </summary>
+    public IReadOnlyList<string> WatchedPaths(PipelineConfigBinding binding) =>
+        _config.TryGetValue(binding.Id, out var cached) && ConfigCursorState.Decode(cached.ETag) is { } state
+            ? [.. state.Paths.Select(p => p.Path)]
+            : [LocalPathDependencies.Normalize(binding.Path) ?? binding.Path];
+
     public IEnumerable<PollSource> Sources() => bindings.List().Where(b => b.Polls).Select(binding => new PollSource(
         $"binding:{binding.Id}",
         options.PollInterval,

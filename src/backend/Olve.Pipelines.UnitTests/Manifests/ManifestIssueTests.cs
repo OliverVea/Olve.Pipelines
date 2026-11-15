@@ -382,6 +382,21 @@ public class ManifestIssueTests
         }
         ),
 
+        // ci
+        ["unknown ci property"] = Row(C.UnknownProperty, "ci.foo", "unknown property 'foo'", r => { WithCi(r); r["ci"]!["foo"] = 1; }),
+        ["ci input model unknown"] = Row(C.ModelUnknown, "ci.input", "CI input references model 'Nope', which is not in models", r => { WithCi(r); r["ci"]!["input"] = "Nope"; }),
+        ["ci secret undeclared"] = Row(C.CiSecretUndeclared, "ci.secrets[1]", "ci.secrets lists 'NOPE', which is not in the pipeline's secrets", r => { WithCi(r); r["ci"]!["secrets"] = new JsonArray("GITHUB_TOKEN", "NOPE"); }),
+        ["ci step secret not allowed"] = Row(C.CiSecretNotAllowed, "ci.stages[0].steps[0].secrets[0]", "CI step 'checkout' uses secret 'GITHUB_TOKEN', which is not in ci.secrets", r => { WithCi(r); r["ci"]!["secrets"] = new JsonArray(); }),
+        ["ci step differs"] = Row(C.CiStepMismatch, "ci.stages[1].steps[0].name", "CI step 'build' differs from the pipeline's step 'build' at stages[1].steps[0]; a step in both must be the same step", r => { WithCi(r); CiStep(r, "build")["image"] = "alpine:3"; }),
+        ["ci step waits for input"] = Row(C.CiExternalInput, "ci.stages[0].steps[0].externalInputs", "CI step 'checkout' waits for external inputs; nobody answers a pull request's step", r => { WithCi(r); CiStep(r, "checkout")["externalInputs"] = External("BuildArtifact"); }),
+        ["ci when field unknown"] = Row(C.WhenFieldUnknown, "ci.stages[2].when.nope", "'nope' is not a field of the CI input DeployRequest", r =>
+        {
+            WithCi(r);
+            r["ci"]!["stages"]!.AsArray().Add(new JsonObject { ["when"] = new JsonObject { ["nope"] = new JsonArray("x") }, ["stages"] = new JsonArray() });
+        }
+        ),
+        ["ci ref to a pipeline-only step"] = Row(C.RefUnavailable, "ci.stages[1].steps[0].input.source", "step 'build' input 'source': 'deploy-beta' is not available at this stage", r => { WithCi(r); CiStep(r, "build")["input"]!["source"] = Ref("deploy-beta"); }),
+
         // warnings
         ["unused output"] = Row(C.OutputUnused, "stages[1].steps[1].output", "the output of step 'test' is not used by any later step (fine for gate steps)", _ => { }),
         ["unused model"] = Row(C.ModelUnused, "models.Spare", "model 'Spare' is not referenced by the pipeline", r => r["models"]!["Spare"] = new JsonObject { ["output"] = new JsonObject() }),

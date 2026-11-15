@@ -30,7 +30,13 @@ public sealed record Manifest(
 
     /// <summary>Hash of the whole build; steps then carry no <see cref="StepDescriptor.HandlerHash"/>.</summary>
     public string? CodeHash { get; init; }
+
+    /// <summary>The checks run on pull requests (null when the manifest has no <c>ci</c>).</summary>
+    public ManifestCi? Ci { get; init; }
 }
+
+/// <summary>CI: its input model, the secrets its steps may declare, and its stages. A step name in both the pipeline and CI is one step.</summary>
+public sealed record ManifestCi(string? Description, string Input, IReadOnlyList<string> Secrets, IReadOnlyList<ManifestStage> Stages);
 
 /// <summary>Per-pipeline retention: each set field replaces the instance's <c>Retention:*</c> value of the same meaning.</summary>
 public sealed record ManifestRetention(long? KeepLatestRuns, long? MinRunAgeDays, long? BuildGraceDays);

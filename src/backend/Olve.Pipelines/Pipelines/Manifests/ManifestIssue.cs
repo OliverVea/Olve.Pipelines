@@ -133,6 +133,12 @@ public static class ManifestIssueCodes
     public const string SelectCaseUnknown = "select-case-unknown";
     public const string SelectOutputMismatch = "select-output-mismatch";
 
+    // ── ci ──
+    public const string CiSecretUndeclared = "ci-secret-undeclared";
+    public const string CiSecretNotAllowed = "ci-secret-not-allowed";
+    public const string CiStepMismatch = "ci-step-mismatch";
+    public const string CiExternalInput = "ci-external-input";
+
     // ── warnings ──
     public const string OutputUnused = "output-unused";
 }

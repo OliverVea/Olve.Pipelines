@@ -52,6 +52,41 @@
           "const": "2.0",
           "type": "string"
         },
+        "ci": {
+          "additionalProperties": false,
+          "description": "Checks run on pull requests (omitted when none). Steps are matched by name: a step in both the pipeline and CI is the same step.",
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "input": {
+              "description": "CI input model.",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+              "type": "string"
+            },
+            "secrets": {
+              "description": "The pipeline secrets CI steps may declare, sorted by name.",
+              "items": {
+                "description": "Secret name; also the env var name in the step container.",
+                "pattern": "^[A-Z_][A-Z0-9_]*$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "stages": {
+              "items": {
+                "$ref": "#/$defs/Stage"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "input",
+            "secrets",
+            "stages"
+          ],
+          "type": "object"
+        },
         "codeHash": {
           "description": "Hash of the whole build: the pipeline and its code bundled, plus the harness. Any code change makes a new pipeline version.",
           "pattern": "^sha256:[0-9a-f]{64}$",

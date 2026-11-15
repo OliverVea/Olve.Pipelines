@@ -65,10 +65,15 @@ public static partial class ManifestValidator
         private readonly HashSet<string> _secrets = new(StringComparer.Ordinal);
         private readonly Dictionary<string, ManifestConfigEntry> _config = new(StringComparer.Ordinal);
         private readonly HashSet<string> _usedModels = new(StringComparer.Ordinal);
-        private readonly HashSet<string> _consumedRoots = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, string> _stageSteps = new(StringComparer.Ordinal); // name → first path
-        private readonly Dictionary<string, List<(string Path, IReadOnlyList<CaseOf> Cases, string? Output, bool Matrix)>> _placements = new(StringComparer.Ordinal);
-        private readonly List<(string Name, string Path)> _producers = [];
+        // Stage scope: the pipeline's stages, then CI's (step names and refs are resolved within one scope).
+        private HashSet<string> _consumedRoots = new(StringComparer.Ordinal);
+        private Dictionary<string, string> _stageSteps = new(StringComparer.Ordinal); // name → first path
+        private Dictionary<string, List<(string Path, IReadOnlyList<CaseOf> Cases, string? Output, bool Matrix)>> _placements = new(StringComparer.Ordinal);
+        private List<(string Name, string Path)> _producers = [];
+        private Dictionary<string, List<(string Path, StepDescriptor Step)>> _scopeSteps = new(StringComparer.Ordinal);
+        private string _input = m.Input;
+        private string _inputLabel = "the pipeline input";
+        private bool _ci;
 
         private void Error(string code, string path, string message, string? step = null) =>
             _errors.Add(new ManifestIssue(code, ManifestIssueSeverity.Error, message, path, step));
@@ -90,7 +95,9 @@ public static partial class ManifestValidator
             WalkStages(m.Stages, "stages", avail);
 
             CheckFailureHandlers();
-            CheckUnused();
+            CheckUnusedOutputs();
+            CheckCi();
+            CheckUnusedModels();
             return new ManifestValidationReport(_errors, _warnings);
         }
 
@@ -211,6 +218,8 @@ public static partial class ManifestValidator
                             var stepPath = $"{stagePath}.steps[{j}]";
                             RegisterStageStep(step, stepPath, cases);
                             CheckStep(step, stepPath, avail, failureHandler: false, cases);
+                            if (!_scopeSteps.TryGetValue(step.Name, out var seen)) _scopeSteps[step.Name] = seen = [];
+                            seen.Add((stepPath, step));
                         }
                         // Outputs become available only after the barrier: same-stage siblings can't see each other.
                         for (var j = 0; j < ss.Steps.Count; j++)
@@ -318,7 +327,7 @@ public static partial class ManifestValidator
         // ── when ──
         private void CheckWhen(WhenStage ws, string path)
         {
-            if (!m.Models.TryGetValue(m.Input, out var inputModel)) return; // reported as model-unknown
+            if (!m.Models.TryGetValue(_input, out var inputModel)) return; // reported as model-unknown
             var root = inputModel.Output;
             var shape = JsonSchemaShapes.ObjectShapeOf(root, root);
             foreach (var (field, values) in ws.When)
@@ -326,7 +335,7 @@ public static partial class ManifestValidator
                 var fieldPath = $"{path}.{field}";
                 if (shape is null || !shape.Properties.TryGetValue(field, out var fieldSchema))
                 {
-                    Error(ManifestIssueCodes.WhenFieldUnknown, fieldPath, $"'{field}' is not a field of the pipeline input {m.Input}");
+                    Error(ManifestIssueCodes.WhenFieldUnknown, fieldPath, $"'{field}' is not a field of {_inputLabel} {_input}");
                     continue;
                 }
                 var literals = JsonSchemaShapes.LiteralValues(root, fieldSchema);
@@ -371,6 +380,8 @@ public static partial class ManifestValidator
                 if (!SecretNameRegex().IsMatch(secret)) Error(ManifestIssueCodes.SecretNameInvalid, sp, $"secret name '{secret}' must match {SecretNameRegex()}", n);
                 if (!stepSecrets.Add(secret)) Error(ManifestIssueCodes.SecretDuplicateInStep, sp, $"step '{n}' lists secret '{secret}' twice", n);
                 if (!_secrets.Contains(secret)) Error(ManifestIssueCodes.SecretUndeclared, sp, $"step '{n}' uses secret '{secret}', which is not in the pipeline's secrets", n);
+                else if (_ci && !m.Ci!.Secrets.Contains(secret, StringComparer.Ordinal))
+                    Error(ManifestIssueCodes.CiSecretNotAllowed, sp, $"CI step '{n}' uses secret '{secret}', which is not in ci.secrets", n);
             }
 
             CheckStepConfig(s, path, stepSecrets);
@@ -383,6 +394,8 @@ public static partial class ManifestValidator
             foreach (var key in s.Input.Keys.Where(k => !s.InputTypes.ContainsKey(k)))
                 Error(ManifestIssueCodes.MappingKeyExtra, $"{path}.input.{key}", $"step '{n}': mapping '{key}' is not an input of the step", n);
 
+            if (_ci && s.ExternalInputs.Count > 0)
+                Error(ManifestIssueCodes.CiExternalInput, $"{path}.externalInputs", $"CI step '{n}' waits for external inputs; nobody answers a pull request's step", n);
             if (s.Preflight && s.ExternalInputs.Count == 0)
                 Error(ManifestIssueCodes.PreflightWithoutExternalInput, $"{path}.preflight", $"step '{n}': a preflight needs at least one external input", n);
 
@@ -797,12 +810,60 @@ public static partial class ManifestValidator
             }
         }
 
+        // ── ci ──
+        private void CheckCi()
+        {
+            if (m.Ci is not { } ci) return;
+            for (var i = 0; i < ci.Secrets.Count; i++)
+                if (!_secrets.Contains(ci.Secrets[i]))
+                    Error(ManifestIssueCodes.CiSecretUndeclared, $"ci.secrets[{i}]", $"ci.secrets lists '{ci.Secrets[i]}', which is not in the pipeline's secrets");
+
+            // Steps are found by name, so a step in both the pipeline and CI must be the same step (its input mappings aside).
+            var pipelineSteps = _scopeSteps;
+            foreach (var fh in m.FailureHandlers)
+                if (!pipelineSteps.ContainsKey(fh.Step.Name)) pipelineSteps[fh.Step.Name] = [("failureHandlers", fh.Step)];
+
+            _ci = true;
+            _input = ci.Input;
+            _inputLabel = "the CI input";
+            _consumedRoots = new(StringComparer.Ordinal);
+            _stageSteps = new(StringComparer.Ordinal);
+            _placements = new(StringComparer.Ordinal);
+            _producers = [];
+            _scopeSteps = new(StringComparer.Ordinal);
+            var avail = new Dictionary<string, Avail>(StringComparer.Ordinal)
+            {
+                [ManifestRoots.Input] = new Avail(UseModel(ci.Input, "ci.input", "CI input") ? ci.Input : null, false),
+            };
+            WalkStages(ci.Stages, "ci.stages", avail);
+            CheckUnusedOutputs();
+
+            foreach (var (name, placed) in _scopeSteps)
+            {
+                if (!pipelineSteps.TryGetValue(name, out var others)) continue;
+                foreach (var (path, step) in placed)
+                {
+                    var mine = Contract(step);
+                    if (others.FirstOrDefault(o => Contract(o.Step) != mine) is { Path: { } otherPath })
+                        Error(ManifestIssueCodes.CiStepMismatch, $"{path}.name",
+                            $"CI step '{name}' differs from the pipeline's step '{name}' at {otherPath}; a step in both must be the same step", name);
+                }
+            }
+        }
+
+        private static string Contract(StepDescriptor s) =>
+            CanonicalJson.Serialize(ManifestWriter.ToElement(s with { Description = "", Input = new Dictionary<string, Mapping>() }));
+
         // ── warnings ──
-        private void CheckUnused()
+        private void CheckUnusedOutputs()
         {
             foreach (var (name, path) in _producers)
                 if (!_consumedRoots.Contains(name))
                     Warn(ManifestIssueCodes.OutputUnused, $"{path}.output", $"the output of step '{name}' is not used by any later step (fine for gate steps)", name);
+        }
+
+        private void CheckUnusedModels()
+        {
             foreach (var model in m.Models.Keys.Where(k => !_usedModels.Contains(k)))
                 Warn(ManifestIssueCodes.ModelUnused, $"models.{model}", $"model '{model}' is not referenced by the pipeline");
         }

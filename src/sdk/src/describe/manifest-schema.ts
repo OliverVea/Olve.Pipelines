@@ -390,6 +390,19 @@ export const Manifest = z
       ),
     triggers: z.array(Trigger),
     stages: z.array(Stage),
+    ci: z
+      .strictObject({
+        description: z.string().optional(),
+        input: modelName.describe('CI input model.'),
+        secrets: z
+          .array(secretName)
+          .describe('The pipeline secrets CI steps may declare, sorted by name.'),
+        stages: z.array(Stage),
+      })
+      .optional()
+      .describe(
+        'Checks run on pull requests (omitted when none). Steps are matched by name: a step in both the pipeline and CI is the same step.',
+      ),
     failureHandlers: z.array(
       z.strictObject({
         step: StepDescriptor.describe(

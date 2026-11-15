@@ -105,7 +105,7 @@ public static class ManifestParser
     private static Manifest? ParseManifest(Ctx ctx, JsonElement e)
     {
         const string p = "$";
-        if (!ctx.Object(e, p, ["apiVersion", "name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"], ["description", "config", "retention", "codeHash"]))
+        if (!ctx.Object(e, p, ["apiVersion", "name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"], ["description", "config", "retention", "codeHash", "ci"]))
             return null;
 
         var apiVersion = ctx.String(e, "apiVersion", p);
@@ -126,11 +126,23 @@ public static class ManifestParser
         var hasRetention = e.TryGetProperty("retention", out var retentionElement);
         var retention = hasRetention ? ParseRetention(ctx, retentionElement, "retention") : null;
         var codeHash = ctx.OptionalString(e, "codeHash", p);
+        var hasCi = e.TryGetProperty("ci", out var ciElement);
+        var ci = hasCi ? ParseCi(ctx, ciElement, "ci") : null;
 
-        if (apiVersion is null || name is null || input is null || harness is null || models is null || secrets is null
+        if ((hasCi && ci is null) || apiVersion is null || name is null || input is null || harness is null || models is null || secrets is null
             || triggers is null || stages is null || failureHandlers is null || config is null || (hasRetention && retention is null))
             return null;
-        return new Manifest(apiVersion, name, description, input, harness, models, secrets, triggers, stages, failureHandlers) { Config = config, Retention = retention, CodeHash = codeHash };
+        return new Manifest(apiVersion, name, description, input, harness, models, secrets, triggers, stages, failureHandlers) { Config = config, Retention = retention, CodeHash = codeHash, Ci = ci };
+    }
+
+    private static ManifestCi? ParseCi(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Object(e, path, ["input", "secrets", "stages"], ["description"])) return null;
+        var description = ctx.OptionalString(e, "description", path);
+        var input = ctx.String(e, "input", path);
+        var secrets = ctx.StringArray(e, "secrets", path);
+        var stages = ctx.Array(e, "stages", path, (v, sp) => ParseStage(ctx, v, sp));
+        return input is null || secrets is null || stages is null ? null : new ManifestCi(description, input, secrets, stages);
     }
 
     private static ManifestRetention? ParseRetention(Ctx ctx, JsonElement e, string path)

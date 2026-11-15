@@ -91,6 +91,24 @@ public class ManifestParserTests
     }
 
     [Test]
+    public async Task Ci_IsRead_AndTheWriterReproducesDescribesBytes()
+    {
+        var node = Node();
+        WithCi(node);
+        node["ci"]!["description"] = "Checks a pull request.";
+
+        var m = ParseNode(node);
+
+        await Assert.That(m.Ci!.Input).IsEqualTo("DeployRequest");
+        await Assert.That(m.Ci.Secrets).IsEquivalentTo(["GITHUB_TOKEN"]);
+        await Assert.That(m.Ci.Stages.Count).IsEqualTo(2);
+        await Assert.That(Parse().Ci).IsNull();
+        var canonical = CanonicalJson.Serialize(JsonDocument.Parse(node.ToJsonString()).RootElement);
+        await Assert.That(ManifestWriter.ToCanonicalJson(m)).IsEqualTo(canonical);
+        await Assert.That(ManifestVersioning.ManifestHash(m)).IsNotEqualTo(ManifestVersioning.ManifestHash(Parse()));
+    }
+
+    [Test]
     public async Task Matrix_IsRead_AndTheWriterReproducesDescribesBytes()
     {
         var node = Node();

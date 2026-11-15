@@ -273,9 +273,87 @@ interface CiPulls {
   ): CiRun | NotFound | BadRequest | Conflict | ServiceUnavailable;
 }
 
+/** A flaky CI failure: a step (or cell) failed, and the same step passed on the same tree with the same code. */
+model CiFlakyFailure {
+  /** The failed attempt. */
+  failed: CiAttemptRef;
+
+  /** An attempt of the same step on the same tree and code that succeeded. */
+  passed: CiAttemptRef;
+
+  /** The pull requests the failed run tested. */
+  pulls: int32[];
+
+  failedAt: utcDateTime;
+}
+
+/**
+ * One step's CI attempts that ran and reached an outcome; reused attempts are left out. A step's failure is judged by
+ * what happened to the same step on the same tree with the same code hash.
+ */
+model CiStepReliability {
+  /** The step, or a matrix cell (`build-cli[os=linux,arch=x64]`). */
+  step: string;
+
+  attempts: int32;
+
+  /** `ownFailures` + `infrastructureFailures` + `timeouts`. */
+  failures: int32;
+
+  ownFailures: int32;
+  infrastructureFailures: int32;
+  timeouts: int32;
+
+  /** Own failures or timeouts where the same step later or earlier succeeded on the same tree and code. */
+  flakyFailures: int32;
+
+  /** Own failures or timeouts where the same tree and code failed again and never succeeded. */
+  reproducedFailures: int32;
+
+  /**
+   * Own failures where the tree and code never ran that step again, but a later head of the same pull request passed it:
+   * the code changed and the step went green, so the failure most likely caught a real problem.
+   */
+  caughtFailures: int32;
+
+  /** Own failures or timeouts with none of the above: the tree never ran the step again and no later head passed it. */
+  unverifiedFailures: int32;
+
+  /** `flakyFailures` over `attempts`. */
+  flakyRate: float64;
+
+  /** The flaky failures, newest first (at most 20). */
+  flaky: CiFlakyFailure[];
+}
+
+/**
+ * How reliable a pipeline's CI steps were over its latest CI runs. The flakiest steps come first; a step that fails
+ * often because it catches real problems (reproduced or caught failures) is not unreliable.
+ */
+model CiReliabilityReport {
+  fromRun: int32;
+  toRun: int32;
+  runs: int32;
+  requestedRuns: int32;
+  steps: CiStepReliability[];
+
+  /** What the report couldn't work out. */
+  notes: string[];
+}
+
 @tag("CI")
 @route("/api/pipelines/{pipelineId}/ci/runs")
 interface CiRuns {
+  /**
+   * `runs` is how many of the latest CI runs to cover (default 200, at most 1000). A flaky failure needs the same tree
+   * to run the step again (a rerun, a supersede back, a queue run of the same tree), so the count is a lower bound.
+   */
+  @summary("Get the reliability of a pipeline's CI steps")
+  @get @route("reliability") reliability(
+    @path @format("uuid") pipelineId: string,
+    @query runs?: int32,
+  ): CiReliabilityReport | NotFound | BadRequest;
+
   @summary("Get a CI run")
   @get @route("{number}") get(@path @format("uuid") pipelineId: string, @path number: int32): CiRun | NotFound;
 

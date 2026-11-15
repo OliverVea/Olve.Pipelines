@@ -58,6 +58,11 @@ its own runs, scheduling and tab in the UI. What they share is the SDK and the e
   `main` it was tested on. Rerunning every open PR on every merge costs a full run per PR per
   merge.
 - The guarantee "tested on current main" comes from the merge queue.
+- **The checks changed:** when the active version checks PRs differently, the latest result of each
+  open, ready PR that used the old checks is outdated, not just stale, and the PR runs again by
+  itself. "Differently" is a changed `ci` section or a changed `codeHash`: step code has no hash of its
+  own, so any change to the pipeline's code counts. PRs that ran on their own build and drafts are
+  left alone.
 
 ## Merge queue
 
@@ -98,7 +103,8 @@ picks Scheduled attempts in this order:
 1. CD runs.
 2. Merge-queue runs.
 3. PR runs of ready PRs, most recently pushed first: someone is waiting on that one.
-4. PR runs of draft PRs.
+4. Reruns of ready PRs because the checks changed.
+5. PR runs of draft PRs.
 
 ## Reporting to GitHub
 

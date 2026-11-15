@@ -12,8 +12,11 @@ public enum JobPriority
     /// <summary>Runs of pull requests ready for review.</summary>
     ReadyPull = 2,
 
+    /// <summary>Runs of pull requests whose result was checked by a definition the active version has replaced.</summary>
+    OutdatedPull = 3,
+
     /// <summary>Runs of draft pull requests.</summary>
-    DraftPull = 3,
+    DraftPull = 4,
 }
 
 /// <summary>

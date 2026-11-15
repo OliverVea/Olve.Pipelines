@@ -91,15 +91,21 @@ public static class ManifestWriter
         }
         if (m.Ci is { } ci)
         {
-            w.WriteStartObject("ci");
-            if (ci.Description is not null) w.WriteString("description", ci.Description);
-            w.WriteString("input", ci.Input);
-            WriteStrings(w, "secrets", ci.Secrets);
-            w.WriteStartArray("stages");
-            foreach (var s in ci.Stages) Write(w, s);
-            w.WriteEndArray();
-            w.WriteEndObject();
+            w.WritePropertyName("ci");
+            Write(w, ci);
         }
+        w.WriteEndObject();
+    }
+
+    public static void Write(Utf8JsonWriter w, ManifestCi ci)
+    {
+        w.WriteStartObject();
+        if (ci.Description is not null) w.WriteString("description", ci.Description);
+        w.WriteString("input", ci.Input);
+        WriteStrings(w, "secrets", ci.Secrets);
+        w.WriteStartArray("stages");
+        foreach (var s in ci.Stages) Write(w, s);
+        w.WriteEndArray();
         w.WriteEndObject();
     }
 

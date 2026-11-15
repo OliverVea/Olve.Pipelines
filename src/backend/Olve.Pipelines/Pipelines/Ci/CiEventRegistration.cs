@@ -14,6 +14,7 @@ public class CiEventRegistration(
     PipelineEvents pipelineEvents,
     EntityStore<CiQueueEntry> queueStore,
     CiQueueEvents queueEvents,
+    AttachmentStore<Pipeline, Versions.PipelineActivation> activations,
     IServiceProvider sp) : IRunOnStartup
 {
     public Result Run()
@@ -61,6 +62,7 @@ public class CiEventRegistration(
         });
 
         pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<CiRunCleanupService>().HandlePipelineDeleted(e.Id));
+        activations.OnSet.Subscribe(id => Trigger().ChecksChanged(id));
 
         return Result.Success();
     }

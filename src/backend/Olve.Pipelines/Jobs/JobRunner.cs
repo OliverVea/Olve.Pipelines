@@ -65,6 +65,7 @@ public class JobRunner(
         !runs.TryGet(attempt.RunId, out var run) ? JobPriority.ReadyPull
         : run.IsQueue ? JobPriority.MergeQueue
         : (pulls.TryGet(run.PipelineId, run.Pull, out var pull) ? pull.Draft : run.Draft) ? JobPriority.DraftPull
+        : run.Outdated ? JobPriority.OutdatedPull
         : JobPriority.ReadyPull;
 
     /// <summary>

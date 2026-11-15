@@ -9,7 +9,8 @@ namespace Olve.Pipelines.Pipelines.Ci;
 /// Starts a pull request's CI run once its head has been still for <see cref="Debounce"/>: a burst of pushes makes
 /// one run, for the last of them. A head gets one automatic run; a pull request closed, merged or retargeted away
 /// from the binding's branch has its running run cancelled. Meanwhile a new head gets <c>olve/ci</c> "Waiting to
-/// start" (<see cref="AnnounceAsync"/>). Singleton: holds the pending starts.
+/// start" (<see cref="AnnounceAsync"/>). When the active version changes the checks, open pull requests whose latest
+/// run used the old ones run again (<see cref="ChecksChanged"/>). Singleton: holds the pending starts.
 /// </summary>
 public class CiTriggerService(IServiceProvider sp, CiRunService runs, TimeProvider time, ILogger<CiTriggerService> logger) : BackgroundService
 {
@@ -18,6 +19,7 @@ public class CiTriggerService(IServiceProvider sp, CiRunService runs, TimeProvid
 
     private readonly ConcurrentDictionary<(Id<Pipeline> Pipeline, int Pull), (string Head, DateTimeOffset Due)> _pending = new();
     private readonly ConcurrentDictionary<(Id<Pipeline> Pipeline, int Pull), string> _toAnnounce = new();
+    private readonly ConcurrentDictionary<(Id<Pipeline> Pipeline, int Pull), string> _outdated = new();
 
     /// <summary>A tracked pull request was added or changed.</summary>
     public void Observe(PullRequest? before, PullRequest after)
@@ -63,6 +65,56 @@ public class CiTriggerService(IServiceProvider sp, CiRunService runs, TimeProvid
     }
 
     internal bool IsPending(Id<Pipeline> pipelineId, int pull) => _pending.ContainsKey((pipelineId, pull));
+
+    /// <summary>
+    /// The pipeline's activation changed. Each open, ready pull request whose latest run checked it with the
+    /// definition of an older active version (not its own build) runs again if the new one checks differently
+    /// (<see cref="CiChecks.Same"/>). Drafts wait until they are marked ready, as usual.
+    /// </summary>
+    public void ChecksChanged(Id<Pipeline> pipelineId)
+    {
+        if (!sp.GetRequiredService<PipelineActivationService>().TryGet(pipelineId, out var activation)
+            || activation is not PipelineActivation.Active active)
+            return;
+        var plans = sp.GetRequiredService<Scheduling.RunPlanCache>();
+        if (plans.Get(active.VersionId).TryPickProblems(out _, out var current) || current.Manifest.Ci is null)
+            return;
+
+        foreach (var pull in sp.GetRequiredService<PullRequestService>().ListByPipeline(pipelineId))
+        {
+            if (pull.State != PullRequestState.Open || pull.Draft || _pending.ContainsKey((pipelineId, pull.Number)))
+                continue;
+            var latest = runs.ListByPull(pipelineId, pull.Number).Where(r => !r.IsQueue).MaxBy(r => r.Number);
+            if (latest is null || latest.OwnDefinition || latest.VersionId == active.VersionId
+                || latest.Status is RunStatus.Superseded
+                || plans.Get(latest.VersionId).TryPickProblems(out _, out var used)
+                || CiChecks.Same(used.Manifest, current.Manifest))
+                continue;
+            _outdated[(pipelineId, pull.Number)] = pull.HeadSha;
+        }
+    }
+
+    /// <summary>Starts the runs <see cref="ChecksChanged"/> found, one after another, unless a push got there first.</summary>
+    internal async Task StartOutdatedAsync(CancellationToken ct)
+    {
+        foreach (var (key, head) in _outdated)
+        {
+            if (!_outdated.TryRemove(new KeyValuePair<(Id<Pipeline>, int), string>(key, head)) || _pending.ContainsKey(key))
+                continue;
+            try
+            {
+                var started = await sp.GetRequiredService<CiRunStartService>().StartAsync(key.Pipeline, key.Pull, head, ct, outdated: true);
+                if (started.TryPickProblems(out var problems, out var start))
+                    logger.LogProblems(LogLevel.Warning, problems, "Could not rerun pull request #{Pull} in pipeline '{PipelineId}' with the new checks", key.Pull, key.Pipeline);
+                else
+                    ReportSkip(key.Pipeline, head, start.Skipped);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Could not rerun pull request #{Pull} in pipeline '{PipelineId}' with the new checks", key.Pull, key.Pipeline);
+            }
+        }
+    }
 
     /// <summary>
     /// Gives each new head "Waiting to start" when it will get a run on the active version: the pipeline declares CI
@@ -142,6 +194,7 @@ public class CiTriggerService(IServiceProvider sp, CiRunService runs, TimeProvid
         {
             await AnnounceAsync(stoppingToken);
             await StartDueAsync(stoppingToken);
+            await StartOutdatedAsync(stoppingToken);
             // A safety net for a run whose event handler threw: advancing is idempotent.
             if (time.GetUtcNow() - swept >= TimeSpan.FromMinutes(1))
             {

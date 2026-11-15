@@ -66,6 +66,11 @@ running run and the build it waits for. CI runs are numbered per
 pipeline on their own, and `GET /api/pipelines/{id}/ci/runs/{number}` shows one, its steps and their
 logs, files and outputs; `POST …/ci/pulls/{pull}/runs` runs a pull request again.
 
+When `main` moves, open pull requests keep their result, marked stale. When the active version checks
+pull requests differently (its `ci` section or its code hash changed), each open, ready pull request
+whose latest run used an older version's checks (not its own build) runs again by itself. These runs
+go after pull requests' own runs and before drafts; drafts run when they are marked ready.
+
 A step that already succeeded in a CI run of the same tree (the tested commit's tree, whatever the
 commit) with the same code (the definition's `codeHash`) isn't run again: the new run records it as
 succeeded, with `reusedFrom` naming the attempt that ran, whose output, files and log it shows. No Job

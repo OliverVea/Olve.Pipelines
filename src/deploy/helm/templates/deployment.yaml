@@ -6,6 +6,12 @@ metadata:
     app: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  # One server at a time: a new pod overlapping the old one would load state, reattach to the same Jobs and
+  # overwrite what the old one collected.
+  strategy:
+    type: Recreate
+    # Clears the defaults a Deployment created as RollingUpdate still carries; the API rejects them with Recreate.
+    rollingUpdate: null
   selector:
     matchLabels:
       app: {{ .Release.Name }}

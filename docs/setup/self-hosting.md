@@ -118,6 +118,10 @@ readiness probe) once persisted state is loaded. When the server runs out of mem
 (`Out of memory: ending the process so it is restarted.` on stderr) and Kubernetes restarts it; runs
 carry on from their saved state.
 
+The server runs as a single replica, and an upgrade replaces it (the chart's `Recreate` strategy): the
+new server starts once the old one has stopped, then reattaches to the Jobs still running. Two servers
+at once would both drive the same Jobs and overwrite each other's state.
+
 ## Logging
 
 Logging is **backend-agnostic**: the app only writes to **stdout**. Shipping is the cluster's

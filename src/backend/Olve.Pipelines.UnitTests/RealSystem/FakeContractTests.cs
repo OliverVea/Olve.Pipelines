@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines.Retention;
@@ -90,6 +91,9 @@ public class FakeConfigSourceContract : ConfigSourceContract
     protected override Task<ContractSubject<Repository>> SubjectAsync()
     {
         var source = new FakeConfigSource { BranchHeadSha = "head-sha", ConfigSha = "config-sha" };
-        return Task.FromResult(new ContractSubject<Repository>(new Repository(source, source.BranchHeadSha, source.BranchHeadMessage, source.ConfigSha), "", () => ""));
+        foreach (var sha in new[] { "base-sha", "middle-sha", "head-sha" })
+            source.History.Add(new CommitInfo(sha, $"commit {sha}", "OliverVea", DateTimeOffset.UnixEpoch, $"https://github.com/c/{sha}"));
+        return Task.FromResult(new ContractSubject<Repository>(
+            new Repository(source, source.BranchHeadSha, source.BranchHeadMessage, source.ConfigSha, "base-sha", "head-sha", ["head-sha", "middle-sha"]), "", () => ""));
     }
 }

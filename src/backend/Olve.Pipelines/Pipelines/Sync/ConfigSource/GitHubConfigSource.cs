@@ -98,6 +98,37 @@ public class GitHubConfigSource(
         return new ConfigFetch.Changed(state.Sha, state.Encode());
     }
 
+    public async Task<Result<CommitComparison>> CompareAsync(
+        PipelineConfigBinding binding, string @base, string head, CancellationToken ct = default)
+    {
+        var token = await GetTokenAsync(binding, ct);
+        using var client = CreateClient();
+        using var request = BuildRequest(HttpMethod.Get, $"{_apiBase}/repos/{binding.Repo}/compare/{Uri.EscapeDataString(@base)}...{Uri.EscapeDataString(head)}", token);
+        using var response = await client.SendAsync(request, ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return new ResultProblem("GitHub doesn't know commit {0} or {1} in '{2}'.", Short(@base), Short(head), binding.Repo);
+        if (!response.IsSuccessStatusCode)
+            return new ResultProblem("GitHub returned {0} comparing {1}...{2} in '{3}'.", (int)response.StatusCode, Short(@base), Short(head), binding.Repo);
+
+        var comparison = await response.Content.ReadFromJsonAsync(GitHubJsonContext.Default.GitHubComparison, ct);
+        if (comparison is null)
+            return new ResultProblem("GitHub returned no comparison of {0}...{1} in '{2}'.", Short(@base), Short(head), binding.Repo);
+
+        var commits = comparison.Commits
+            .Reverse()
+            .Select(c => new CommitInfo(
+                c.Sha,
+                (c.Commit?.Message ?? "").Split('\n', 2)[0],
+                c.Author?.Login ?? c.Commit?.Author?.Name ?? "",
+                c.Commit?.Committer?.Date ?? c.Commit?.Author?.Date ?? DateTimeOffset.MinValue,
+                c.HtmlUrl))
+            .ToList();
+        return new CommitComparison(commits, comparison.TotalCommits, comparison.HtmlUrl);
+
+        static string Short(string sha) => sha[..Math.Min(7, sha.Length)];
+    }
+
     /// <summary>HTTP client for GitHub; a seam for tests.</summary>
     protected virtual HttpClient CreateClient() => new();
 

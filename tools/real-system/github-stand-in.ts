@@ -109,6 +109,25 @@ Bun.serve({
       });
     }
 
+    m = /^\/repos\/([^/]+\/[^/]+)\/compare\/([0-9a-f]{40})\.\.\.([0-9a-f]{40})$/.exec(path);
+    if (m) {
+      const commits = repo(m[1]!).commits;
+      const from = commits.findIndex((c) => c.sha === m![2]);
+      const to = commits.findIndex((c) => c.sha === m![3]);
+      if (from < 0 || to < 0) return new Response("not found", { status: 404 });
+      const between = commits.slice(from + 1, to + 1);
+      return Response.json({
+        html_url: `https://github.com/${m[1]}/compare/${m[2]}...${m[3]}`,
+        total_commits: between.length,
+        commits: between.map((c) => ({
+          sha: c.sha,
+          commit: { author: { name: "Stand-in" }, committer: { date: c.date }, message: c.message },
+          html_url: `https://github.com/${m![1]}/commit/${c.sha}`,
+          author: { login: "stand-in" },
+        })),
+      });
+    }
+
     m = /^\/repos\/([^/]+\/[^/]+)\/contents\/(.+)$/.exec(path);
     if (m) {
       const content = await fixtureFile(m[1]!, m[2]!);

@@ -32,6 +32,7 @@ public record RunSummary(
 /// reruns and continues are possible (after a switch, re-trigger instead).</param>
 /// <param name="Stages">Empty when the pinned version's manifest is unavailable.</param>
 /// <param name="Config">The run's effective config (JSON text: the pinned snapshot with the version's defaults); null when the version declares none.</param>
+/// <param name="Trigger">What started the run: the trigger's name and event, or who started it.</param>
 public record RunDetail(
     RunSummary Run,
     Id<PipelineVersion> VersionId,
@@ -39,7 +40,8 @@ public record RunDetail(
     JsonElement Input,
     bool Continuable,
     RunStageView[] Stages,
-    string? Config = null);
+    string? Config = null,
+    RunTrigger? Trigger = null);
 
 /// <summary>One barrier stage of the pinned plan, with the <c>when</c> conditions enclosing it (all must match).</summary>
 public record RunStageView(int Index, RunStageCondition[] When, RunStepView[] Steps);

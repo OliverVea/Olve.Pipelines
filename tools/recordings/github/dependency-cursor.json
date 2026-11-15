@@ -2,7 +2,7 @@
   "system": "github",
   "name": "dependency-cursor",
   "source": "https://api.github.com (anonymous)",
-  "capturedAt": "2026-11-08",
+  "capturedAt": "2026-11-15",
   "systemVersion": "2022-11-28",
   "elided": "author, comments_url, commit.author, commit.comment_count, commit.committer.email, commit.committer.name, commit.tree, commit.url, commit.verification, committer, files, html_url, node_id, parents, stats, url, commit.message",
   "request": {
@@ -17,16 +17,16 @@
     "status": 200,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"4679b2fe4e65409f4df9acf20a5490cd861962a292339239a41d04464e0f45fb\"",
+      "etag": "W/\"ed3c034a08a76c907a1b228eddd77eb12235a3e29da45a0e632dbe748b97c5d9\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },
     "body": [
       {
-        "sha": "169c9c4c7753604af0b79a92029d4b3e53e9dbb4",
+        "sha": "febb5e48726a3a9f8e7a013afba086ec33dd7d85",
         "commit": {
           "committer": {
-            "date": "2026-11-08T05:32:50Z"
+            "date": "2026-11-11T00:39:32Z"
           }
         }
       }

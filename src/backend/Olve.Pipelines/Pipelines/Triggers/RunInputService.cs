@@ -69,27 +69,29 @@ public class RunInputService(
     }
 
     /// <summary>Validates and starts an explicit (manual) run.</summary>
-    public Result<RunStartOutcome> StartManual(Id<Pipeline> pipelineId, JsonNode? input)
+    public Result<RunStartOutcome> StartManual(Id<Pipeline> pipelineId, JsonNode? input, string? startedBy = null)
     {
         if (GetTarget(pipelineId).TryPickProblems(out var problems, out var target))
             return Result.Failure<RunStartOutcome>(problems);
         if (PrepareManual(target.Manifest, input).TryPickProblems(out var inputProblems, out var json))
             return Result.Failure<RunStartOutcome>(inputProblems);
-        return starts.Start(pipelineId, json, new RunTrigger(RunTriggerKind.Manual));
+        return starts.Start(pipelineId, json, new RunTrigger(RunTriggerKind.Manual, StartedBy: startedBy));
     }
 
     /// <summary>
-    /// Re-runs a whole run: a new run with the same input on the version a run started now binds
-    /// to. The input is re-validated against that version's input model first, so a model change surfaces as
-    /// a problem instead of a broken run.
+    /// Re-runs a whole run: a new run on the version a run started now binds to, with the original's input or
+    /// <paramref name="input"/>. The input is validated against that version's input model first, so a model
+    /// change surfaces as a problem instead of a broken run.
     /// </summary>
-    public Result<RunStartOutcome> RerunRun(Run original)
+    public Result<RunStartOutcome> RerunRun(Run original, JsonNode? input = null, string? startedBy = null)
     {
         if (GetTarget(original.PipelineId).TryPickProblems(out var problems, out var target))
             return Result.Failure<RunStartOutcome>(problems);
-        if (PrepareManual(target.Manifest, JsonNode.Parse(original.Input)).TryPickProblems(out var inputProblems, out var json))
+        if (input is not null)
+            return PrepareManual(target.Manifest, input).Bind(json => starts.RerunRun(original.Id, json, startedBy));
+        if (PrepareManual(target.Manifest, JsonNode.Parse(original.Input)).TryPickProblems(out var inputProblems, out var originalJson))
             return Result.Failure<RunStartOutcome>(inputProblems.Prepend("Run #{0}'s input is not valid for version {1}.", original.Number, target.Version.Number));
-        return starts.RerunRun(original.Id, json);
+        return starts.RerunRun(original.Id, originalJson, startedBy);
     }
 
     /// <summary>

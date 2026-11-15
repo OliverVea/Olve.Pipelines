@@ -51,6 +51,8 @@ public class TriggerMappingServiceTests
 
         var run = ((RunStartOutcome.Started)outcome!).Run;
         await Assert.That(run.Trigger.Kind).IsEqualTo(RunTriggerKind.Poll);
+        await Assert.That(run.Trigger.Name).IsEqualTo("poll");
+        await Assert.That(run.Trigger.Origin!.Event).IsEqualTo("""{"value":"v1"}""");
         await Assert.That(h.K8s.LastJob!.Spec.Template.Spec.Containers.Single().Command!.TakeLast(2)).IsEquivalentTo(new[] { "map-trigger", "poll" });
         await Assert.That(h.Storage.Objects.Keys.Where(k => k.StartsWith("triggers/"))).IsEmpty();
         await Assert.That(h.K8s.DeletedSecrets).Count().IsEqualTo(1);

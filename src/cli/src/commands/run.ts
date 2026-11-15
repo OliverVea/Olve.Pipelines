@@ -1,5 +1,6 @@
 import {
   runsCancel,
+  runsChanges,
   runsContinue,
   runsCriticalPath,
   runsGet,
@@ -8,6 +9,7 @@ import {
   runsStart,
   type CriticalPathLead,
   type Run,
+  type RunChanges,
   type RunStart,
   type RunStep,
   type RunStepCell,
@@ -36,6 +38,13 @@ export function printOutcome(out: Output, label: string, start: RunStart): void 
   } else out.line(start.outcome);
 }
 
+/** The trigger's name and how its event came, or who started the run. */
+function origin(d: Run): string {
+  const o = d.origin;
+  if (o?.trigger) return ` (${o.trigger}${o.via ? `, via ${o.via}` : ''})`;
+  return o?.startedBy ? ` (by ${o.startedBy})` : '';
+}
+
 export function note(r: RunSummary): string {
   const notes: string[] = [];
   if (r.heldAt) notes.push(`held at ${r.heldAt}`);
@@ -62,13 +71,33 @@ const attemptOf = (s: RunStep | RunStepCell) =>
 const cellsDone = (cells: RunStepCell[]) =>
   `${cells.filter((c) => c.status === 'succeeded' || c.status === 'skipped').length}/${cells.length} cells`;
 
-export function printRun(out: Output, label: string, d: Run): void {
+/** What a run changes since the newest older run that succeeded; nothing when it changes nothing. */
+function printChanges(out: Output, d: Run, c: RunChanges | null | undefined): void {
+  if (!c || c.sinceNumber == null) return;
+  const parts = [`since #${c.sinceNumber}`];
+  if (c.sinceVersionNumber !== d.versionNumber)
+    parts.push(`v${c.sinceVersionNumber} → v${d.versionNumber}`);
+  if ((c.sinceConfigSnapshot ?? null) !== (d.configSnapshot ?? null))
+    parts.push(`config #${c.sinceConfigSnapshot ?? '-'} → #${d.configSnapshot ?? '-'}`);
+  if (c.commits) parts.push(`${c.totalCommits ?? c.commits.length} commit(s)`);
+  if (c.commitsError) parts.push(`commits unavailable: ${c.commitsError}`);
+  out.line(`changes:   ${parts.join(' · ')}`);
+  for (const x of c.commits ?? [])
+    out.line(`  ${short(x.sha)}  ${x.title}  (${x.author})`);
+}
+
+export function printRun(
+  out: Output,
+  label: string,
+  d: Run,
+  changes?: RunChanges | null,
+): void {
   out.line(`${formatAddress(label, d.number)}  ${d.status}`);
   out.line(
     `version:   v${d.versionNumber}${d.configSnapshot != null ? `, config #${d.configSnapshot}` : ''} · ${d.versionStamp} · commit ${short(d.commitSha)}`,
   );
   out.line(
-    `trigger:   ${d.triggerKind} · created ${time(d.createdAt)} · finished ${time(d.finishedAt)} · took ${duration(d.createdAt, d.finishedAt)}`,
+    `trigger:   ${d.triggerKind}${origin(d)} · created ${time(d.createdAt)} · finished ${time(d.finishedAt)} · took ${duration(d.createdAt, d.finishedAt)}`,
   );
   out.line(`input:     ${json(d.input)}`);
   if (d.config != null) out.line(`config:    ${d.config}`);
@@ -77,6 +106,7 @@ export function printRun(out: Output, label: string, d: Run): void {
   out.line(
     `continue:  ${d.continuable ? 'possible' : 'no (not on the active version, or superseded)'}`,
   );
+  printChanges(out, d, changes);
 
   if (d.stages.length === 0) {
     out.line();
@@ -208,17 +238,25 @@ export const runCommands: Command[] = [
     noun: 'run',
     verb: 'get',
     operands: 1,
-    summary: 'Show a run: input, version, each stage and step',
+    summary: 'Show a run: input, version, what it changes, each stage and step',
     detail: `pl run get <pipeline>#<run>
 
   Step statuses without an attempt: held (the step is blocked and holds the run here), pending
   (not reached yet), not-run (the run finished without it).`,
     async run(ctx) {
       const { id, label, address } = await resolveRun(ctx.api, ctx.args.operand(0)!);
-      const run = await call(
-        runsGet({ client: ctx.api, path: { pipelineId: id, number: address.run } }),
-      );
-      ctx.out.emit(run, () => printRun(ctx.out, label, run));
+      const n = address.run;
+      const [run, changes] = await Promise.all([
+        call(runsGet({ client: ctx.api, path: { pipelineId: id, number: n } })),
+        runsChanges({
+          client: ctx.api,
+          path: { pipelineId: id },
+          query: { from: n, to: n },
+        })
+          .then((r) => r.data?.items?.[0] ?? null)
+          .catch(() => null),
+      ]);
+      ctx.out.emit(run, () => printRun(ctx.out, label, run, changes));
     },
   },
   {

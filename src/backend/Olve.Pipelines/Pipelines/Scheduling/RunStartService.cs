@@ -60,12 +60,12 @@ public class RunStartService(
     /// <summary>A new run with the same input as <paramref name="runId"/>, linked via <see cref="Run.RerunOf"/>.
     /// Explicit: bypasses de-dup and supersedes nothing. <paramref name="inputJson"/> replaces the original input
     /// when given (the original re-validated against the version the rerun binds to, defaults filled in).</summary>
-    public Result<RunStartOutcome> RerunRun(Id<Run> runId, string? inputJson = null) => schedulingLock.Run(() =>
+    public Result<RunStartOutcome> RerunRun(Id<Run> runId, string? inputJson = null, string? startedBy = null) => schedulingLock.Run(() =>
     {
         if (!runs.TryGet(runId, out var original))
             return new NotFoundProblem("Run '{0}' not found.", runId);
 
-        return StartCore(original.PipelineId, inputJson ?? original.Input, new RunTrigger(RunTriggerKind.Manual), original.Id);
+        return StartCore(original.PipelineId, inputJson ?? original.Input, new RunTrigger(RunTriggerKind.Manual, StartedBy: startedBy), original.Id);
     });
 
     /// <summary>Starts a request that was queued while draining (called on switch completion).</summary>

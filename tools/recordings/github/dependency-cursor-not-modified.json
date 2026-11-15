@@ -2,7 +2,7 @@
   "system": "github",
   "name": "dependency-cursor-not-modified",
   "source": "https://api.github.com (anonymous)",
-  "capturedAt": "2026-11-08",
+  "capturedAt": "2026-11-15",
   "systemVersion": "2022-11-28",
   "elided": "",
   "request": {
@@ -10,7 +10,7 @@
     "url": "/repos/OliverVea/Olve.Pipelines/commits?path=src%2Fsdk&sha=main&per_page=1",
     "headers": {
       "accept": "application/vnd.github+json",
-      "if-none-match": "W/\"4679b2fe4e65409f4df9acf20a5490cd861962a292339239a41d04464e0f45fb\"",
+      "if-none-match": "W/\"ed3c034a08a76c907a1b228eddd77eb12235a3e29da45a0e632dbe748b97c5d9\"",
       "user-agent": "olve-pipelines"
     }
   },
@@ -18,7 +18,7 @@
     "status": 304,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"4679b2fe4e65409f4df9acf20a5490cd861962a292339239a41d04464e0f45fb\"",
+      "etag": "W/\"ed3c034a08a76c907a1b228eddd77eb12235a3e29da45a0e632dbe748b97c5d9\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },

@@ -297,6 +297,32 @@ public class RunInputOperationTests
     }
 
     [Test]
+    public async Task RerunRun_WithChangedInput_StartsTheLinkedRunWithIt_AndNamesWhoStartedIt()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input(deployTo: "prod"));
+
+        var outcome = TestRunDomain.Pick(Inputs(s).RerunRun(s.Get(run), JsonNode.Parse(Input(deployTo: "beta")), startedBy: "oliver"));
+
+        var rerun = ((RunStartOutcome.Started)outcome).Run;
+        await Assert.That(rerun.RerunOf).IsEqualTo(run.Id);
+        await Assert.That(JsonNode.Parse(rerun.Input)!["deployTo"]!.GetValue<string>()).IsEqualTo("beta");
+        await Assert.That(rerun.Trigger.StartedBy).IsEqualTo("oliver");
+    }
+
+    [Test]
+    public async Task RerunRun_WithInvalidInput_StartsNothing()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input());
+
+        var result = Inputs(s).RerunRun(s.Get(run), JsonNode.Parse(Input(deployTo: "staging")));
+
+        await result.Problems.IsSingle<ValidationProblem>("input.deployTo: must be one of [\"beta\",\"prod\"]");
+        await Assert.That(s.D.RunService.ListByPipeline(s.Pipeline.Id)).Count().IsEqualTo(1);
+    }
+
+    [Test]
     public async Task RerunRun_FillsTheDefaultsOfTheInputModel()
     {
         var s = new SchedulerScenario();

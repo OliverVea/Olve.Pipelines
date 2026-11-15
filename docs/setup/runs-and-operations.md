@@ -72,11 +72,11 @@ shows the latest attempt whatever its status; output and files use the latest su
 | Do this | `pl` | UI |
 |---|---|---|
 | Start a run | `pl trigger <pipeline> [--input json\|@file] [--field k=v …]` — prints `<pipeline>#<run>` | Pipeline view → trigger form (run plan preview) |
-| List runs | `pl run list <pipeline>` | Pipeline view → recent runs |
-| Inspect a run | `pl run get <pipeline>#<run>` — input, version and config snapshot (`v8, config #5`), stages, each step's status/reason, blocked/held and links (`→ <url>`) | Run view |
+| List runs | `pl run list <pipeline>` | Runs tab: each run's newest commit; open a row for all its changes |
+| Inspect a run | `pl run get <pipeline>#<run>` — input, version and config snapshot (`v8, config #5`), what started it, its changes, stages, each step's status/reason, blocked/held and links (`→ <url>`) | Run view: version, trigger (its event and timeline), critical path, input, changes |
 | Cancel | `pl run cancel <pipeline>#<run>` | Run view → Cancel |
-| Rerun the whole run | `pl run rerun <pipeline>#<run>` | Run view → Rerun |
-| Continue with changed input | `pl run continue <pipeline>#<run> --field deployTo=prod` | Run view → Continue |
+| Rerun the whole run | `pl run rerun <pipeline>#<run>` | Run view → Trigger again: the pipeline's trigger form, filled in with the run's input |
+| Continue with changed input | `pl run continue <pipeline>#<run> --field deployTo=prod` | — |
 | Rerun one step | `pl step rerun <pipeline>#<run>/<step> [--continue]` | Run view → step → Rerun |
 | Answer a waiting step | `pl input answer <pipeline>#<run>/<step> [--field k=v …\|--value json]`, `pl input decline … [--comment]`, `pl input list` | Run view → the answer form above the stages; a "waiting for input" chip in the pipeline list |
 | Output, files, logs | `pl step output\|files\|file\|logs <address>` (`logs --follow`) | Run view → step |
@@ -92,7 +92,13 @@ shows the latest attempt whatever its status; output and files use the latest su
   run's deploy), only those attempts are cancelled.
 - **Rerun run** creates a new run with the same input on the version a run started now would use,
   linked via `rerunOf`. The input is re-validated against that version; the new run pins the current
-  config snapshot.
+  config snapshot. *Trigger again* does the same from the trigger form, where the input can change
+  first (`POST …/runs?rerunOf=<n>`).
+- **Changes** are what a run brings since the newest older run that succeeded: its version and config
+  snapshot when they differ, and for push runs the commits between the two pushes, newest first
+  (from GitHub through the binding, at most 250 listed). Superseded, failed and cancelled runs in
+  between don't count, so the commits they carried show up in the next run that succeeds
+  (`GET …/runs/changes?from=&to=`).
 - **Continue** keeps the completed stages and re-evaluates `when` for the rest. Changed fields are
   merged over the stored input and validated against the run's pinned input model. A field a
   completed step already consumed (e.g. `sha`) can't change — this is "promote what you tested".

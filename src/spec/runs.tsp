@@ -60,6 +60,82 @@ model Run {
 
   /** The run's effective config (YAML): the pinned snapshot with the version's defaults; null when the version declares none. */
   config?: string | null;
+
+  origin: RunOrigin;
+}
+
+/** How a run was started. Times are null where they don't apply (a manual run has none; a poll has no push time). */
+model RunOrigin {
+  /** The trigger that started the run, as the pipeline names it; null for a manual run or a rerun. */
+  trigger: string | null;
+
+  /** Who started a manual run or a rerun: the signed-in user or the machine token; null for a trigger. */
+  startedBy: string | null;
+
+  /** How a trigger's event reached the service: `webhook` or `poll`. */
+  via: string | null;
+
+  /** GitHub's push time, when a webhook announced the commit. */
+  pushedAt: utcDateTime | null;
+
+  /** When the webhook delivery arrived or the poll check started. */
+  noticedAt: utcDateTime | null;
+
+  /** When the pipeline's config commit was applied, after reading the branch head and any reconcile. */
+  configReadyAt: utcDateTime | null;
+
+  mapStartedAt: utcDateTime | null;
+  mapFinishedAt: utcDateTime | null;
+
+  /** The event the trigger's mapper received; null for a manual run or a rerun, and when it was larger than 64 KB. */
+  event: unknown | null;
+}
+
+/** A commit a run brings. */
+model RunCommit {
+  sha: string;
+
+  /** The first line of the commit message. */
+  title: string;
+
+  /** The author's GitHub login, else the git author name. */
+  author: string;
+
+  committedAt: utcDateTime;
+  url: string;
+}
+
+/**
+ * What a run changes since the newest older run that succeeded. Superseded, failed and cancelled runs in between
+ * don't count, so the commits they carried are part of this run's.
+ */
+model RunChanges {
+  number: int32;
+
+  /** The run compared against; null when no older run succeeded, and then every other field is null too. */
+  sinceNumber: int32 | null;
+
+  sinceVersionNumber: int32 | null;
+  sinceConfigSnapshot: int32 | null;
+
+  /**
+   * The commits between the two runs' push SHAs, newest first, at most 250; null when either run wasn't
+   * started by a push, or when GitHub couldn't list them (`commitsError`).
+   */
+  commits: RunCommit[] | null;
+
+  /** How many commits lie between the two runs, counting any beyond the 250 listed. */
+  totalCommits: int32 | null;
+
+  compareUrl: string | null;
+
+  /** Why the commits couldn't be listed. */
+  commitsError: string | null;
+}
+
+/** The changes of a range of runs, newest first. */
+model RunChangesList {
+  items: RunChanges[];
 }
 
 /** Runs of a pipeline, newest first: `items` are the `limit` runs from `offset` out of `total`. */
@@ -460,12 +536,28 @@ interface Runs {
     @query pushSha?: string,
   ): RunList | NotFound;
 
-  /** Starts a manual run; the body is the pipeline input, validated against the input model. Invalid input lists every problem and starts nothing. */
+  /**
+   * Starts a manual run; the body is the pipeline input, validated against the input model. Invalid input lists
+   * every problem and starts nothing. With `rerunOf`, the new run is a rerun of that run (`rerunOfNumber` points back).
+   */
   @summary("Start a run")
   @post start(
     @path @format("uuid") pipelineId: string,
+    @query rerunOf?: int32,
     @body input: Record<unknown>,
   ): RunStart | NotFound | BadRequest | Conflict | ServiceUnavailable;
+
+  /**
+   * What each run from `from` to `to` (run numbers, at most 50 runs; default: the latest 20) changes since the
+   * newest older run that succeeded. Commits come from GitHub through the pipeline's binding; when GitHub can't
+   * list them, that run's `commitsError` says why and the request still succeeds.
+   */
+  @summary("Get the changes of a range of runs")
+  @get @route("changes") changes(
+    @path @format("uuid") pipelineId: string,
+    @query from?: int32,
+    @query to?: int32,
+  ): RunChangesList | NotFound | BadRequest;
 
   /**
    * `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion`

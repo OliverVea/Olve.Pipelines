@@ -1,33 +1,36 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { customElement, property, state, query } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import {
   pipelinesGet,
   runsAttempts,
   runsCancel,
-  runsContinue,
+  runsChanges,
+  runsCriticalPath,
   runsGet,
-  runsRerun,
   runStepsCancel,
   runStepsRerun,
   type Attempt,
   type Run,
+  type RunChanges,
   type AttemptState,
 } from '@olve/api';
 import { api, errorMessages } from '../api/client.js';
 import { downloadFile, downloadName } from '../api/files.js';
 import './attempt-files.js';
-import { navigate } from '../router.js';
 import {
   sharedStyles,
   headerStyles,
-  detailsOpen,
-  rememberDetails,
+  statusCardStyles,
   toneOf,
   statusLabel,
   formatDuration,
+  formatSeconds,
+  median,
   shortSha,
   navClick,
   pipelinePath,
+  criticalPathPath,
+  versionsPath,
   runPath,
   stepPath,
   stepLogsPath,
@@ -44,21 +47,19 @@ import {
   stepsByName,
   stepInputSchema,
   outputSchemaOf,
-  inputSchemaOf,
 } from '../model/manifest.js';
 import type { StepState } from './stage-graph.js';
 import type { FileRefValue } from './typed-value.js';
-import type { InputForm } from './input-form.js';
 import { sheetContentStyles } from './step-sheet.js';
 import './stage-graph.js';
 import './step-sheet.js';
 import './typed-value.js';
-import './input-form.js';
 import './log-pane.js';
 import './external-input-panel.js';
 import { renderAnswers } from './external-input-panel.js';
 import './relative-time.js';
 import './matrix-cells.js';
+import './run-changes.js';
 import {
   type Cell,
   type CellState,
@@ -90,16 +91,17 @@ function parseJson(s: string | null | undefined): unknown {
 }
 
 /**
- * One run: its input, the pinned version's stage graph coloured by step status,
- * and per step the attempts with typed input/output, files and logs. Actions:
- * cancel, rerun the run, continue with changed input, cancel a step, rerun a step (optionally
- * continuing the run).
+ * One run: a card of its version, trigger, start, critical path and input, what it changes since the
+ * newest older run that succeeded, the pinned version's stage graph coloured by step status, and per
+ * step the attempts with typed input/output, files and logs. Actions: cancel, trigger again (on the
+ * pipeline page), cancel a step, rerun a step (optionally continuing the run).
  */
 @customElement('run-view')
 export class RunView extends LitElement {
   static styles = [
     sharedStyles,
     headerStyles,
+    statusCardStyles,
     sheetContentStyles,
     css`
       .dur {
@@ -178,10 +180,64 @@ export class RunView extends LitElement {
       log-pane {
         --log-max-height: 22rem;
       }
-      .continue-help {
-        font-size: 0.82rem;
+      .links {
+        font-size: 0.8rem;
+      }
+      .status button.value {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        text-align: left;
+        color: var(--color-primary);
+      }
+      .status button.value::after {
+        content: ' ▸';
+        font-size: 0.75rem;
         color: var(--color-text-muted);
-        margin: 0 0 0.8rem;
+      }
+      .status button.value[aria-expanded='true']::after {
+        content: ' ▾';
+      }
+      .status button.fields {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 0.35rem;
+        font-weight: 500;
+        color: var(--color-text);
+      }
+      .fields .muted {
+        font-weight: 400;
+        font-size: 0.85rem;
+      }
+      .panel.more-info {
+        margin-top: 0.5rem;
+        box-shadow: var(--shadow);
+        font-size: 0.85rem;
+      }
+      .more-info .sheet-h {
+        margin-top: 0;
+      }
+      .more-info pre {
+        margin: 0;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.78rem;
+        background: var(--color-code-bg);
+        border-radius: var(--radius);
+        overflow-x: auto;
+      }
+      .event {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.8rem 1.5rem;
+      }
+      @media (max-width: 760px) {
+        .event {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      run-changes {
+        margin-top: 1rem;
       }
     `,
   ];
@@ -200,13 +256,14 @@ export class RunView extends LitElement {
   @state() declare private _busy: boolean;
   @state() declare private _step: string;
   @state() declare private _attempt: number | null;
-  @state() declare private _continueErrors: string[];
-  @state() declare private _detailsOpen: boolean;
-
-  @query('#continue-dialog') declare private _continueDialog: HTMLDialogElement;
-  @query('#continue-form') declare private _continueForm: InputForm;
+  @state() declare private _changes: RunChanges | null;
+  /** This run's critical path and the pipeline's median, in seconds. */
+  @state() declare private _critical: { run: number | null; median: number | null };
+  @state() declare private _panel: '' | 'trigger' | 'input';
 
   private _loading = false;
+  /** Set while a click selects a step, so the same click doesn't count as a click on nothing. */
+  private _picked = false;
 
   constructor() {
     super();
@@ -233,9 +290,29 @@ export class RunView extends LitElement {
     const q = new URLSearchParams(location.search);
     this._step = q.get('step') ?? '';
     this._attempt = q.get('attempt') ? Number(q.get('attempt')) : null;
-    this._continueErrors = [];
-    this._detailsOpen = detailsOpen();
+    this._changes = null;
+    this._critical = { run: null, median: null };
+    this._panel = '';
+    this.addEventListener('click', this._clickAway);
   }
+
+  /** A click on nothing (no control, no code, not the sheet) closes the step sheet. */
+  private _clickAway = (e: Event) => {
+    if (this._picked) {
+      this._picked = false;
+      return;
+    }
+    if (!this._step) return;
+    const hit = e
+      .composedPath()
+      .some(
+        (n) =>
+          n instanceof Element &&
+          (n.localName === 'step-sheet' ||
+            n.matches('a, button, input, select, textarea, pre, dialog, label')),
+      );
+    if (!hit) this._selectStep('');
+  };
 
   reload() {
     return this._load();
@@ -245,6 +322,9 @@ export class RunView extends LitElement {
     if (changed.has('pipelineId') || changed.has('run')) {
       this._detail = null;
       this._version = null;
+      this._changes = null;
+      this._critical = { run: null, median: null };
+      this._panel = '';
       this._actionErrors = [];
       const q = new URLSearchParams(location.search);
       this._step = q.get('step') ?? '';
@@ -274,6 +354,7 @@ export class RunView extends LitElement {
       this._detail = detail ?? null;
       this._attempts = attempts ?? [];
       this._error = null;
+      if (detail) this._loadAround(detail, current);
       const vn = detail?.versionNumber;
       if (vn !== undefined && vn !== null && this._version?.number !== vn) {
         const version = await loadVersion(this.pipelineId, vn);
@@ -289,6 +370,39 @@ export class RunView extends LitElement {
     } finally {
       this._loading = false;
     }
+  }
+
+  /** What the run changes and its critical path: extras that never hold the page up. */
+  private async _loadAround(detail: Run, current: () => boolean) {
+    const n = detail.number;
+    const finished = detail.status !== 'Running';
+    const [changes, own, recent] = await Promise.all([
+      runsChanges({
+        client: api,
+        path: { pipelineId: this.pipelineId },
+        query: { from: n, to: n },
+      })
+        .then((r) => r.data?.items?.[0] ?? null)
+        .catch(() => null),
+      finished
+        ? runsCriticalPath({
+            client: api,
+            path: { pipelineId: this.pipelineId },
+            query: { from: n, to: n, includeUnsuccessful: true },
+          })
+            .then((r) => r.data?.runs?.[0]?.seconds ?? null)
+            .catch(() => null)
+        : null,
+      runsCriticalPath({ client: api, path: { pipelineId: this.pipelineId } })
+        .then((r) => r.data?.runs ?? [])
+        .catch(() => []),
+    ]);
+    if (!current()) return;
+    this._changes = changes;
+    this._critical = {
+      run: own,
+      median: recent.length ? median(recent.map((x) => x.seconds ?? 0)) : null,
+    };
   }
 
   private _stepAttempts(step: string): Attempt[] {
@@ -388,14 +502,7 @@ export class RunView extends LitElement {
             ><span class="dot"></span>${statusLabel(r.status)}</span
           >
           <span class="dur muted">${formatDuration(r.createdAt, r.finishedAt)}</span>
-          <button
-            class="more"
-            aria-expanded=${this._detailsOpen}
-            aria-controls="details"
-            @click=${this._toggleDetails}
-          >
-            Details
-          </button>
+          ${this._renderLinks(r)}
           <span class="spacer"></span>
           ${running
             ? html`<button
@@ -406,65 +513,20 @@ export class RunView extends LitElement {
                 Cancel run
               </button>`
             : nothing}
+          <a
+            class="btn small"
+            href="${pipelinePath(this.pipelineId)}?rerun=${r.number}"
+            @click=${navClick}
+            >Trigger again</a
+          >
           <i class="br"></i>
         </div>
-        <div class="details" id="details" ?hidden=${!this._detailsOpen}>
-          <div class="actions">
-            <button class="btn small" ?disabled=${this._busy} @click=${this._rerunRun}>
-              Rerun run
-            </button>
-            <button
-              class="btn primary small"
-              ?disabled=${this._busy || !d.continuable}
-              @click=${this._openContinue}
-            >
-              Continue…
-            </button>
-          </div>
-          <div class="meta">
-            <span>Version <b>v${r.versionNumber}</b></span>
-            <span>Stamp <b class="mono">${r.versionStamp}</b></span>
-            <span>Trigger <b>${(r.triggerKind ?? '').toLowerCase()}</b></span>
-            ${d.commitSha
-              ? html`<span
-                  >Pipeline commit <b class="mono">${shortSha(d.commitSha)}</b></span
-                >`
-              : nothing}
-            <span
-              >Started <b><relative-time .value=${r.createdAt}></relative-time></b
-            ></span>
-            ${r.heldAt ? html`<span>Held at <b>${r.heldAt}</b></span>` : nothing}
-            ${r.rerunOfNumber
-              ? html`<span
-                  >Rerun of
-                  <a href=${runPath(this.pipelineId, r.rerunOfNumber)} @click=${navClick}
-                    >#${r.rerunOfNumber}</a
-                  ></span
-                >`
-              : nothing}
-            ${r.supersededByNumber
-              ? html`<span
-                  >Superseded by
-                  <a
-                    href=${runPath(this.pipelineId, r.supersededByNumber)}
-                    @click=${navClick}
-                    >#${r.supersededByNumber}</a
-                  ></span
-                >`
-              : nothing}
-          </div>
-          ${!d.continuable && r.status !== 'Superseded'
-            ? html`<p class="note">
-                This run's version (v${r.versionNumber}) is no longer active, so it can't
-                be continued. Trigger a new run on the current version instead.
-              </p>`
+        ${this._renderCard(r, input)}
+        ${this._panel === 'trigger'
+          ? this._renderTrigger(r)
+          : this._panel === 'input'
+            ? this._renderInput(input, m)
             : nothing}
-          <h4 class="sheet-h">Input</h4>
-          <typed-value
-            .value=${input}
-            .schema=${m ? outputSchemaOf(m, m.input) : null}
-          ></typed-value>
-        </div>
         ${r.heldAt && running
           ? html`<p class="note">
               Held before <b>${r.heldAt}</b>: the step is blocked. Unblock it on the
@@ -477,6 +539,13 @@ export class RunView extends LitElement {
         ${this._renderWaiting(states, m)} ${sheet ? nothing : errors}
       </section>
 
+      <run-changes
+        .pipelineId=${this.pipelineId}
+        .changes=${this._changes}
+        .versionNumber=${r.versionNumber}
+        .configSnapshot=${r.configSnapshot ?? null}
+      ></run-changes>
+
       <section class="graph">
         <h3>Stages</h3>
         ${m
@@ -485,18 +554,19 @@ export class RunView extends LitElement {
               .cases=${this._effective?.ok ? this._effective.cases : null}
               .states=${states}
               .selected=${sheet ? stepOf(this._step) : ''}
-              @step-select=${(e: CustomEvent<{ step: string; cell?: Cell }>) =>
+              @step-select=${(e: CustomEvent<{ step: string; cell?: Cell }>) => {
+                this._picked = true;
                 this._selectStep(
                   e.detail.cell
                     ? cellAddress(e.detail.step, e.detail.cell)
                     : e.detail.step,
-                )}
+                );
+              }}
             ></stage-graph>`
           : html`<p class="muted">Loading the pinned version…</p>`}
       </section>
 
       ${sheet ? this._renderSheet(m, states.get(this._step), errors) : nothing}
-      ${this._renderContinueDialog(input)}
     `;
   }
 
@@ -518,10 +588,159 @@ export class RunView extends LitElement {
       });
   }
 
-  private _toggleDetails = () => {
-    this._detailsOpen = !this._detailsOpen;
-    rememberDetails(this._detailsOpen);
-  };
+  /** Rerun of, superseded by and held at, next to the status. */
+  private _renderLinks(r: Run) {
+    const link = (n: number) =>
+      html`<a href=${runPath(this.pipelineId, n)} @click=${navClick}>#${n}</a>`;
+    return [
+      r.rerunOfNumber
+        ? html`<span class="links muted">rerun of ${link(r.rerunOfNumber)}</span>`
+        : nothing,
+      r.supersededByNumber
+        ? html`<span class="links muted"
+            >superseded by ${link(r.supersededByNumber)}</span
+          >`
+        : nothing,
+      r.heldAt && r.status === 'Running'
+        ? html`<span class="links muted">held at <b>${r.heldAt}</b></span>`
+        : nothing,
+    ];
+  }
+
+  private _togglePanel(panel: 'trigger' | 'input') {
+    this._panel = this._panel === panel ? '' : panel;
+  }
+
+  private _renderCard(r: Run, input: Record<string, unknown>) {
+    const o = r.origin;
+    const fields = Object.entries(input ?? {});
+    const critical = this._critical;
+    return html`<div class="status">
+      <div class="cell">
+        <span class="label">Version</span>
+        <a class="value" href=${versionsPath(this.pipelineId)} @click=${navClick}
+          >v${r.versionNumber}</a
+        >
+        <span class="sub"
+          >${r.commitSha
+            ? html`built from <span class="mono">${shortSha(r.commitSha)}</span>`
+            : nothing}${r.commitSha && r.configSnapshot
+            ? ' · '
+            : nothing}${r.configSnapshot ? `config #${r.configSnapshot}` : nothing}</span
+        >
+      </div>
+      <div class="cell">
+        <span class="label">Trigger</span>
+        <button
+          class="value"
+          aria-expanded=${this._panel === 'trigger'}
+          @click=${() => this._togglePanel('trigger')}
+        >
+          ${o?.trigger ?? (r.rerunOfNumber ? 'rerun' : 'manual')}
+        </button>
+        <span class="sub"
+          >${o?.via ? `via ${o.via}` : o?.startedBy ? `by ${o.startedBy}` : nothing}</span
+        >
+      </div>
+      <div class="cell">
+        <span class="label">Started</span>
+        <span class="value"><relative-time .value=${r.createdAt}></relative-time></span>
+        <span class="sub mono">${r.versionStamp}</span>
+      </div>
+      <div class="cell">
+        <span class="label">Critical path</span>
+        <a class="value" href=${criticalPathPath(this.pipelineId)} @click=${navClick}
+          >${critical.run === null ? '—' : formatSeconds(critical.run)}</a
+        >
+        <span class="sub"
+          >${critical.median === null
+            ? nothing
+            : `median ${formatSeconds(critical.median)}`}</span
+        >
+      </div>
+      <div class="cell grow">
+        <span class="label">Input</span>
+        <button
+          class="value fields"
+          aria-expanded=${this._panel === 'input'}
+          @click=${() => this._togglePanel('input')}
+        >
+          ${fields.length
+            ? fields
+                .slice(0, 4)
+                .map(([k, v]) => html`<span class="muted">${k}</span> ${brief(v)}`)
+            : html`<span class="muted">none</span>`}
+        </button>
+        <span class="sub">${fields.length} field${fields.length === 1 ? '' : 's'}</span>
+      </div>
+    </div>`;
+  }
+
+  /** The event the trigger received and how it reached the run, or who started it. */
+  private _renderTrigger(r: Run) {
+    const o = r.origin;
+    if (!o?.trigger)
+      return html`<div class="panel more-info">
+        <p class="muted" style="margin:0">
+          Started by <b>${o?.startedBy ?? 'unknown'}</b>${r.rerunOfNumber
+            ? html` as a rerun of
+                <a href=${runPath(this.pipelineId, r.rerunOfNumber)} @click=${navClick}
+                  >#${r.rerunOfNumber}</a
+                >`
+            : nothing}.
+        </p>
+      </div>`;
+    const firstStep = this._attempts
+      .map((a) => attemptStatus(a).startedAt)
+      .filter((t): t is string => !!t)
+      .sort()[0];
+    const marks: [string, string | null | undefined][] = [
+      ['Pushed', o.pushedAt],
+      [o.via === 'poll' ? 'Poll checked' : 'Webhook received', o.noticedAt],
+      ['Config ready', o.configReadyAt],
+      ['Mapped', o.mapFinishedAt],
+      ['First step started', firstStep],
+    ];
+    let previous: number | null = null;
+    return html`<div class="panel more-info">
+      <div class="event">
+        <div>
+          <h4 class="sheet-h">Event</h4>
+          ${o.event === null || o.event === undefined
+            ? html`<p class="muted">Not kept: it was larger than 64 KB.</p>`
+            : html`<pre class="mono">${JSON.stringify(o.event, null, 2)}</pre>`}
+        </div>
+        <div>
+          <h4 class="sheet-h">Timeline</h4>
+          <dl class="kv">
+            ${marks
+              .filter(([, t]) => !!t)
+              .map(([label, t]) => {
+                const at = new Date(t!).getTime();
+                const gap =
+                  previous === null ? '' : `+${formatSeconds((at - previous) / 1000)}`;
+                previous = at;
+                return html`<dt>${label}</dt>
+                  <dd>
+                    <span class="mono">${new Date(at).toLocaleTimeString()}</span>
+                    <span class="muted">${gap}</span>
+                  </dd>`;
+              })}
+          </dl>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  private _renderInput(input: Record<string, unknown>, m: Manifest | null) {
+    return html`<div class="panel more-info">
+      <h4 class="sheet-h">Input</h4>
+      <typed-value
+        .value=${input}
+        .schema=${m ? outputSchemaOf(m, m.input) : null}
+      ></typed-value>
+    </div>`;
+  }
 
   private _renderSheet(m: Manifest, st: StepState | undefined, errors: unknown) {
     const step = stepsByName(m).get(stepOf(this._step));
@@ -685,49 +904,13 @@ export class RunView extends LitElement {
     </step-sheet>`;
   }
 
-  private _renderContinueDialog(input: Record<string, unknown>) {
-    const m = this._runManifest();
-    return html`<dialog id="continue-dialog" @close=${() => (this._continueErrors = [])}>
-      <h3>Continue run #${this.run}</h3>
-      <p class="continue-help">
-        Completed stages are kept; the rest re-evaluates its <code>when</code> conditions
-        with the new input. Only fields no completed step has read can change.
-      </p>
-      ${m
-        ? html`<input-form
-            id="continue-form"
-            .schema=${inputSchemaOf(m, m.input)}
-            .initial=${input}
-          ></input-form>`
-        : nothing}
-      ${this._continueErrors.length
-        ? html`<div class="errors" role="alert">
-            ${this._continueErrors.map((e) => html`<p>${e}</p>`)}
-          </div>`
-        : nothing}
-      <div class="dialog-actions">
-        <button class="btn" @click=${() => this._continueDialog.close()}>Close</button>
-        <button class="btn primary" ?disabled=${this._busy} @click=${this._continue}>
-          Continue run
-        </button>
-      </div>
-    </dialog>`;
-  }
-
-  private _openContinue() {
-    this._continueErrors = [];
-    this._continueDialog.showModal();
-  }
-
-  private async _act(fn: () => Promise<void>, errors: 'action' | 'continue' = 'action') {
+  private async _act(fn: () => Promise<void>) {
     this._busy = true;
-    if (errors === 'action') this._actionErrors = [];
-    else this._continueErrors = [];
+    this._actionErrors = [];
     try {
       await fn();
     } catch (e) {
-      if (errors === 'action') this._actionErrors = errorMessages(e);
-      else this._continueErrors = errorMessages(e);
+      this._actionErrors = errorMessages(e);
     } finally {
       this._busy = false;
     }
@@ -753,25 +936,6 @@ export class RunView extends LitElement {
       await this._load();
       this._selectStep(step, null);
     });
-
-  private _rerunRun = () =>
-    this._act(async () => {
-      const { data: res } = await runsRerun({ client: api, path: this._path });
-      if (res?.run?.number) navigate(runPath(this.pipelineId, res.run.number));
-      else this._actionErrors = [`Rerun: ${res?.outcome ?? 'no run started'}.`];
-    });
-
-  private _continue = () =>
-    this._act(async () => {
-      const r = this._continueForm?.collect();
-      if (!r || !r.ok) {
-        this._continueErrors = ['Fix the highlighted fields.'];
-        return;
-      }
-      await runsContinue({ client: api, path: this._path, body: { input: r.value } });
-      this._continueDialog.close();
-      await this._load();
-    }, 'continue');
 
   /** A matrix step's sheet lists its cells; picking one opens the cell's own sheet. */
   private _renderCells(m: Manifest, st: StepState | undefined) {
@@ -809,6 +973,18 @@ export class RunView extends LitElement {
     const file = { pipelineId: this.pipelineId, number, step, attempt, path };
     this._act(() => downloadFile(file, downloadName(path)));
   };
+}
+
+/** A value short enough for the card: a commit hash shortened, long text cut. */
+function brief(v: unknown): string {
+  if (typeof v === 'string')
+    return /^[0-9a-f]{40}$/.test(v)
+      ? v.slice(0, 7)
+      : v.length > 24
+        ? `${v.slice(0, 23)}…`
+        : v;
+  if (v === null || typeof v !== 'object') return String(v);
+  return Array.isArray(v) ? `[${v.length}]` : '{…}';
 }
 
 declare global {

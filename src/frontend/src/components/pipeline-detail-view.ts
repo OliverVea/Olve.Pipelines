@@ -15,6 +15,7 @@ import {
   type PipelineHealth,
 } from '@olve/api';
 import {
+  runsGet,
   runStepsCancel,
   runStepsRerun,
   stepsBlock,
@@ -129,6 +130,9 @@ export class PipelineDetailView extends LitElement {
   @state() declare private _retrying: Set<string>;
   @state() declare private _triggerOpen: boolean;
   @state() declare private _step: string;
+  /** Trigger again: the run whose input prefills the Trigger panel, and that input once loaded. */
+  @state() declare private _rerunOf: number | null;
+  @state() declare private _rerunInput: Record<string, unknown> | null;
 
   constructor() {
     super();
@@ -143,8 +147,11 @@ export class PipelineDetailView extends LitElement {
     this._error = null;
     this._stepErrors = [];
     this._retrying = new Set();
-    this._triggerOpen = new URLSearchParams(location.search).get('trigger') === '1';
-    this._step = new URLSearchParams(location.search).get('step') ?? '';
+    const q = new URLSearchParams(location.search);
+    this._rerunOf = Number(q.get('rerun')) || null;
+    this._rerunInput = null;
+    this._triggerOpen = q.get('trigger') === '1' || this._rerunOf !== null;
+    this._step = q.get('step') ?? '';
     new LiveController(
       this,
       () => this.reload(),
@@ -158,7 +165,30 @@ export class PipelineDetailView extends LitElement {
       this._history = new Map();
       this._loaded = false;
       this.reload();
+      if (this._rerunOf !== null) void this._loadRerunInput(this._rerunOf);
     }
+  }
+
+  private async _loadRerunInput(number: number) {
+    const { data } = await runsGet({
+      client: api,
+      path: { pipelineId: this.pipelineId, number },
+    }).catch(() => ({ data: undefined }));
+    this._rerunInput = data?.input ?? {};
+  }
+
+  private _closeTrigger() {
+    this._triggerOpen = false;
+    if (this._rerunOf === null) return;
+    this._rerunOf = null;
+    this._rerunInput = null;
+    const q = new URLSearchParams(location.search);
+    q.delete('rerun');
+    history.replaceState(
+      history.state,
+      '',
+      `${location.pathname}${q.size ? `?${q}` : ''}`,
+    );
   }
 
   async reload() {
@@ -294,19 +324,22 @@ export class PipelineDetailView extends LitElement {
           slot="actions"
           class="btn primary"
           ?disabled=${!m}
-          @click=${() => (this._triggerOpen = !this._triggerOpen)}
+          @click=${() =>
+            this._triggerOpen ? this._closeTrigger() : (this._triggerOpen = true)}
         >
           ${this._triggerOpen ? 'Close' : 'Trigger'}
         </button>
       </pipeline-header>
 
-      ${this._triggerOpen
+      ${this._triggerOpen && (this._rerunOf === null || this._rerunInput)
         ? html`<section class="panel">
             <trigger-panel
+              .initial=${this._rerunInput}
+              .rerunOf=${this._rerunOf}
               .pipelineId=${this.pipelineId}
               .manifest=${this._active?.manifest ?? null}
               .versionNumber=${currentVersion(this._activation)}
-              @close=${() => (this._triggerOpen = false)}
+              @close=${() => this._closeTrigger()}
             ></trigger-panel>
           </section>`
         : nothing}

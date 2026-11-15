@@ -465,28 +465,9 @@ export const sharedStyles = css`
   }
 `;
 
-const DETAILS_KEY = 'olve-header-details';
-
-/** Whether the compact header's Details fold was left open. */
-export function detailsOpen(): boolean {
-  try {
-    return localStorage.getItem(DETAILS_KEY) === 'open';
-  } catch {
-    return false;
-  }
-}
-
-export function rememberDetails(open: boolean): void {
-  try {
-    localStorage.setItem(DETAILS_KEY, open ? 'open' : 'closed');
-  } catch {
-    /* storage unavailable */
-  }
-}
-
 /**
- * The compact page header: one `.line` (title, status, Details toggle, key action) and a
- * `.details` fold. On phones the line splits at `.br`: title and buttons first, the rest below.
+ * The compact page header: one `.line` (title, status, key actions), with `.more` for a
+ * toggle. On phones the line splits at `.br`: title and buttons first, the rest below.
  */
 export const headerStyles = css`
   .line {
@@ -537,15 +518,6 @@ export const headerStyles = css`
   .more:focus-visible {
     outline: 2px solid var(--color-primary);
     border-radius: var(--radius);
-  }
-  .details {
-    margin: 0.5rem 0 0.2rem;
-    padding: 0.6rem 0 0.2rem 0.8rem;
-    border-left: 2px solid var(--color-border);
-    font-size: 0.85rem;
-  }
-  .details[hidden] {
-    display: none;
   }
   @media (max-width: 640px) {
     .line {

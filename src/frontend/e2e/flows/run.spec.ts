@@ -32,6 +32,24 @@ test('open a pipeline, trigger a run and follow it to its step logs', async ({
   await expect(row).toContainText('manual');
 });
 
+test("trigger a run again from its page, with the form filled in from the run's input", async ({
+  page,
+  api,
+}) => {
+  const pipeline = await api.newPipeline('again');
+  const run = await api.startRun(pipeline, { message: 'first' });
+
+  await page.goto(`/pipeline/${pipeline.id}/run/${run}`);
+  await page.getByRole('link', { name: 'Trigger again' }).click();
+  await expect(page.getByLabel('message')).toHaveValue('first');
+  await page.getByLabel('message').fill('second');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: `Run #${run + 1}` })).toBeVisible();
+  await expect(page.locator('.line')).toContainText(`rerun of #${run}`);
+  await expect(page.locator('.status')).toContainText('second');
+});
+
 test('a failed step says why, and rerunning it after the fix finishes the run', async ({
   page,
   api,

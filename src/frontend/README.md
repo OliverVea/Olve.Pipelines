@@ -100,20 +100,21 @@ src/frontend/
         ├── pipeline-list-view.ts   # Pipelines with run health; add a pipeline
         ├── pipeline-header.ts      # Name, health, description and tabs of every pipeline page
         ├── pipeline-detail-view.ts # Overview: stage graph with each step's latest attempt, step sheet
-        ├── pipeline-runs-view.ts   # A pipeline's runs
+        ├── pipeline-runs-view.ts   # A pipeline's runs, each with its changes
         ├── pipeline-versions-view.ts # Versions tab (versions-panel)
         ├── pipeline-config-view.ts # Config document: editor, last save, snapshots with rollback, diff
         ├── pipeline-secrets-view.ts # Secrets: who uses each, set / delete / copy
         ├── pipeline-binding-view.ts # Git binding: definition location, reconcile status, credentials
         ├── critical-path-view.ts   # Where a range of runs spent its time
         ├── reliability-view.ts     # How reliable a pipeline's steps were
-        ├── run-view.ts             # One run: graph by status, attempts with typed I/O, files, logs, actions
+        ├── run-view.ts             # One run: status card, changes, graph by status, attempts with typed I/O, files, logs, actions
+        ├── run-changes.ts          # A run's changes since the newest older run that succeeded
         ├── step-logs-view.ts       # One step's log in a run, full height
         ├── step-runs-view.ts       # One step's attempts across runs, with a status filter
         ├── docs-view.ts            # The /docs setup guide, its search and the API reference
         ├── stage-graph.ts          # Stage graph at two levels (chips, cards), oriented by the viewport
         ├── step-sheet.ts           # Bottom sheet with one step's details
-        ├── trigger-panel.ts        # Manual trigger form + run plan preview
+        ├── trigger-panel.ts        # Manual trigger form + run plan preview; prefilled for Trigger again
         ├── input-form.ts           # Form from an input model's JSON Schema
         ├── external-input-panel.ts # A waiting step's external inputs: answer or decline
         ├── versions-panel.ts       # Versions list, manifest diff, switch
@@ -140,11 +141,13 @@ src/frontend/
   a bottom sheet (`?step=`): status, reason, latest attempt, recent runs, what it reads and what
   reads it, its definition, and the actions (logs, cancel, rerun and continue, block / unblock,
   the step's runs).
-- **Run** (`/pipeline/:id/run/:n?step=&attempt=`): a one-line header (run, status, duration, a
-  Details fold with rerun, continue, version and input; Cancel stays on the line while running)
-  over the pinned version's graph coloured by step status. The selected step's sheet holds its
-  attempts with typed input and output, files, live logs and external inputs, and cancel / rerun
-  step (with or without continue).
+- **Run** (`/pipeline/:id/run/:n?step=&attempt=`): a one-line header (run, status, duration,
+  rerun of / superseded by / held at, Cancel while running, Trigger again), a status card (version,
+  trigger, started, critical path, input; trigger and input open a panel with the event and its
+  timeline, or the full input), the changes since the newest older run that succeeded, then the
+  pinned version's graph coloured by step status. The selected step's sheet holds its attempts with
+  typed input and output, files, live logs and external inputs, and cancel / rerun step (with or
+  without continue); a click on nothing closes it.
 - **Step log** (`/pipeline/:id/run/:n/step/:name/logs`) and **step runs**
   (`/pipeline/:id/step/:name/runs`): one attempt's log full height; a step's attempts across runs.
 - **Critical path** (`/pipeline/:id/critical-path`): each step's share of a range of runs' time.

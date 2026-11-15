@@ -93,6 +93,21 @@ internal static class ManifestFixture
         deploy["input"]!["x"] = mapping;
     }
 
+    /// <summary>Adds CI: checkout, then build and test, the pipeline's own steps, on the pipeline's input model.</summary>
+    public static void WithCi(JsonObject root)
+    {
+        JsonObject Stage(params string[] steps) => new() { ["steps"] = new JsonArray(steps.Select(n => Step(root, n).DeepClone()).ToArray()) };
+        root["ci"] = new JsonObject
+        {
+            ["input"] = "DeployRequest",
+            ["secrets"] = new JsonArray("GITHUB_TOKEN"),
+            ["stages"] = new JsonArray(Stage("checkout"), Stage("build", "test")),
+        };
+    }
+
+    public static JsonObject CiStep(JsonObject root, string name) =>
+        root["ci"]!["stages"]!.AsArray().SelectMany(s => s!["steps"]!.AsArray()).Single(s => (string?)s!["name"] == name)!.AsObject();
+
     public static JsonNode Ref(string r) => new JsonObject { ["ref"] = r };
 
     public static JsonNode Const(JsonNode? v) => new JsonObject { ["const"] = v };

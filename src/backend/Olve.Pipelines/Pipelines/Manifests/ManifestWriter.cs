@@ -89,6 +89,17 @@ public static class ManifestWriter
             if (r.BuildGraceDays is { } grace) w.WriteNumber("buildGraceDays", grace);
             w.WriteEndObject();
         }
+        if (m.Ci is { } ci)
+        {
+            w.WriteStartObject("ci");
+            if (ci.Description is not null) w.WriteString("description", ci.Description);
+            w.WriteString("input", ci.Input);
+            WriteStrings(w, "secrets", ci.Secrets);
+            w.WriteStartArray("stages");
+            foreach (var s in ci.Stages) Write(w, s);
+            w.WriteEndArray();
+            w.WriteEndObject();
+        }
         w.WriteEndObject();
     }
 

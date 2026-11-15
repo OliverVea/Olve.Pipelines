@@ -19,6 +19,19 @@ public class ManifestValidatorTests
     }
 
     [Test]
+    public async Task CiSharingThePipelinesSteps_WithItsOwnMappings_IsValid()
+    {
+        var report = ManifestValidator.Validate(Mutate(r =>
+        {
+            WithCi(r);
+            CiStep(r, "checkout")["input"]!["sha"] = Const("0123456789abcdef0123456789abcdef01234567");
+        }));
+
+        await Assert.That(report.Errors).IsEmpty();
+        await Assert.That(report.Warnings.Select(w => w.Path)).IsEquivalentTo(["stages[1].steps[1].output", "ci.stages[1].steps[0].output", "ci.stages[1].steps[1].output"]);
+    }
+
+    [Test]
     public async Task AMatrixStep_ReadThroughCellsInputs_IsValid()
     {
         var report = ManifestValidator.Validate(Mutate(r => MatrixBuild(r, Matrix(failure: "cascadeFailure", maxParallel: 1, exclude: [new JsonObject { ["os"] = "windows", ["arch"] = "arm64" }]))));

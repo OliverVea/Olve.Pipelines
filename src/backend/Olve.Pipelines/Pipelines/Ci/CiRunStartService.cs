@@ -130,7 +130,7 @@ public class CiRunStartService(
 
         var problems = new List<string>();
         var config = ownDefinition ? (null, null) : PinVersionConfig(pipelineId, version, problems);
-        var input = new JsonObject { ["repo"] = binding.Repo, ["sha"] = tested }.ToJsonString();
+        var input = CiInputs.Pull(binding.Repo, tested, number);
 
         var run = schedulingLock.Run(() =>
         {

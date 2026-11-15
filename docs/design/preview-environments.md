@@ -65,6 +65,9 @@ PR's CI:
 - A push to the PR doesn't supersede it. A PR run's preview step waits for the PR's running close
   run to end, so a teardown never removes a preview that was just deployed again.
 - A failed close run is retried with backoff and shows in pipeline health until it succeeds.
+- A close run's steps start only once no `reuse: false` attempt of the PR still has a Job: a
+  cancelled deploy's helm may run on for a moment, and a teardown before it ends would leak the
+  preview.
 
 The steps in `onClose` read only the input: `removePreview` needs the PR number, not what the deploy
 produced. The deploying run's binary is used so the teardown is the code that matches the deploy.

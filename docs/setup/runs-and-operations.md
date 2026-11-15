@@ -339,7 +339,7 @@ A run is deleted only when it is **both** older than 183 days **and** not among 
 newest runs; a running run never is. Its outputs, files, logs and failure-handler objects go with
 it. A compiled binary is kept while the active/draining version or any retained run uses it, and
 deleted 7 days after that. Leftovers (objects of deleted runs, stale result archives, URL Secrets,
-leaked step Jobs) are swept too. Step Jobs have a 7-day TTL.
+leaked step Jobs) are swept too. Step and build Jobs are deleted a day after they finish (their logs and outputs are in storage).
 
 Those three thresholds are the instance's defaults. A pipeline sets its own in its definition
 (see [`retention`](pipeline-reference.md#retention)):

@@ -71,7 +71,7 @@ public class BuildJobBuilderTests
                   }
                 },
                 "backoffLimit": 0,
-                "ttlSecondsAfterFinished": 604800,
+                "ttlSecondsAfterFinished": 86400,
                 "activeDeadlineSeconds": 900
               }
             }

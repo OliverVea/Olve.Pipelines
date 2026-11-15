@@ -90,16 +90,16 @@ public class PreviewLifecycle(
         }
 
         if (preview.DeployedBy == run.Id && preview.State is PreviewState.Deploying)
-            previews.Update(preview, p => p with { State = PreviewState.Live, Url = p.Url ?? UrlOf(run) });
+            previews.Update(preview, p => p with { State = PreviewState.Live, Links = LinksOf(run) });
     }
 
-    /// <summary>An attempt ended: a deploy's link becomes the preview's, and a close run waiting for it may start.</summary>
+    /// <summary>An attempt ended: a deploy's links become the preview's, and a close run waiting for it may start.</summary>
     public void AttemptEnded(CiAttempt attempt)
     {
         if (!runs.TryGet(attempt.RunId, out var run) || run.IsQueue || !previews.TryGet(run.PipelineId, run.Pull, out var preview))
             return;
-        if (preview.DeployedBy == run.Id && preview.Url is null && UrlOf(run) is { } url)
-            previews.Update(preview, p => p with { Url = url });
+        if (preview.DeployedBy == run.Id && LinksOf(run) is { } links && !links.SequenceEqual(preview.Links ?? []))
+            previews.Update(preview, p => p with { Links = links });
         if (!run.IsClose && preview.CloseRun is { } closeId && runs.TryGet(closeId, out var close) && close.Status is RunStatus.Running)
             scheduler.Advance(close.Id);
     }
@@ -161,14 +161,19 @@ public class PreviewLifecycle(
         scheduler.Advance(created.Id);
     });
 
-    private string? UrlOf(CiRun run)
+    /// <summary>The links of the run's never-reused steps, in plan order, the latest attempt of each; null when none.</summary>
+    private IReadOnlyList<AttemptLink>? LinksOf(CiRun run)
     {
         if (plans.Get(run).TryPickProblems(out _, out var plan))
             return null;
-        return attempts.ListByRun(run.Id)
-            .Where(a => plan.TryGetUnit(a.StepName, out _, out var unit) && unit.Step.NeverReused)
-            .SelectMany(a => a.Links ?? [])
-            .FirstOrDefault()?.Url;
+        List<AttemptLink> links =
+        [
+            .. plan.Stages.SelectMany(s => s.Units).Where(u => u.Step.NeverReused)
+                .Select(u => attempts.ListForStep(run.Id, u.Name).LastOrDefault())
+                .SelectMany(a => a?.Links ?? [])
+                .DistinctBy(l => l.Url),
+        ];
+        return links.Count == 0 ? null : links;
     }
 }
 
@@ -220,7 +225,12 @@ public class PreviewStatusReporter(CiRunService runs, CiAttemptService attempts,
         {
             PreviewState.Deploying => new CiCommitStatus("pending", "Deploying the preview", run, Context),
             PreviewState.Live when DeployFailed(deployed) => new CiCommitStatus("error", "Deploy failed, see olve/ci", run, Context),
-            PreviewState.Live => new CiCommitStatus("success", preview.Url is null ? "Preview deployed" : "Preview is live", preview.Url ?? run, Context),
+            PreviewState.Live => preview.Links switch
+            {
+                [var only] => new CiCommitStatus("success", "Preview is live", only.Url, Context),
+                { Count: > 1 } links => new CiCommitStatus("success", $"Preview is live ({links.Count} links)", run, Context),
+                _ => new CiCommitStatus("success", "Preview deployed", run, Context),
+            },
             PreviewState.Removing or PreviewState.Failing => new CiCommitStatus("pending", "Removing the preview", run, Context),
             PreviewState.Removed => new CiCommitStatus("success", "Preview removed", null, Context),
             _ => null,

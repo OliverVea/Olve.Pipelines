@@ -138,7 +138,8 @@ The service reports commit statuses from CI run state, with the binding's token:
   branch protection requires it), or failure ("Removed: test failed", or why else it left). A token
   that can't write branches or merge (Contents: write) shows as a warning on the binding too.
 - `olve/preview` on the head a preview was deployed from: pending ("Deploying the preview",
-  "Removing the preview"), success ("Preview is live" linking it, "Preview removed"), or error
+  "Removing the preview"), success ("Preview is live" linking its one link, or the run's page when it
+  has several; "Preview removed"), or error
   ("Deploy failed, see olve/ci"); never failure. It is not a gate.
 
 ## Definition

@@ -150,7 +150,7 @@ public class CiRunViewService(
             PreviewState.Failing => Contract.PreviewState.Failing,
             _ => Contract.PreviewState.Deploying,
         },
-        Url = preview.Url,
+        Links = RunViews.ToApi(preview.Links) ?? [],
         DeployedBy = preview.DeployedByNumber,
         DeployedAt = preview.DeployedAt,
     };

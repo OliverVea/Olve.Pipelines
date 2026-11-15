@@ -35,8 +35,8 @@ enum PreviewState {
 model Preview {
   state: PreviewState;
 
-  /** The preview's link, from the step that deployed it; null until a step links it. */
-  url: string | null;
+  /** Every link the steps that deployed it gave (a frontend, an API, …), in step order; empty until a step links one. */
+  links: AttemptLink[];
 
   /** The CI run that last deployed it. */
   deployedBy: int32;

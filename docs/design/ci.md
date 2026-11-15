@@ -22,7 +22,9 @@ UI mocks are `src/frontend/mocks/ci.html` (the CI tab and a CI run) and
 
 ## Which changes get CI
 
-- Only pull requests whose base is `main`. Stacked PRs and branches without a PR get no CI.
+- `main` throughout means the binding's branch. Only pull requests whose base is that branch get
+  CI; stacked PRs and branches without a PR get none. There are no other branch or path filters: a
+  second target branch is a second binding.
 - Draft PRs run at the lowest priority (below).
 - Pull requests from forks are ignored.
 
@@ -73,7 +75,10 @@ UI mocks are `src/frontend/mocks/ci.html` (the CI tab and a CI run) and
 - `main` can still move outside the queue (Olve.Trains pushes non-game changes straight to main).
   If it moved while an entry was tested, that entry is tested again on the new `main`.
 - Queue runs always fail fast: the first failed step cancels the rest.
-- A batch is tested on a temporary branch `olve-queue/<run>`, deleted when the run ends.
+- A batch is tested on a temporary branch `olve-queue/<run>`, deleted when the run ends. GitHub's
+  API can't rebase, so the service builds the branch from `main` by merging each PR's head in queue
+  order (`POST /merges`). Where the PRs apply cleanly that gives the tree the rebase merges give; the
+  tree check after each landing catches any difference.
 
 ## Priority
 
@@ -98,8 +103,10 @@ The service reports commit statuses from CI run state, with the binding's token:
 
 ## Definition
 
-- **Declared** as a second export of the pipeline package (`export const ci = checks(...)`) next to
-  the pipeline. `describe` emits both into one manifest. The build, the binary, `codeHash` and the
+- **Declared** in the pipeline package, usually in a file of its own (`ci.ts`:
+  `export const ci = checks({...}).stage(...)`), exported as `ci` from the package's entry point
+  next to the default-exported pipeline. `checks()` has no name, input model or triggers; its input
+  is `{ repo, sha }`, the tested commit. `describe` emits both into one manifest. The build, the binary, `codeHash` and the
   step definitions are shared, and the one binding covers both.
 - **Which definition a run uses:** the PR's own, at the commit it tests. If the PR touches the
   config cursor's paths (the binding path and its local dependencies), that commit gets a build Job
@@ -195,10 +202,11 @@ CI uses the binding's credentials secret. A fine-grained token on the repo needs
 | Permission | Access | For |
 |---|---|---|
 | Metadata | read | everything |
-| Contents | read and write | fetch commits; push and delete `olve-queue/<run>`; merge PRs |
+| Contents | read and write | fetch and compare commits; build and delete `olve-queue/<run>`; merge PRs |
 | Pull requests | read | PR state, mergeable, `refs/pull/<n>/merge` |
 | Commit statuses | read and write | `olve/ci`, `olve/merge-queue` |
 | Webhooks | read and write | the binding hook, with the `pull_request` event added |
+| Workflows | write | only if PRs change `.github/workflows/`: pushing the batch branch |
 
 A classic token needs `repo` and `admin:repo_hook`. Without write access the binding still gets PR
 runs, but no statuses and no queue; the binding's health says so.

@@ -109,7 +109,10 @@ src/frontend/
         ├── reliability-view.ts     # How reliable a pipeline's steps were
         ├── run-view.ts             # One run: status card, changes, graph by status, attempts with typed I/O, files, logs, actions
         ├── run-changes.ts          # A run's changes since the newest older run that succeeded
-        ├── step-logs-view.ts       # One step's log in a run, full height
+        ├── step-logs-view.ts       # One step's log in a run (or a CI run), full height
+        ├── ci-view.ts              # CI tab: open / closed pull requests with their latest CI run, the merge queue
+        ├── ci-run-view.ts          # One CI run: what it tests, its GitHub check, graph by status, the PR's runs
+        ├── ci-parts.ts             # CI status dots, step strip and shared CI styles
         ├── step-runs-view.ts       # One step's attempts across runs, with a status filter
         ├── docs-view.ts            # The /docs setup guide, its search and the API reference
         ├── stage-graph.ts          # Stage graph at two levels (chips, cards), oriented by the viewport
@@ -131,9 +134,10 @@ src/frontend/
 ## Views
 
 - **Pipelines** (`/`): per pipeline its run health, active version or a switch in progress,
-  running and held runs, blocked steps and the per-step strip.
-- **Pipeline** (`/pipeline/:id`): a header with tabs (Overview, Runs, Versions, Config, Secrets,
-  Binding when bound). The overview shows the active version's stage graph with each step's latest
+  running and held runs, blocked steps, pull requests failing or running CI, and the per-step strip.
+- **Pipeline** (`/pipeline/:id`): a header with tabs (Overview, Runs, CI when the pipeline declares
+  it, Versions, Config, Secrets, Binding when bound). The overview's status card counts open pull
+  requests by their CI. The overview shows the active version's stage graph with each step's latest
   attempt. The graph has two levels, Chips and Cards (`[` / `]`, remembered per browser). A
   landscape viewport lays stages out left to right (scrolling sideways when too wide), a portrait
   one top to bottom. `when` blocks are dashed brackets labelled with their condition. Hovering a
@@ -148,6 +152,13 @@ src/frontend/
   pinned version's graph coloured by step status. The selected step's sheet holds its attempts with
   typed input and output, files, live logs and external inputs, and cancel / rerun step (with or
   without continue); a click on nothing closes it.
+- **CI** (`/pipeline/:id/ci`, `/ci/queue`, `/ci/closed`): open pull requests with their latest CI
+  run (status, step strip, stale, conflict, queue place), the merge queue (queued, testing, merged,
+  removed), closed and merged pull requests.
+- **CI run** (`/pipeline/:id/ci/run/:n`): what it tests (a pull request, or a queue batch with the
+  main it was rebased onto), its commit and GitHub check, the main it ran on when stale, the graph
+  by step status (a reused step links the run it came from), the pull request's runs; Cancel,
+  Rerun. A step's log: `/pipeline/:id/ci/run/:n/step/:name/logs`.
 - **Step log** (`/pipeline/:id/run/:n/step/:name/logs`) and **step runs**
   (`/pipeline/:id/step/:name/runs`): one attempt's log full height; a step's attempts across runs.
 - **Critical path** (`/pipeline/:id/critical-path`): each step's share of a range of runs' time.

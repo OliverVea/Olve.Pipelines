@@ -22,8 +22,10 @@ import {
   runPath,
   secretsPath,
   stepPath,
+  ciPath,
 } from '../styles/ui.js';
 import { expiryText } from '../model/secrets.js';
+import { pullTags } from '../model/ci.js';
 import { toActivation } from '../model/versions.js';
 import { LiveController } from '../api/events.js';
 import { favorites, onFavoritesChanged } from '../model/favorites.js';
@@ -537,6 +539,7 @@ export class PipelineListView extends LitElement {
     const blocked = h.blockedSteps ?? [];
     const expiring = h.expiringSecrets ?? [];
     const waiting = this._waiting.filter((w) => String(w.pipelineId) === p.id);
+    const tags = pullTags(h.ci);
     return html`<div class="pc-foot">
       <span class="st t-${toneOf(h.status)}"
         ><span class="dot"></span>${statusLabel(h.status)}</span
@@ -576,6 +579,12 @@ export class PipelineListView extends LitElement {
             >${waiting.length} waiting for input</a
           >`
         : nothing}
+      ${tags.failing
+        ? html`<a class="tag bad" href=${ciPath(p.id ?? '')} @click=${navClick}
+            >${tags.failing}</a
+          >`
+        : nothing}
+      ${tags.running ? html`<span class="tag run">${tags.running}</span>` : nothing}
       ${held.length ? html`<span class="tag warn">${held.length} held</span>` : nothing}
       ${blocked.length
         ? html`<span class="tag warn">${blocked.length} blocked</span>`

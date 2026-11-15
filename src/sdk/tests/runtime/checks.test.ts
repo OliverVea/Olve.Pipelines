@@ -68,6 +68,35 @@ const ci = () =>
     .stage([source, (from) => ({ sha: from.input.sha })])
     .stage(test_, lint);
 
+const deployPreview = implement(
+  step({
+    name: 'deploy-preview',
+    description: 'Installs the preview.',
+    image: 'alpine',
+    input: { src: Src, pull: z.number() },
+    secrets: [DEPLOY_KEY],
+    reuse: false,
+  }),
+  () => undefined,
+);
+const removePreview = implement(
+  step({
+    name: 'remove-preview',
+    description: 'Uninstalls the preview.',
+    image: 'alpine',
+    input: { pull: z.number() },
+    secrets: [DEPLOY_KEY],
+  }),
+  ({ pull }, ctx) => void ctx.log(`removed ${pull}`),
+);
+const previews = () =>
+  checks({ secrets: [TOKEN, DEPLOY_KEY] })
+    .stage([source, (from) => ({ sha: from.input.sha })])
+    .when({ kind: 'pull' }, (c) =>
+      c.stage([deployPreview, (from) => ({ src: from.source, pull: from.input.pull })]),
+    )
+    .onClose([removePreview, (from) => ({ pull: from.input.pull })]);
+
 const describeWith = (c: unknown, p: unknown = cd()) =>
   describePipeline(p, { harness, ci: c }) as any;
 const problemsOf = (c: unknown, p: unknown = cd()) => {
@@ -95,6 +124,20 @@ describe('the ci section', () => {
     ]);
     expect(m.ci.stages[0].steps[0].input).toEqual({ sha: { ref: 'input.sha' } });
     expect(Object.keys(m.models)).toContain('CiInput');
+  });
+
+  test('describes a preview: a never-reused deploy and the onClose stage', () => {
+    const m = describeWith(previews());
+    expect(Manifest.safeParse(m).success).toBe(true);
+    expect(m.ci.stages[1].when).toEqual({ kind: ['pull'] });
+    expect(m.ci.stages[1].stages[0].steps[0]).toMatchObject({
+      name: 'deploy-preview',
+      reuse: false,
+    });
+    expect(m.ci.onClose.steps.map((d: any) => [d.name, d.input])).toEqual([
+      ['remove-preview', { pull: { ref: 'input.pull' } }],
+    ]);
+    expect(m.models.CiInput.output.required).toEqual(['repo', 'sha', 'kind', 'pull']);
   });
 
   test('a pipeline without a ci export has no ci section', () => {
@@ -198,6 +241,21 @@ describe('the ci section', () => {
       "CI step 'test' has a different implementation than the pipeline's step 'test'; a step in both must be the same step",
     ],
     [
+      'an onClose step declaring a secret outside the allow-list',
+      () => checks().onClose([removePreview, (from) => ({ pull: from.input.pull })]),
+      cd,
+      "CI step 'remove-preview' uses secret 'DEPLOY_KEY', which is not in ci.secrets",
+    ],
+    [
+      'onClose declared twice',
+      () =>
+        checks({ secrets: [DEPLOY_KEY] })
+          .onClose([removePreview, (from) => ({ pull: from.input.pull })])
+          .onClose([removePreview, (from) => ({ pull: from.input.pull })]),
+      cd,
+      'onClose is declared twice; it is one stage',
+    ],
+    [
       'a ci export that is not checks()',
       cd,
       cd,
@@ -231,6 +289,23 @@ describe('the harness', () => {
     );
     expect(code).toBe(0);
     expect(io.err.join('\n')).toContain('linted');
+  });
+});
+
+describe('the harness runs onClose', () => {
+  test('a step only onClose has', async () => {
+    const dir = tmp('checks-close');
+    writeFileSync(join(dir, 'input.json'), JSON.stringify({ pull: 7 }));
+    const io = captureIO();
+    const code = await withEnv({ OLVE_DIR: dir, OLVE_RESULT_URL: undefined }, () =>
+      runHarness(
+        { pipeline: cd(), ci: previews(), harness },
+        ['run', 'remove-preview'],
+        io,
+      ),
+    );
+    expect(code).toBe(0);
+    expect(io.err.join('\n')).toContain('removed 7');
   });
 });
 

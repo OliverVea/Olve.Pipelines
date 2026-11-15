@@ -114,6 +114,7 @@ export const deployBeta = step({
   timeoutSeconds: 900,                  // optional; default 3600, capped at 21600
   retries: 1,                           // optional: retry a failed attempt (fresh pod) up to n times
   clusterAccess: true,                  // optional: a Kubernetes API token in the pod, if the instance grants one
+  reuse: false,                         // optional: CI always runs it, even on a tree that already passed
 });
 ```
 
@@ -197,6 +198,11 @@ export const deployBeta = step({
   pipeline bound on the instance, runs with the same token and so has that account's whole RBAC
   reach. Grant it only rights every bound repository may use, and keep the namespaces it can write
   to free of anything else.
+
+- **`reuse: false`** makes CI run the step on every run, even on a tree that already passed (see
+  [CI reuse](binding-and-reconcile.md#how-changes-are-noticed)): a preview deploy, or any step whose
+  input reads `input.pull`. A reused CI step may not read `input.pull` or the output of a `reuse:
+  false` step; reconcile refuses it. CD ignores the flag.
 
 ## Matrix steps
 

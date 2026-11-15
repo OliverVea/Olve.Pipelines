@@ -332,6 +332,8 @@ export interface ChecksMeta {
   readonly description: string | undefined;
   /** The pipeline secrets CI steps may declare. */
   readonly secrets: readonly Secret[];
+  /** The stage a close run runs (`onClose`). */
+  onClose?: readonly StageStepNode[];
 }
 
 export function pipelineData(p: unknown): PipelineData {

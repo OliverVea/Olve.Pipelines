@@ -84,6 +84,7 @@ export function stepsWithCases(data: PipelineData): { step: AnyStep; cases: stri
   };
   walk(data.nodes, []);
   for (const fh of data.failureHandlers) out.push({ step: fh.step, cases: [] });
+  for (const s of data.checks?.onClose ?? []) out.push({ step: s.step, cases: [] });
   return out;
 }
 

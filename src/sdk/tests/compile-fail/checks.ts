@@ -15,3 +15,8 @@ checks()
 checks()
   // @ts-expect-error -- expect: Source (input 'source' of step 'test') is not available at this stage
   .stage(test);
+
+checks()
+  .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  // @ts-expect-error -- expect: Source (input 'source' of step 'test') is not available at this stage
+  .onClose(test);

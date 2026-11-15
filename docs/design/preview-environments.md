@@ -1,8 +1,9 @@
 # Preview environments
 
-Status: partly built. The server runs it: `kind`/`pull` in the CI input, `reuse: false`, `onClose`
-close runs, Preview records and `olve/preview`; `Ci:Authors` and no `clusterAccess` in CI are live
-(see [CI](ci.md)). The SDK, the UI's preview cell, the homelab pieces and Trains are not built.
+Status: partly built. The server and the SDK (2.0.0-beta.40) have it: `kind`/`pull` in the CI input,
+`reuse: false`, `onClose` close runs, Preview records and `olve/preview`; `Ci:Authors` and no
+`clusterAccess` in CI are live (see [CI](ci.md)). The UI's preview cell, the homelab pieces and
+Trains are not built.
 
 A preview environment is a live instance of an app for one open pull request, deployed by the PR's
 CI runs and torn down when the PR closes or merges. Previews are reachable over the tailnet only.

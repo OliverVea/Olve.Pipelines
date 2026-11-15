@@ -82,6 +82,8 @@ export interface Step<
   readonly retries?: number;
   /** The step pod gets the instance's step ServiceAccount token (`Kubernetes:StepServiceAccount`). */
   readonly clusterAccess?: boolean;
+  /** `false`: CI runs the step on every run, even on a tree that already passed. */
+  readonly reuse?: false;
   /** How the step is set up, as written in the definition (may hold config references). */
   readonly settings?: Readonly<Record<string, unknown>>;
   /** Set on a matrix step: it runs once per cell. */
@@ -136,6 +138,11 @@ export interface StepDef<
    * (`Kubernetes:StepServiceAccount`), if it grants one. Default false (no token).
    */
   clusterAccess?: boolean;
+  /**
+   * `false`: CI always runs the step, even on a tree that already passed (a preview deploy, or a step reading
+   * `input.pull`). CD ignores it. Default: a CI step that succeeded on the same tree with the same code is reused.
+   */
+  reuse?: false;
   /** A label for the step's kind (default `custom`). */
   kind?: StepKind;
   /**
@@ -166,6 +173,7 @@ function makeStep(def: Record<string, unknown>): AnyStep {
     ...(def.timeoutSeconds !== undefined ? { timeoutSeconds: def.timeoutSeconds } : {}),
     ...(def.retries !== undefined ? { retries: def.retries } : {}),
     ...(def.clusterAccess === true ? { clusterAccess: true } : {}),
+    ...(def.reuse === false ? { reuse: false } : {}),
     ...(def.settings !== undefined ? { settings: def.settings } : {}),
     ...(def.matrix !== undefined
       ? { matrix: makeMatrix(def.matrix as MatrixDef<Axes>) }

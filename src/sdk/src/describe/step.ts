@@ -109,6 +109,7 @@ export function describeStep(
       : {}),
     ...(configNames.length ? { configEntries: configNames } : {}),
     ...(s.clusterAccess === true ? { clusterAccess: true as const } : {}),
+    ...(s.reuse === false ? { reuse: false as const } : {}),
     ...(Object.keys(externalInputs).length ? { externalInputs } : {}),
     ...(preflight ? { preflight: true as const } : {}),
   };

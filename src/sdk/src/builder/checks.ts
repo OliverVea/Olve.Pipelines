@@ -16,8 +16,19 @@ import {
   type WhenCond,
 } from './pipeline.ts';
 
-/** What a CI run gives its steps: the repository and the commit tested (a pull request merged onto the base branch). */
-export const CiInput = model('CiInput', z.object({ repo: z.string(), sha: z.string() }));
+/**
+ * What a CI run gives its steps: the repository, the commit tested (a pull request merged onto the base branch), the
+ * run's kind and the pull request (0 for a queue run). A close run gets the commit its preview was deployed from.
+ */
+export const CiInput = model(
+  'CiInput',
+  z.object({
+    repo: z.string(),
+    sha: z.string(),
+    kind: z.enum(['pull', 'queue', 'close']),
+    pull: z.number().int(),
+  }),
+);
 
 export interface ChecksDef {
   description?: string;
@@ -38,11 +49,35 @@ export interface Checks<A extends AvailMap> {
     cond: WhenCond<typeof CiInput>,
     block: (p: Checks<A>) => Checks<B>,
   ): Checks<Simplify<A & MakeMaybe<Omit<B, keyof A>>>>;
+  /**
+   * The one stage a close run runs once a pull request closes or merges, to remove its preview. It runs with the
+   * definition of the run that deployed the preview, sees only `CiInput` (`kind: 'close'`), and its steps are never
+   * reused. Steps of a pull request's run that deploy a preview declare `reuse: false`.
+   */
+  onClose<const E extends readonly StageEntry<InitialAvail<typeof CiInput>>[]>(
+    ...entries: CheckStage<E, InitialAvail<typeof CiInput>>
+  ): Checks<A>;
+}
+
+class ChecksPipeline extends Pipeline<typeof CiInput, AvailMap> {
+  onClose(...entries: readonly unknown[]): unknown {
+    const data = pipelineData(this);
+    const stage = new Pipeline(
+      { name: '', input: CiInput },
+      { triggers: [], failureHandlers: [], problems: data.problems },
+    );
+    (stage.stage as (...e: readonly unknown[]) => unknown)(...entries);
+    const node = pipelineData(stage).nodes[0];
+    if (data.checks!.onClose)
+      data.problems.push('onClose is declared twice; it is one stage');
+    else if (node?.kind === 'stage') data.checks!.onClose = node.steps;
+    return this;
+  }
 }
 
 /** Start a pipeline's CI. Runs on pull requests into the binding's branch, apart from the pipeline's runs. */
 export function checks(def: ChecksDef = {}): Checks<InitialAvail<typeof CiInput>> {
-  const p = new Pipeline({ name: '', input: CiInput });
+  const p = new ChecksPipeline({ name: '', input: CiInput });
   Object.assign(pipelineData(p), {
     checks: { description: def.description, secrets: [...(def.secrets ?? [])] },
   });

@@ -34,7 +34,33 @@ public record K8sPodSpec(
     [property: JsonPropertyName("securityContext")] K8sPodSecurityContext? SecurityContext = null,
     [property: JsonPropertyName("automountServiceAccountToken"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? AutomountServiceAccountToken = null,
     [property: JsonPropertyName("enableServiceLinks"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? EnableServiceLinks = null,
-    [property: JsonPropertyName("serviceAccountName"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ServiceAccountName = null);
+    [property: JsonPropertyName("serviceAccountName"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ServiceAccountName = null,
+    [property: JsonPropertyName("tolerations"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] K8sToleration[]? Tolerations = null,
+    [property: JsonPropertyName("affinity"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] K8sAffinity? Affinity = null);
+
+public record K8sToleration(
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("operator")] string Operator,
+    [property: JsonPropertyName("value")] string Value,
+    [property: JsonPropertyName("effect")] string Effect);
+
+public record K8sAffinity(
+    [property: JsonPropertyName("nodeAffinity")] K8sNodeAffinity NodeAffinity);
+
+public record K8sNodeAffinity(
+    [property: JsonPropertyName("preferredDuringSchedulingIgnoredDuringExecution")] K8sPreferredSchedulingTerm[] Preferred);
+
+public record K8sPreferredSchedulingTerm(
+    [property: JsonPropertyName("weight")] int Weight,
+    [property: JsonPropertyName("preference")] K8sNodeSelectorTerm Preference);
+
+public record K8sNodeSelectorTerm(
+    [property: JsonPropertyName("matchExpressions")] K8sNodeSelectorRequirement[] MatchExpressions);
+
+public record K8sNodeSelectorRequirement(
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("operator")] string Operator,
+    [property: JsonPropertyName("values")] string[] Values);
 
 public record K8sPodSecurityContext(
     [property: JsonPropertyName("seccompProfile")] K8sSeccompProfile? SeccompProfile = null);

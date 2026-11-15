@@ -245,17 +245,38 @@ public class CiQueueTests
         await Assert.That(s.QueueRun().MainSha).IsEqualTo("f000000000000000000000000000000000000000");
     }
 
+    // Auto-merge keeps asking for the queue: a fix pushed after a failure goes back in without touching the toggle.
     [Test]
-    public async Task Turning_auto_merge_on_enqueues_and_turning_it_off_removes()
+    public async Task Auto_merge_enqueues_each_new_head_until_it_is_turned_off()
     {
         await using var s = new CiScenario();
 
         s.Push(7, A, autoMerge: true);
         var entry = s.Entry(7);
-        await Assert.That((entry.State, entry.Via)).IsEqualTo((CiQueueState.Queued, CiQueueVia.AutoMerge));
+        await Assert.That((entry.State, entry.Via, entry.HeadSha)).IsEqualTo((CiQueueState.Queued, CiQueueVia.AutoMerge, A));
+
+        await s.ProcessQueueAsync();
+        var run = s.QueueRun();
+        s.Succeed(run, "checkout");
+        s.Fail(run, "test");
+        await s.ProcessQueueAsync();
+        s.Clock.Advance(TimeSpan.FromSeconds(1));
+        s.Push(7, A, autoMerge: true);
+        await Assert.That((s.Entry(7).State, s.Entry(7).Reason)).IsEqualTo((CiQueueState.Removed, "test failed"));
 
         s.Clock.Advance(TimeSpan.FromSeconds(1));
-        s.Push(7, A);
+        s.Push(7, D, autoMerge: true);
+        await Assert.That((s.Entry(7).State, s.Entry(7).HeadSha)).IsEqualTo((CiQueueState.Queued, D));
+
+        s.Clock.Advance(TimeSpan.FromSeconds(1));
+        s.Push(7, B, autoMerge: true);
+        await Assert.That((s.Entry(7).State, s.Entry(7).HeadSha)).IsEqualTo((CiQueueState.Queued, B));
+        await Assert.That(s.Queue.ListByPipeline(s.Pipeline.Id).Select(e => (e.HeadSha, e.State, e.Reason)))
+            .IsEquivalentTo([(A, CiQueueState.Removed, "test failed"), (D, CiQueueState.Removed, "pushed"), (B, CiQueueState.Queued, (string?)null)],
+                TUnit.Assertions.Enums.CollectionOrdering.Matching);
+
+        s.Clock.Advance(TimeSpan.FromSeconds(1));
+        s.Push(7, B);
         await Assert.That((s.Entry(7).State, s.Entry(7).Reason)).IsEqualTo((CiQueueState.Removed, "auto-merge turned off"));
     }
 

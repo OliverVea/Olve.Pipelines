@@ -103,25 +103,35 @@ public class CiQueueActions(
     /// <summary>A tracked pull request was added or changed.</summary>
     public void Observe(PullRequest? before, PullRequest after)
     {
-        if (!queue.TryGetUnfinished(after.PipelineId, after.Number, out var entry))
+        if (queue.TryGetUnfinished(after.PipelineId, after.Number, out var entry))
         {
-            if (after.AutoMerge && before?.AutoMerge != true && after.State == PullRequestState.Open
-                && Enqueue(after, CiQueueVia.AutoMerge, null).TryPickProblems(out var problems))
-                logger.LogProblems(LogLevel.Information, problems, "Pull request #{Pull} turned on auto-merge but can't enter the merge queue", after.Number);
-            return;
+            if (after.State == PullRequestState.Merged)
+            {
+                MergedOutside(entry);
+                return;
+            }
+
+            var reason = after.State == PullRequestState.Closed ? "closed"
+                : after.HeadSha != entry.HeadSha ? "pushed"
+                : after.Draft ? "draft"
+                : before?.AutoMerge == true && !after.AutoMerge && entry.Via == CiQueueVia.AutoMerge ? "auto-merge turned off"
+                : null;
+            if (reason is null)
+                return;
+            Remove(entry, reason).DiscardResult();
         }
 
-        if (after.State == PullRequestState.Merged)
-            MergedOutside(entry);
-        else if (after.State == PullRequestState.Closed)
-            Remove(entry, "closed").DiscardResult();
-        else if (after.HeadSha != entry.HeadSha)
-            Remove(entry, "pushed").DiscardResult();
-        else if (after.Draft)
-            Remove(entry, "draft").DiscardResult();
-        else if (before?.AutoMerge == true && !after.AutoMerge && entry.Via == CiQueueVia.AutoMerge)
-            Remove(entry, "auto-merge turned off").DiscardResult();
+        if (AsksForQueue(before, after) && Enqueue(after, CiQueueVia.AutoMerge, null).TryPickProblems(out var problems))
+            logger.LogProblems(LogLevel.Information, problems, "Pull request #{Pull} has auto-merge on but can't enter the merge queue", after.Number);
     }
+
+    /// <summary>
+    /// Auto-merge asks for the queue when it is turned on, and again on a new head or out of draft, so a fix pushed
+    /// after a failure goes back in; a pull request removed at the same head stays out.
+    /// </summary>
+    private static bool AsksForQueue(PullRequest? before, PullRequest after) =>
+        after is { AutoMerge: true, State: PullRequestState.Open, Draft: false }
+        && (before is null || !before.AutoMerge || before.HeadSha != after.HeadSha || before.Draft || before.State != PullRequestState.Open);
 
     /// <summary>A pull request is no longer tracked: it left the binding's branch.</summary>
     public void Forget(PullRequest pull)

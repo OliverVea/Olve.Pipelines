@@ -1,8 +1,8 @@
 # CI
 
-Status: partly built. Pull requests get CI runs on the active version's definition and binary
-(a PR that changes the definition gets a failed run saying so); a PR's own builds, statuses to
-GitHub, reuse by identical tree, the merge queue, the UI and `pl ci` are not built. The CI scheduler
+Status: partly built. Pull requests get CI runs, on the active version's definition and binary or,
+for a PR that changes the definition, on a build of its own; statuses to GitHub, reuse by identical
+tree, the merge queue, the UI and `pl ci` are not built. The CI scheduler
 doesn't apply a matrix step's `cascadeFailure`, and CI stages can't branch on config (`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has
@@ -113,12 +113,19 @@ The service reports commit statuses from CI run state, with the binding's token:
   step definitions are shared, and the one binding covers both.
 - **Which definition a run uses:** the PR's own, at the commit it tests. If the PR touches the
   config cursor's paths (the binding path and its local dependencies), that commit gets a build Job
-  of its own. Otherwise the run uses the binary of the `main` it is tested on. A change to CI is
+  of its own. Otherwise the run uses the active version's definition and binary. A change to CI is
   tested on itself, and most PRs need no build.
 - "Touches" compares the tested tree with the commit the reused binary was built from (the active
   version's), over the cursor's paths. When the active version lags `main` (a failed reconcile, a
   pending config), a PR is then built on its own rather than run on a binary that doesn't match its
-  definition. A queue batch is built once, from its batch commit, if it touches them.
+  definition. GitHub lists at most 300 changed files; a longer list counts as touching them. A queue
+  batch is built once, from its batch commit, if it touches them.
+- The build (`CiBuild`, a Job `olve-ci-build-<p12>-<sha12>` with role `ci-build`) runs like
+  reconcile's, outside the Job slots, and stores its binary at `versions/<p>/builds/<sha>/`, the
+  key reconcile uses for a commit's build: a build is a function of the commit. Runs of the same
+  commit share it; a succeeded build whose binary is still stored is reused, a failed one is built
+  again. A run waits for it with no attempts; one that ends stops the build if no other run waits.
+  A restart reattaches to the Job by name.
 - A CI build is a binary and a manifest, nothing more: it never creates a `PipelineVersion`, never
   switches and never changes CD's activation. Its manifest goes through the same
   `ManifestValidator`; a PR whose definition fails describe or validation gets a failed run that
@@ -155,7 +162,8 @@ tree it has already tested with the same definition, it doesn't run the passing 
   `ci` in its health is null. Enqueueing is refused. The binding still keeps track of its pull
   requests, so a PR that adds CI is seen.
 - A PR that adds CI touches the definition, so it is built on its own and runs the CI it adds.
-- A PR that removes CI gets no run and no `olve/ci` status. The queue still lands it: its batch's
+- A PR that removes CI gets no run and no `olve/ci` status: the run that waited for its build is
+  dropped once the build shows no `ci`. The queue still lands it: its batch's
   definition has no CI steps, so it merges once built and described.
 - A PR whose definition doesn't build or describe gets a failed run that lists the problems.
 

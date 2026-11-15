@@ -26,14 +26,14 @@ public sealed class CiHarnessAttempt(CiAttempt attempt, CiAttemptService attempt
             return new NotFoundProblem("CI attempt '{0}' not found.", attempt.Id);
         if (!runs.TryGet(current.RunId, out var run))
             return new NotFoundProblem("CI run #{0} of attempt '{1}' not found.", current.RunNumber, attempt.Id);
-        if (plans.Get(run.VersionId).TryPickProblems(out var problems, out var plan))
+        if (plans.Get(run).TryPickProblems(out var problems, out var plan))
             return problems;
         if (!plan.TryGetUnit(current.StepName, out var stage, out var unit))
-            return new ResultProblem("CI of version {0} has no step '{1}'.", run.VersionNumber, current.StepName);
+            return new ResultProblem("The CI of run #{0} has no step '{1}'.", run.Number, current.StepName);
         if (current.Input is not { } input)
             return new ResultProblem("CI attempt {0} of step '{1}' in run #{2} has no input.", current.Number, current.StepName, run.Number);
-        if (!plans.BinaryKey(run.VersionId, out var binaryKey))
-            return new NotFoundProblem("Version {0} of CI run #{1} not found.", run.VersionNumber, run.Number);
+        if (!plans.BinaryKey(run, out var binaryKey))
+            return new NotFoundProblem("The binary of CI run #{0} is not found.", run.Number);
 
         return new HarnessLaunch(ConfigDelivery.WithConfig(input, unit.Step, run.Config), binaryKey, run.VersionStamp, unit.Step, stage.Cases,
             unit.Cell, run.VersionNumber);

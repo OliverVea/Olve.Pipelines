@@ -76,7 +76,7 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
     /// <param name="tokenSecretKey">Key of the GitHub token in the pipeline's K8s Secret (the binding's credentials); null = anonymous codeload.</param>
     public async Task<Result<HarnessJobSpec>> CreateBuildJobAsync(
         string jobName, Id<Pipeline> pipelineId, string repo, string commitSha, string pipelinePath,
-        string? tokenSecretKey, CancellationToken ct = default)
+        string? tokenSecretKey, CancellationToken ct = default, string role = BuildJobBuilder.BuildRole)
     {
         var binaryUrl = await presigner.PresignPutAsync(
             StorageLayout.BuildBinaryKey(pipelineId, commitSha),
@@ -85,7 +85,7 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
         return BuildJobBuilder.Build(new BuildJobRequest(
             jobName, pipelineId, repo, commitSha, pipelinePath,
             tokenSecretKey is null ? null : PipelineSecrets.Name(pipelineId),
-            binaryUrl, tokenSecretKey), options);
+            binaryUrl, tokenSecretKey, role), options);
     }
 
     /// <summary>A map-trigger Job over the version binary at <paramref name="binaryKey"/>; the event must already be at <paramref name="eventKey"/>.</summary>

@@ -35,6 +35,9 @@ public sealed record RetentionInputs(
 
     /// <summary>The versions running CI runs use: their binaries stay.</summary>
     public IReadOnlySet<Id<PipelineVersion>> CiVersions { get; init; } = new HashSet<Id<PipelineVersion>>();
+
+    /// <summary>The binaries running CI runs with their own definition use (<c>versions/&lt;p&gt;/builds/&lt;sha&gt;/step.tar.gz</c>): they stay.</summary>
+    public IReadOnlySet<string> CiBinaries { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 }
 
 public enum RetentionCategory
@@ -79,7 +82,7 @@ public static class RetentionPlanner
     private const string BinaryFile = "step.tar.gz";
 
     /// <summary>Roles v2 gives its Jobs (v1's bare failure-handler Jobs use <c>failure-handler</c>; its step Jobs have no role).</summary>
-    private static readonly HashSet<string> V2Roles = new(StringComparer.Ordinal) { "step", "ci-step", "map-trigger", "build", "on-failure" };
+    private static readonly HashSet<string> V2Roles = new(StringComparer.Ordinal) { "step", "ci-step", "map-trigger", "build", "ci-build", "on-failure" };
 
     private static readonly string[] HelperJobPrefixes = ["olve-map-", "olve-fh-", "olve-build-", "olve-ci-"];
 
@@ -99,7 +102,7 @@ public static class RetentionPlanner
         {
             objects.AddRange(RunObjects(listing, expired, retainedRuns, retainedAttempts, inputs.Now, options));
             // A deleted pipeline's binaries can't become a version any more, so they are leftovers.
-            var (builds, keptCount) = Builds(listing, inputs.Versions, retainedRuns, inputs.CiVersions, inputs.Activations, inputs.Now,
+            var (builds, keptCount) = Builds(listing, inputs.Versions, retainedRuns, inputs.CiVersions, inputs.CiBinaries, inputs.Activations, inputs.Now,
                 p => inputs.Pipelines.Contains(p) ? PolicyOf(p).BuildGrace : options.OrphanGrace);
             objects.AddRange(builds);
             buildsKept = keptCount;
@@ -218,7 +221,8 @@ public static class RetentionPlanner
 
     private static (IReadOnlyList<ObjectDeletion> Deletions, int Kept) Builds(
         IReadOnlyList<StoredObject> listing, IReadOnlyList<PipelineVersion> versions, IReadOnlyList<Run> retainedRuns,
-        IReadOnlySet<Id<PipelineVersion>> ciVersions, IReadOnlyDictionary<Id<Pipeline>, PipelineActivation> activations, DateTimeOffset now, Func<Id<Pipeline>, TimeSpan> graceOf)
+        IReadOnlySet<Id<PipelineVersion>> ciVersions, IReadOnlySet<string> ciBinaries, IReadOnlyDictionary<Id<Pipeline>, PipelineActivation> activations,
+        DateTimeOffset now, Func<Id<Pipeline>, TimeSpan> graceOf)
     {
         var byId = versions.ToDictionary(v => v.Id);
         var inUse = new HashSet<Id<PipelineVersion>>(retainedRuns.Select(r => r.VersionId).Concat(ciVersions));
@@ -236,7 +240,7 @@ public static class RetentionPlanner
             }
         }
 
-        var keep = inUse.Where(byId.ContainsKey).Select(id => byId[id].BinaryKey).ToHashSet(StringComparer.Ordinal);
+        var keep = inUse.Where(byId.ContainsKey).Select(id => byId[id].BinaryKey).Concat(ciBinaries).ToHashSet(StringComparer.Ordinal);
         var deletions = new List<ObjectDeletion>();
         var kept = 0;
         var graces = new Dictionary<string, TimeSpan>(StringComparer.Ordinal);

@@ -389,12 +389,13 @@ public class RetentionPlannerTests
             Job("olve-fh-x", "on-failure", P, finished: true, 200, ttl: null),       // finished, no TTL, > 7 d: delete
             Job("olve-map-y", "map-trigger", P, finished: true, 200),                // has a TTL: K8s collects it
             Job("olve-build-z", "build", P, finished: false, 5),                     // a build still running past the grace: keep
+            Job("olve-ci-build-z", "ci-build", P, finished: true, 200, ttl: null),   // a CI build, finished, no TTL, > 7 d: delete
             Job($"olve-{Guid.NewGuid():N}", "step", P, finished: true, 5),           // finished step, not yet stale: keep
         };
 
         var plan = RetentionPlanner.Plan(Inputs([run], [active], jobs: jobs), Options);
 
-        await Assert.That(plan.Jobs.Select(j => j.Name)).IsEquivalentTo(new[] { jobs[1].Name, "olve-fh-x" });
+        await Assert.That(plan.Jobs.Select(j => j.Name)).IsEquivalentTo(new[] { jobs[1].Name, "olve-fh-x", "olve-ci-build-z" });
     }
 
     // Catches: retention deleting a running CI attempt's Job or URL Secret, or the binary a running CI run uses.
@@ -420,6 +421,22 @@ public class RetentionPlannerTests
         await Assert.That(plan.Jobs.Select(j => j.Name)).IsEquivalentTo([ended]);
         await Assert.That(plan.Secrets.Select(x => x.Name)).IsEmpty();
         await Assert.That(plan.Objects).IsEmpty();
+    }
+
+    // Catches: retention deleting the binary a running CI run built from its pull request's own definition.
+    [Test]
+    public async Task ARunningCiRunsOwnBuild_IsKept_AnOldOneNobodyUsesGoes()
+    {
+        var used = $"versions/{Hex(P)}/builds/{new string('a', 40)}/step.tar.gz";
+        var unused = $"versions/{Hex(P)}/builds/{new string('b', 40)}/step.tar.gz";
+        var inputs = Inputs(objects: [Obj(used, ageDays: 400), Obj(unused, ageDays: 400)]) with
+        {
+            CiBinaries = new HashSet<string>(StringComparer.Ordinal) { used },
+        };
+
+        var plan = RetentionPlanner.Plan(inputs, Options);
+
+        await Assert.That(plan.Objects.Select(o => o.Object.Key)).IsEquivalentTo(new[] { unused });
     }
 
     [Test]

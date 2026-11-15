@@ -18,7 +18,7 @@ public class CiRunViewService(
 {
     public Contract.CiRunSummary Summarize(CiRun run)
     {
-        var steps = plans.Get(run.VersionId).TryPickProblems(out _, out var plan)
+        var steps = plans.Get(run).TryPickProblems(out _, out var plan)
             ? []
             : Stages(run, plan).SelectMany(s => s.Steps.Select(step => new Contract.CiStepState { Name = step.Name, Stage = s.Index, Status = step.Status })).ToArray();
         return new Contract.CiRunSummary
@@ -48,7 +48,7 @@ public class CiRunViewService(
     public Contract.CiRun Detail(CiRun run)
     {
         var s = Summarize(run);
-        var stages = plans.Get(run.VersionId).TryPickProblems(out _, out var plan) ? [] : Stages(run, plan);
+        var stages = plans.Get(run).TryPickProblems(out _, out var plan) ? [] : Stages(run, plan);
         return new Contract.CiRun
         {
             Id = s.Id,
@@ -65,7 +65,7 @@ public class CiRunViewService(
             CancelReason = s.CancelReason,
             Steps = s.Steps,
             PullHeads = [new Contract.CiRunPull { Number = run.Pull, Title = run.Title, Branch = run.Branch, HeadSha = run.HeadSha }],
-            DefinitionSha = versions.TryGet(run.VersionId, out var version) && version.CommitSha is { } built ? built : run.MainSha,
+            DefinitionSha = run.OwnDefinition ? run.TestedSha : versions.TryGet(run.VersionId, out var version) && version.CommitSha is { } built ? built : run.MainSha,
             Stages = stages,
             Problems = run.Problems ?? [],
         };

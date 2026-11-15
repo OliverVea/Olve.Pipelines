@@ -12,6 +12,7 @@ using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Results;
+using Olve.Utilities.Ids;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.UnitTests.Ci;
@@ -120,6 +121,66 @@ internal sealed class FakeGitHub : IPullRequestSource
         Task.FromResult(Result.Success(ChangedFiles.TryGetValue(head, out var files) ? files : (IReadOnlyList<string>)["src/app.cs"]));
 }
 
+/// <summary>Builds of pull requests' own definitions, finished by the test: each commit's build waits for <see cref="Finish"/>.</summary>
+internal sealed class FakeCiBuilder : ICiDefinitionBuilder
+{
+    private readonly Lock _gate = new();
+    private readonly Dictionary<string, TaskCompletionSource<Result<string>>> _builds = [];
+    private readonly Dictionary<string, TaskCompletionSource> _started = [];
+
+    public List<string> Started { get; } = [];
+    public List<string> Deleted { get; } = [];
+    public HashSet<string> Binaries { get; } = [];
+
+    private TaskCompletionSource<Result<string>> For(string sha)
+    {
+        lock (_gate)
+        {
+            if (!_builds.TryGetValue(sha, out var tcs))
+                _builds[sha] = tcs = new TaskCompletionSource<Result<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            return tcs;
+        }
+    }
+
+    /// <summary>Completes once the build of <paramref name="sha"/> has started.</summary>
+    public Task WhenStarted(string sha) => StartedSignal(sha).Task;
+
+    private TaskCompletionSource StartedSignal(string sha)
+    {
+        lock (_gate)
+        {
+            if (!_started.TryGetValue(sha, out var tcs))
+                _started[sha] = tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            return tcs;
+        }
+    }
+
+    public void Finish(string sha, Result<string> result)
+    {
+        For(sha).SetResult(result);
+        if (!result.TryPickProblems(out _))
+            lock (_gate) Binaries.Add(sha);
+    }
+
+    public Task<Result<string>> BuildAsync(PipelineConfigBinding binding, string commitSha, CancellationToken ct)
+    {
+        lock (_gate) Started.Add(commitSha);
+        StartedSignal(commitSha).TrySetResult();
+        return For(commitSha).Task.WaitAsync(ct);
+    }
+
+    public Task DeleteAsync(Id<Pipeline> pipelineId, string commitSha)
+    {
+        lock (_gate) Deleted.Add(commitSha);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> BinaryExistsAsync(Id<Pipeline> pipelineId, string commitSha, CancellationToken ct)
+    {
+        lock (_gate) return Task.FromResult(Binaries.Contains(commitSha));
+    }
+}
+
 /// <summary>
 /// The production wiring (<see cref="ServiceConfiguration.AddPipelineServices"/>) with a bound pipeline whose active
 /// version declares CI (the fixture's checkout, then build and test), GitHub faked and time moved by hand.
@@ -136,6 +197,7 @@ internal sealed class CiScenario : IAsyncDisposable
         services.AddSingleton<TimeProvider>(Clock);
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         services.AddSingleton<IPullRequestSource>(GitHub);
+        services.AddSingleton<ICiDefinitionBuilder>(Builder);
         services.AddSingleton(new StorageOptions("bucket", Mode: StorageMode.Ephemeral));
         services.AddPipelineServices();
         Provider = services.BuildServiceProvider();
@@ -155,6 +217,7 @@ internal sealed class CiScenario : IAsyncDisposable
 
     public CiClock Clock { get; } = new();
     public FakeGitHub GitHub { get; } = new();
+    public FakeCiBuilder Builder { get; } = new();
     public ServiceProvider Provider { get; }
     public Pipeline Pipeline { get; }
     public PipelineConfigBinding Binding { get; }
@@ -183,6 +246,9 @@ internal sealed class CiScenario : IAsyncDisposable
     }
 
     public static string Merge(string head) => "m" + head[1..];
+
+    /// <summary>Waits until the builds of own definitions in flight have settled their runs.</summary>
+    public Task BuildsSettledAsync() => Get<CiDefinitionService>().InFlight();
 
     /// <summary>Lets the debounce pass and starts what is due.</summary>
     public async Task SettleAsync()

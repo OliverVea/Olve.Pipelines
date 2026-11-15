@@ -23,7 +23,8 @@ public sealed record CiRunRequest(
     string Input,
     int? ConfigSnapshot,
     string? Config,
-    IReadOnlyList<string>? Problems = null);
+    IReadOnlyList<string>? Problems = null,
+    bool OwnDefinition = false);
 
 /// <summary>CI runs: their numbers (a sequence per pipeline of their own), lookups and status. Singleton: owns indexes and the numbering lock.</summary>
 public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeProvider timeProvider)
@@ -61,7 +62,9 @@ public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeP
                 FinishedAt: failed ? now : null,
                 ConfigSnapshot: request.ConfigSnapshot,
                 Config: request.Config,
-                Problems: request.Problems);
+                Problems: request.Problems,
+                OwnDefinition: request.OwnDefinition,
+                Building: request.OwnDefinition && !failed);
             store.Set(run);
             return run;
         }
@@ -96,7 +99,27 @@ public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeP
         return store.TryGet(id, out var after) ? after : new NotFoundProblem("CI run '{0}' not found.", id);
     }
 
+    /// <summary>A run that waited for its own definition: the config it runs with is pinned, its steps may start.</summary>
+    public Result<CiRun> Define(Id<CiRun> id, int? configSnapshot, string? config) =>
+        Mutate(id, r => r.Building ? r with { Building = false, ConfigSnapshot = configSnapshot, Config = config } : r);
+
+    /// <summary>A running run whose definition can't be used fails before any step ran, saying why.</summary>
+    public Result<CiRun> FailDefinition(Id<CiRun> id, IReadOnlyList<string> problems)
+    {
+        var now = timeProvider.GetUtcNow();
+        return Mutate(id, r => r.Status is RunStatus.Running
+            ? r with { Status = RunStatus.Failed, FinishedAt = now, Problems = problems, Building = false }
+            : r);
+    }
+
     public DeletionResult Delete(Id<CiRun> id) => store.Delete(id);
+
+    private Result<CiRun> Mutate(Id<CiRun> id, Func<CiRun, CiRun> change)
+    {
+        if (store.Mutate(id, change).TryPickProblems(out var problems))
+            return problems;
+        return store.TryGet(id, out var after) ? after : new NotFoundProblem("CI run '{0}' not found.", id);
+    }
 
     private List<CiRun> Resolve(IEnumerable<Id<CiRun>> ids) =>
         [.. ids.Select(id => store.TryGet(id, out var r) ? r : null).OfType<CiRun>()];

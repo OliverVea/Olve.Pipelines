@@ -51,6 +51,7 @@ public class LeftoverJobCleanupServiceTests
                 Job(Hex(), pipeline, After),
                 Job(Hex(), pipeline, Before, finished: true),
                 Job(Hex(), pipeline, Before, role: "build"),
+                Job(CiBuild.JobName(pipeline, new string('a', 40)), pipeline, Before, role: "ci-build"),
                 Job(Hex(), otherInstance, Before),
             ],
             new HashSet<Id<Pipeline>> { pipeline }, s.D.Attempts.List(), ProcessStart);

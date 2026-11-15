@@ -9,8 +9,9 @@ using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Ci;
 
-/// <summary>Cancels CI runs and their attempts; the watchers then delete the attempts' Jobs. Transient.</summary>
-public class CiCancellationService(CiRunService runs, CiAttemptService attempts, CiSchedulingLock schedulingLock, ILogger<CiCancellationService> logger)
+/// <summary>Cancels CI runs and their attempts (the watchers then delete the attempts' Jobs) and the build a run waited for. Transient.</summary>
+public class CiCancellationService(
+    CiRunService runs, CiAttemptService attempts, CiSchedulingLock schedulingLock, CiDefinitionService definitions, ILogger<CiCancellationService> logger)
 {
     /// <summary>Ends a running run as <paramref name="status"/>, cancelling its scheduled and in-progress attempts.</summary>
     public Result<CiRun> End(CiRun run, RunStatus status, CiCancelReason? reason = null, int? supersededBy = null) => schedulingLock.Run(() =>
@@ -24,6 +25,8 @@ public class CiCancellationService(CiRunService runs, CiAttemptService attempts,
         var ended = runs.Complete(run.Id, status, reason, supersededBy);
         foreach (var attempt in attempts.ListByRun(run.Id).Where(a => a.Status.IsActive()))
             attempts.Cancel(attempt.Id).DiscardResult();
+        if (current.Building)
+            definitions.Release(current);
         logger.LogInformation("CI run #{RunNumber} of pull request #{Pull} in pipeline '{PipelineId}' ended {Status}{Reason}",
             run.Number, run.Pull, run.PipelineId, status, reason is { } r ? $" ({r})" : supersededBy is { } n ? $" by #{n}" : "");
         return ended;
@@ -60,8 +63,9 @@ public sealed record CiStart(CiRun? Run, CiStartSkip? Skipped)
 /// <summary>
 /// Starts CI runs of pull requests. It reads the pull request from GitHub until GitHub has decided whether it merges
 /// (<c>mergeable</c> is null while GitHub computes it), then tests GitHub's merge commit with the CI definition of the
-/// pipeline's active version. A pull request that changes the definition itself gets a failed run: a pull request's
-/// own definition is not built yet. A new run supersedes the pull request's running run. Transient.
+/// pipeline's active version. A pull request that changes the definition itself runs with its own: the run waits for
+/// the build of its tested commit (<see cref="CiDefinitionService"/>). A new run supersedes the pull request's running
+/// run. Transient.
 /// </summary>
 public class CiRunStartService(
     PullRequestService pulls,
@@ -77,6 +81,7 @@ public class CiRunStartService(
     CiCancellationService cancellation,
     CiScheduler scheduler,
     CiSchedulingLock schedulingLock,
+    CiDefinitionService definitions,
     TimeProvider time,
     ILogger<CiRunStartService> logger)
 {
@@ -96,8 +101,7 @@ public class CiRunStartService(
         if (!activations.TryGet(pipelineId, out var activation) || activation is not PipelineActivation.Active active
             || !versions.TryGet(active.VersionId, out var version))
             return new ConflictProblem("Pipeline '{0}' has no active version to run CI with.", pipelineId);
-        if (ciPlans.Get(version.Id).TryPickProblems(out _))
-            return CiStart.Skip(CiStartSkip.NoCi);
+        var activeHasCi = !ciPlans.Get(version.Id).TryPickProblems(out _);
 
         if ((await DecidedAsync(binding, number, ct)).TryPickProblems(out var readProblems, out var reported))
             return readProblems;
@@ -117,26 +121,27 @@ public class CiRunStartService(
         if (commit.Parents.Length == 0)
             return new UnavailableProblem("Merge commit {0} of pull request #{1} has no parents.", tested, number);
 
-        var problems = new List<string>();
-        if ((await OwnDefinitionAsync(binding, version, tested, ct)).TryPickProblems(out var compareProblems, out var ownDefinition))
+        if ((await ChangesDefinitionAsync(binding, version, tested, ct)).TryPickProblems(out var compareProblems, out var ownDefinition))
             return compareProblems;
-        if (ownDefinition is not null)
-            problems.Add($"{ownDefinition} CI runs only with the active version's definition so far, so it can't check this pull request.");
+        if (!ownDefinition && !activeHasCi)
+            return CiStart.Skip(CiStartSkip.NoCi);
 
-        var config = PinConfig(pipelineId, version, problems);
+        var problems = new List<string>();
+        var config = ownDefinition ? (null, null) : PinVersionConfig(pipelineId, version, problems);
         var input = new JsonObject { ["repo"] = binding.Repo, ["sha"] = tested }.ToJsonString();
 
         var run = schedulingLock.Run(() =>
         {
             var created = runs.Create(new CiRunRequest(pipelineId, number, reported.Title, reported.Head.Ref, reported.Draft, reported.Head.Sha,
-                tested, commit.Tree.Sha, commit.Parents[0].Sha, version, input, config.Snapshot, config.Config, problems));
+                tested, commit.Tree.Sha, commit.Parents[0].Sha, version, input, config.Snapshot, config.Config, problems, ownDefinition));
             foreach (var older in runs.ListByPull(pipelineId, number).Where(r => r.Id != created.Id && r.Status is RunStatus.Running))
                 cancellation.End(older, RunStatus.Superseded, supersededBy: created.Number).DiscardResult();
             scheduler.Advance(created.Id);
             return created;
         });
-        logger.LogInformation("Started CI run #{RunNumber} of pull request #{Pull} ({HeadSha} merged as {TestedSha}) in pipeline '{PipelineId}' on version {VersionNumber}",
-            run.Number, number, reported.Head.Sha, tested, pipelineId, version.Number);
+        definitions.BuildFor(run);
+        logger.LogInformation("Started CI run #{RunNumber} of pull request #{Pull} ({HeadSha} merged as {TestedSha}) in pipeline '{PipelineId}' {Definition}",
+            run.Number, number, reported.Head.Sha, tested, pipelineId, ownDefinition ? "with its own definition" : $"on version {version.Number}");
         return CiStart.Of(run);
     }
 
@@ -157,38 +162,25 @@ public class CiRunStartService(
         }
     }
 
-    /// <summary>
-    /// Why the tested commit needs a definition of its own (it changes a watched path against the active version's
-    /// commit, or GitHub's list is cut short so it may), or null.
-    /// </summary>
     private const int GitHubCompareFileLimit = 300;
 
-    private async Task<Result<string?>> OwnDefinitionAsync(PipelineConfigBinding binding, PipelineVersion version, string tested, CancellationToken ct)
+    /// <summary>
+    /// The tested commit changes a watched path against the commit of the active version's binary, or GitHub's list of
+    /// changed files is cut short so it may: then it needs a definition of its own.
+    /// </summary>
+    private async Task<Result<bool>> ChangesDefinitionAsync(PipelineConfigBinding binding, PipelineVersion version, string tested, CancellationToken ct)
     {
         if (version.CommitSha is not { } built)
-            return Result.Success<string?>(null);
+            return false;
         if ((await source.ChangedFilesAsync(binding, built, tested, ct)).TryPickProblems(out var problems, out var files))
             return problems;
         var watched = configSync.WatchedPaths(binding);
-        if (files.FirstOrDefault(f => watched.Any(w => w.Length == 0 || f == w || f.StartsWith(w + "/", StringComparison.Ordinal))) is { } path)
-            return Result.Success<string?>($"This pull request changes the pipeline's definition ('{path}').");
-        return Result.Success<string?>(files.Count >= GitHubCompareFileLimit
-            ? $"This pull request changes more files than GitHub lists ({GitHubCompareFileLimit}), so it may change the pipeline's definition."
-            : null);
+        return files.Count >= GitHubCompareFileLimit
+               || files.Any(f => watched.Any(w => w.Length == 0 || f == w || f.StartsWith(w + "/", StringComparison.Ordinal)));
     }
 
-    private (int? Snapshot, string? Config) PinConfig(Id<Pipeline> pipelineId, PipelineVersion version, List<string> problems)
-    {
-        if (plans.Get(version.Id).TryPickProblems(out _, out var plan) || plan.Manifest.Config.Count == 0)
-            return (null, null);
-        configSnapshots.TryGetLatest(pipelineId, out var snapshot);
-        if (ConfigValidation.Effective(plan.Manifest, configSnapshots.Document(snapshot)).TryPickProblems(out var invalid, out var effective))
-        {
-            problems.Add($"Config {(snapshot is null ? "(none saved)" : $"#{snapshot.Number}")} does not satisfy version {version.Number}: " +
-                         string.Join("; ", invalid.Select(p => p.ToDisplayString())) + ".");
-            return (snapshot?.Number, null);
-        }
-
-        return (snapshot?.Number, effective.ToJsonString());
-    }
+    private (int? Snapshot, string? Config) PinVersionConfig(Id<Pipeline> pipelineId, PipelineVersion version, List<string> problems) =>
+        plans.Get(version.Id).TryPickProblems(out _, out var plan)
+            ? (null, null)
+            : CiConfig.Pin(pipelineId, plan.Manifest, $"version {version.Number}", configSnapshots, problems);
 }

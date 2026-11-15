@@ -7,7 +7,8 @@ namespace Olve.Pipelines.Pipelines.Ci;
 
 /// <summary>
 /// One CI run of a pull request: its merge commit tested with the pipeline's CI definition. Numbered per pipeline in
-/// a sequence of its own. The run uses the binary of <see cref="VersionId"/>, the version active when it started.
+/// a sequence of its own. The run uses the binary of <see cref="VersionId"/>, the version active when it started, or
+/// with <see cref="OwnDefinition"/> the build of <see cref="TestedSha"/> itself (a <see cref="CiBuild"/>).
 /// </summary>
 /// <param name="Pull">The pull request it tests.</param>
 /// <param name="Draft">The pull request was a draft when the run started (its Jobs go last).</param>
@@ -18,6 +19,8 @@ namespace Olve.Pipelines.Pipelines.Ci;
 /// <param name="Input">The CI input (<c>{repo, sha}</c>) as raw JSON.</param>
 /// <param name="Config">The effective config pinned at start (JSON); null when the version declares none.</param>
 /// <param name="Problems">Why the run failed before any step ran (its definition can't be used); empty otherwise.</param>
+/// <param name="OwnDefinition">The pull request changes the definition, so the run uses the build of its tested commit.</param>
+/// <param name="Building">The run waits for that build; its steps start once it is described and its config pinned.</param>
 public sealed record CiRun(
     Id<CiRun> Id,
     Id<Pipeline> PipelineId,
@@ -40,7 +43,9 @@ public sealed record CiRun(
     CiCancelReason? CancelReason = null,
     int? ConfigSnapshot = null,
     string? Config = null,
-    IReadOnlyList<string>? Problems = null) : IHasId<Id<CiRun>>
+    IReadOnlyList<string>? Problems = null,
+    bool OwnDefinition = false,
+    bool Building = false) : IHasId<Id<CiRun>>
 {
     /// <summary>What a pod sees as <c>OLVE_VERSION_STAMP</c>: <c>ci.&lt;number&gt;</c>.</summary>
     [JsonIgnore]

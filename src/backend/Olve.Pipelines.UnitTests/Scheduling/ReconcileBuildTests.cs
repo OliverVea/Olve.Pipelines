@@ -46,13 +46,14 @@ public class ReconcileBuildTests
             new StubS3CredentialsProvider(), TimeProvider.System);
         var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"), TimeProvider.System,
             new PodChangeSignals(TimeProvider.System), NullLogger<HarnessJobControl>.Instance);
-        var service = new PipelineReconcileService(
-            new HarnessJobFactory(presigner, options), control, storage, d.VersionService, d.ActivationService, d.Gate, new FakeSecretNames(),
-            d.PipelineService, d.EntityVersions, d.SchedulingLock, options, NullLogger<PipelineReconcileService>.Instance)
+        var runner = new BuildJobRunner(new HarnessJobFactory(presigner, options), control, storage, options, NullLogger<BuildJobRunner>.Instance)
         {
             PollInterval = TimeSpan.Zero,
             DeletePollInterval = TimeSpan.Zero,
         };
+        var service = new PipelineReconcileService(
+            runner, d.VersionService, d.ActivationService, d.Gate, new FakeSecretNames(),
+            d.PipelineService, d.EntityVersions, d.SchedulingLock, NullLogger<PipelineReconcileService>.Instance);
         return new Ctx(d, binding, service, k8s, storage);
     }
 

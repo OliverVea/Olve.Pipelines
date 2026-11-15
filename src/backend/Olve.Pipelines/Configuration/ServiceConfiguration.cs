@@ -84,6 +84,10 @@ public static class ServiceConfiguration
         services.AddSingleton<CiRunService>();
         services.AddSingleton<CiAttemptService>();
         services.AddSingleton<CiPlanCache>();
+        services.AddSingleton<EntityStore<CiBuild>>();
+        services.AddSingleton<CiBuildService>();
+        services.AddSingleton<CiDefinitionService>();
+        services.TryAddTransient<ICiDefinitionBuilder, KubernetesCiDefinitionBuilder>();
         services.AddSingleton<CiSchedulingLock>();
         services.AddTransient<CiScheduler>();
         services.AddTransient<CiCancellationService>();

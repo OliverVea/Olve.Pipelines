@@ -52,13 +52,17 @@ closed. The `pull_request` deliveries keep them current, and the service reads t
 GitHub at startup, when a binding is created or its branch changes, and when its hook is registered,
 so a delivery it missed is caught up. Reading them needs no more access than the binding already has.
 
-When the pipeline's active version declares CI (`export const ci = checks(…)` next to the pipeline),
-an open pull request gets a CI run once its head has been still for 60 seconds: a burst of pushes
-makes one run, for the last of them. The run tests GitHub's merge commit of the pull request onto the
-branch, with the active version's CI definition and binary, and a new push supersedes the running
-run. A pull request that GitHub can't merge gets no run and shows as a conflict; one that changes the
-pipeline's definition gets a failed run that says so, since a pull request's own definition isn't
-built yet. Closing or merging a pull request cancels its running run. CI runs are numbered per
+When the pipeline declares CI (`export const ci = checks(…)` next to the pipeline), an open pull
+request gets a CI run once its head has been still for 60 seconds: a burst of pushes makes one run,
+for the last of them. The run tests GitHub's merge commit of the pull request onto the branch, with
+the active version's CI definition and binary, and a new push supersedes the running run. A pull
+request that GitHub can't merge gets no run and shows as a conflict. A pull request that changes the
+pipeline's definition (the binding path or its local dependencies) runs with its own: its tested
+commit is built and described on its own (a `olve-ci-build-…` Job), never becoming a version, and
+the run's steps start once it is. A pull request that adds CI is checked this way before it merges;
+one whose definition declares no CI gets no run; a build or describe that fails, or a definition that
+doesn't validate, fails the run with the problems. Closing or merging a pull request cancels its
+running run and the build it waits for. CI runs are numbered per
 pipeline on their own, and `GET /api/pipelines/{id}/ci/runs/{number}` shows one, its steps and their
 logs, files and outputs; `POST …/ci/pulls/{pull}/runs` runs a pull request again.
 

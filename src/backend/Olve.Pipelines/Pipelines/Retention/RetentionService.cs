@@ -100,6 +100,8 @@ public class RetentionService(
         {
             CiJobs = (sp.GetService<EntityStore<CiAttempt>>()?.List() ?? []).ToDictionary(a => a.KubernetesJobName, a => a.Status.IsActive(), StringComparer.Ordinal),
             CiVersions = (sp.GetService<EntityStore<CiRun>>()?.List() ?? []).Where(r => r.Status is RunStatus.Running).Select(r => r.VersionId).ToHashSet(),
+            CiBinaries = (sp.GetService<EntityStore<CiRun>>()?.List() ?? []).Where(r => r is { Status: RunStatus.Running, OwnDefinition: true })
+                .Select(r => StorageLayout.BuildBinaryKey(r.PipelineId, r.TestedSha)).ToHashSet(StringComparer.Ordinal),
         };
 
         var plan = RetentionPlanner.Plan(inputs, options);

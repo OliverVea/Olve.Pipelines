@@ -9,27 +9,55 @@ using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.Pipelines.Ci;
 
-/// <summary>Each version's CI plan: its manifest's <c>ci</c> stages, flattened like a pipeline's. Singleton (versions are immutable).</summary>
-public class CiPlanCache(RunPlanCache plans, PipelineVersionService versions)
+/// <summary>
+/// Each CI definition's plan: its manifest's <c>ci</c> stages, flattened like a pipeline's. A run's definition is its
+/// version's, or the build of its own tested commit. Singleton (versions and finished builds are immutable).
+/// </summary>
+public class CiPlanCache(RunPlanCache plans, PipelineVersionService versions, CiBuildService builds)
 {
-    public bool BinaryKey(Id<PipelineVersion> versionId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? key)
+    private readonly ConcurrentDictionary<Id<PipelineVersion>, Result<RunPlan>> _plans = new();
+    private readonly ConcurrentDictionary<Id<CiBuild>, Result<Manifest>> _manifests = new();
+    private readonly ConcurrentDictionary<Id<CiBuild>, Result<RunPlan>> _buildPlans = new();
+
+    /// <summary>The binary the run's steps run: its version's, or its own build's.</summary>
+    public bool BinaryKey(CiRun run, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? key)
     {
-        key = versions.TryGet(versionId, out var version) ? version.BinaryKey : null;
+        if (run.OwnDefinition)
+        {
+            key = builds.TryGet(run.PipelineId, run.TestedSha, out var build) && build.Status is CiBuildStatus.Succeeded ? build.BinaryKey : null;
+            return key is not null;
+        }
+
+        key = versions.TryGet(run.VersionId, out var version) ? version.BinaryKey : null;
         return key is not null;
     }
 
-    private readonly ConcurrentDictionary<Id<PipelineVersion>, Result<RunPlan>> _plans = new();
+    public Result<RunPlan> Get(CiRun run)
+    {
+        if (!run.OwnDefinition)
+            return Get(run.VersionId);
+        if (!builds.TryGet(run.PipelineId, run.TestedSha, out var build) || build.Status is not CiBuildStatus.Succeeded)
+            return new ConflictProblem("The pull request's definition isn't built.");
+        return _buildPlans.GetOrAdd(build.Id, _ => Manifest(build).TryPickProblems(out var problems, out var manifest)
+            ? problems
+            : FromCi(manifest, "The pull request's definition declares no CI."));
+    }
 
     public Result<RunPlan> Get(Id<PipelineVersion> versionId) => _plans.GetOrAdd(versionId, id =>
+        plans.Get(id).TryPickProblems(out var problems, out var plan) ? problems : FromCi(plan.Manifest, "The version declares no CI."));
+
+    /// <summary>A succeeded build's manifest, parsed.</summary>
+    public Result<Manifest> Manifest(CiBuild build) => _manifests.GetOrAdd(build.Id, _ =>
+        build.Manifest is { } text ? ManifestParser.Parse(text) : new ConflictProblem("The pull request's definition isn't built."));
+
+    private static Result<RunPlan> FromCi(Manifest manifest, string noCi)
     {
-        if (plans.Get(id).TryPickProblems(out var problems, out var plan))
-            return problems;
-        if (plan.Manifest.Ci is not { } ci)
-            return new ConflictProblem("The version declares no CI.");
+        if (manifest.Ci is not { } ci)
+            return new ConflictProblem(noCi);
         if (RunPlan.HasSelect(ci.Stages))
             return new ConflictProblem("CI stages that branch on config (select) are not supported.");
-        return RunPlan.From(plan.Manifest with { Stages = ci.Stages });
-    });
+        return RunPlan.From(manifest with { Stages = ci.Stages });
+    }
 }
 
 /// <summary>
@@ -103,10 +131,10 @@ public class CiScheduler(
 
     private void AdvanceOnce(Id<CiRun> runId)
     {
-        if (!runs.TryGet(runId, out var run) || run.Status.IsTerminal())
+        if (!runs.TryGet(runId, out var run) || run.Status.IsTerminal() || run.Building)
             return;
 
-        if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
+        if (plans.Get(run).TryPickProblems(out var planProblems, out var plan))
         {
             logger.LogProblems(LogLevel.Error, planProblems, "CI run #{RunNumber} of pipeline '{PipelineId}' has no usable plan in version {VersionNumber}; failing it",
                 run.Number, run.PipelineId, run.VersionNumber);

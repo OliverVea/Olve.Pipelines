@@ -348,7 +348,7 @@ public static class ManifestParser
 
     private static StepDescriptor? ParseStep(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets"], ["description", "handlerHash", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess", "externalInputs", "preflight", "matrix"]))
+        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets"], ["description", "handlerHash", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess", "reuse", "externalInputs", "preflight", "matrix"]))
             return null;
         var name = ctx.String(e, "name", path);
         // Optional only so versions built before step descriptions still load.
@@ -387,6 +387,12 @@ public static class ManifestParser
             ctx.Error(ManifestIssueCodes.WrongType, Ctx.Child(path, "clusterAccess"), "clusterAccess must be true (omit it otherwise)");
             clusterAccessOk = false;
         }
+        var reuseOk = true;
+        if (e.TryGetProperty("reuse", out var reuseEl) && reuseEl.ValueKind != JsonValueKind.False)
+        {
+            ctx.Error(ManifestIssueCodes.WrongType, Ctx.Child(path, "reuse"), "reuse must be false (omit it otherwise)");
+            reuseOk = false;
+        }
         var preflightOk = true;
         if (e.TryGetProperty("preflight", out var preflightEl) && preflightEl.ValueKind != JsonValueKind.True)
         {
@@ -401,12 +407,13 @@ public static class ManifestParser
         var matrixOk = !e.TryGetProperty("matrix", out _) || matrix is not null;
 
         if (!matrixOk || name is null || description is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
-            || !timeoutOk || !retriesOk || !configOk || configEntries is null || !clusterAccessOk || !preflightOk || externalInputs is null)
+            || !timeoutOk || !retriesOk || !configOk || configEntries is null || !clusterAccessOk || !reuseOk || !preflightOk || externalInputs is null)
             return null;
         return new StepDescriptor(name, description, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config)
         {
             ConfigEntries = configEntries,
             ClusterAccess = e.TryGetProperty("clusterAccess", out _),
+            NeverReused = e.TryGetProperty("reuse", out _),
             ExternalInputs = externalInputs,
             Preflight = e.TryGetProperty("preflight", out _),
             Matrix = matrix,

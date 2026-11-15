@@ -426,7 +426,7 @@ public class CiQueueProcessor(IServiceProvider sp, TimeProvider time, ILogger<Ci
 
             var problems = new List<string>();
             var config = ownDefinition ? (null, null) : starts.PinVersionConfig(PipelineId, version, problems);
-            var input = new JsonObject { ["repo"] = binding.Repo, ["sha"] = at }.ToJsonString();
+            var input = CiInputs.Queue(binding.Repo, at);
             foreach (var entry in batch)
                 _statuses.Report(_queue.Testing(entry, number));
 

@@ -138,7 +138,8 @@ The service reports commit statuses from CI run state, with the binding's token:
 - **Declared** in the pipeline package, usually in a file of its own (`ci.ts`:
   `export const ci = checks({...}).stage(...)`), exported as `ci` from the package's entry point
   next to the default-exported pipeline. `checks()` has no name, input model or triggers; its input
-  is `{ repo, sha }`, the tested commit. `describe` emits both into one manifest. The build, the binary, `codeHash` and the
+  is `{ repo, sha, kind, pull }`: the tested commit, the run's kind (`pull` or `queue`) and the PR
+  number (0 for a queue run). `describe` emits both into one manifest. The build, the binary, `codeHash` and the
   step definitions are shared, and the one binding covers both.
 - **Which definition a run uses:** the PR's own, at the commit it tests. If the PR touches the
   config cursor's paths (the binding path and its local dependencies), that commit gets a build Job
@@ -178,7 +179,9 @@ tree it has already tested with the same definition, it doesn't run the passing 
   the same tree.
 - **What is reused:** a succeeded attempt with the same key, with its outputs and files. The new
   run records it as succeeded and links the attempt it came from; no Job runs. Failed, cancelled and
-  skipped attempts are never reused, so a red step runs again.
+  skipped attempts are never reused, so a red step runs again. A step declaring `reuse: false` is
+  never reused. Reuse ignores a step's input, so a step that is reused may not read `input.pull` or
+  the output of a `reuse: false` step (`ci-reused-reads-pull`).
 - **Across PR and queue runs:** a PR that was tested on the current `main` and then enters the queue
   alone has nothing left to run, and is merged straight away. A batch half that matches an earlier
   green run is not tested again.

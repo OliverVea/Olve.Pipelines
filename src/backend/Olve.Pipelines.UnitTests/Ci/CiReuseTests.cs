@@ -94,6 +94,24 @@ public class CiReuseTests
     }
 
     [Test]
+    public async Task A_step_that_is_never_reused_runs_again_on_a_tree_that_passed()
+    {
+        await using var s = new CiScenario(r =>
+        {
+            Code(r);
+            ManifestFixture.CiStep(r, "test")["reuse"] = false;
+        });
+        await GreenRun(s, 7, A);
+        SameTree(s, B, A);
+
+        var second = await Start(s, 8, B);
+
+        await Assert.That(s.Active(second)).IsEquivalentTo(["test"]);
+        await Assert.That(s.Latest(second, "build")!.ReusedFrom!.Run).IsEqualTo(1);
+        await Assert.That(second.Input).IsEqualTo($$"""{"repo":"{{PullRequestFixtures.Repo}}","sha":"{{CiScenario.Merge(B)}}","kind":"pull","pull":8}""");
+    }
+
+    [Test]
     public async Task Running_a_pull_request_again_after_a_failure_runs_only_the_failed_step()
     {
         await using var s = new CiScenario(r => Code(r));

@@ -16,7 +16,7 @@ namespace Olve.Pipelines.Pipelines.Ci;
 /// <param name="TestedSha">GitHub's merge commit of the pull request onto the base branch.</param>
 /// <param name="Tree">The tree of <see cref="TestedSha"/>.</param>
 /// <param name="MainSha">The base-branch commit it was merged onto (the merge commit's first parent).</param>
-/// <param name="Input">The CI input (<c>{repo, sha}</c>) as raw JSON.</param>
+/// <param name="Input">The CI input (<see cref="CiInputs"/>) as raw JSON.</param>
 /// <param name="Config">The effective config pinned at start (JSON); null when the version declares none.</param>
 /// <param name="Problems">Why the run failed before any step ran (its definition can't be used); empty otherwise.</param>
 /// <param name="OwnDefinition">The pull request changes the definition, so the run uses the build of its tested commit.</param>
@@ -61,6 +61,20 @@ public sealed record CiRun(
     /// <summary>What a pod sees as <c>OLVE_VERSION_STAMP</c>: <c>ci.&lt;number&gt;</c>.</summary>
     [JsonIgnore]
     public string VersionStamp => $"ci.{Number}";
+}
+
+/// <summary>
+/// The CI input a run's steps get (<c>CiInput</c>): the repository, the commit tested, the run's kind and the pull
+/// request (0 for a queue run).
+/// </summary>
+public static class CiInputs
+{
+    public static string Pull(string repo, string sha, int pull) => Of(repo, sha, "pull", pull);
+
+    public static string Queue(string repo, string sha) => Of(repo, sha, "queue", 0);
+
+    private static string Of(string repo, string sha, string kind, int pull) =>
+        new System.Text.Json.Nodes.JsonObject { ["repo"] = repo, ["sha"] = sha, ["kind"] = kind, ["pull"] = pull }.ToJsonString();
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<CiRunKind>))]

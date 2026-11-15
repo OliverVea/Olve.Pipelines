@@ -113,7 +113,8 @@ public sealed class CiSchedulingLock
 /// Drives a CI run through its stages, like <see cref="StageScheduler"/> does a CD run: the stage barrier, <c>when</c>
 /// on the CI input (excluded steps get no attempt), skip propagation and <c>retries</c>. None of CD's rules across runs
 /// apply: no busy key per step, no latest-wins, no superseding of overtaken runs, no blocked steps. A step that
-/// already succeeded on the same tree with the same code is reused instead of run (<see cref="CiReuseService"/>). Transient.
+/// already succeeded on the same tree with the same code is reused instead of run (<see cref="CiReuseService"/>), unless it
+/// declares <c>reuse: false</c>. Transient.
 /// </summary>
 public class CiScheduler(
     CiRunService runs,
@@ -242,7 +243,7 @@ public class CiScheduler(
         var result = decision switch
         {
             StepDecision.Skip skip => attempts.RecordSkipped(run.Id, unit.Name, skip.Reason),
-            StepDecision.Schedule schedule when reuse.FindOrigin(run, codeHash, unit.Name) is { } origin =>
+            StepDecision.Schedule schedule when !unit.Step.NeverReused && reuse.FindOrigin(run, codeHash, unit.Name) is { } origin =>
                 attempts.RecordReused(run.Id, unit.Name, schedule.Hash, schedule.Json, origin),
             StepDecision.Schedule schedule => attempts.Schedule(run.Id, unit.Name, schedule.Hash, schedule.Json),
             StepDecision.Fail fail => attempts.RecordFailed(run.Id, unit.Name, fail.Reason, fail.Hash),

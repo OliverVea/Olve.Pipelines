@@ -128,6 +128,9 @@ public sealed record StepDescriptor(
     /// <summary>The step pod gets the instance's step ServiceAccount token (<c>Kubernetes:StepServiceAccount</c>), if it grants one.</summary>
     public bool ClusterAccess { get; init; }
 
+    /// <summary>CI always runs the step, even on a tree it already passed (<c>reuse: false</c>); CD ignores it.</summary>
+    public bool NeverReused { get; init; }
+
     /// <summary>Inputs whose values come from outside the run; the step waits for them before it runs.</summary>
     public IReadOnlyDictionary<string, ExternalInput> ExternalInputs { get; init; } = new Dictionary<string, ExternalInput>();
 

@@ -139,6 +139,7 @@ public static class ManifestIssueCodes
     public const string CiStepMismatch = "ci-step-mismatch";
     public const string CiExternalInput = "ci-external-input";
     public const string CiClusterAccess = "ci-cluster-access";
+    public const string CiReusedReadsPull = "ci-reused-reads-pull";
 
     // ── warnings ──
     public const string OutputUnused = "output-unused";

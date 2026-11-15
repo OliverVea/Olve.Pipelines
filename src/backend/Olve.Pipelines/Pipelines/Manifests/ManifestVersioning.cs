@@ -143,6 +143,7 @@ public static class ManifestVersioning
                 w.WriteEndObject();
             }
             if (s.ClusterAccess) w.WriteBoolean("clusterAccess", true);
+            if (s.NeverReused) w.WriteBoolean("reuse", false);
             if (s.Preflight) w.WriteBoolean("preflight", true);
             if (s.Matrix is { } matrix)
             {

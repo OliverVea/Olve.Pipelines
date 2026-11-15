@@ -70,6 +70,7 @@ public static partial class ManifestValidator
         private Dictionary<string, string> _stageSteps = new(StringComparer.Ordinal); // name → first path
         private Dictionary<string, List<(string Path, IReadOnlyList<CaseOf> Cases, string? Output, bool Matrix)>> _placements = new(StringComparer.Ordinal);
         private List<(string Name, string Path)> _producers = [];
+        private readonly HashSet<string> _neverReused = new(StringComparer.Ordinal);
         private Dictionary<string, List<(string Path, StepDescriptor Step)>> _scopeSteps = new(StringComparer.Ordinal);
         private string _input = m.Input;
         private string _inputLabel = "the pipeline input";
@@ -398,6 +399,13 @@ public static partial class ManifestValidator
                 Error(ManifestIssueCodes.CiExternalInput, $"{path}.externalInputs", $"CI step '{n}' waits for external inputs; nobody answers a pull request's step", n);
             if (_ci && s.ClusterAccess)
                 Error(ManifestIssueCodes.CiClusterAccess, $"{path}.clusterAccess", $"CI step '{n}' asks for cluster access; a pull request's code never gets it", n);
+            if (_ci && s.NeverReused)
+                _neverReused.Add(n);
+            else if (_ci)
+                foreach (var (key, mapping) in s.Input)
+                    if (ReadsPerPull(mapping) is { } what)
+                        Error(ManifestIssueCodes.CiReusedReadsPull, $"{path}.input.{key}",
+                            $"CI step '{n}' reads {what}, but is reused across pull requests of the same tree; declare it reuse: false", n);
             if (s.Preflight && s.ExternalInputs.Count == 0)
                 Error(ManifestIssueCodes.PreflightWithoutExternalInput, $"{path}.preflight", $"step '{n}': a preflight needs at least one external input", n);
 
@@ -811,6 +819,16 @@ public static partial class ManifestValidator
                             $"failure handler '{name}': '{fh.Steps[j]}' is not a step of this pipeline", name);
             }
         }
+
+        /// <summary>What a mapping reads that differs between pull requests of the same tree, or null.</summary>
+        private string? ReadsPerPull(Mapping mapping) => mapping switch
+        {
+            RefMapping { Root: ManifestRoots.Input, Path: [] } => "the whole CI input, the pull request number included",
+            RefMapping { Root: ManifestRoots.Input, Path: ["pull", ..] } => "input.pull",
+            RefMapping r when _neverReused.Contains(r.Root) => $"the output of '{r.Root}', which is never reused",
+            ObjectMapping o => o.Fields.Values.Select(ReadsPerPull).FirstOrDefault(w => w is not null),
+            _ => null,
+        };
 
         // ── ci ──
         private void CheckCi()

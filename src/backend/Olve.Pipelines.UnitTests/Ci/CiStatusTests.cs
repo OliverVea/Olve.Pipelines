@@ -57,6 +57,95 @@ public class CiStatusTests
         await Assert.That($"{status.State}: {status.Description}").IsEqualTo(expected);
     }
 
+    private static async Task SendAsync(CiScenario s) => await s.Get<CiStatusDelivery>().DrainAsync();
+
+    private static async Task AnnounceAsync(CiScenario s)
+    {
+        await s.Trigger.AnnounceAsync(CancellationToken.None);
+        await SendAsync(s);
+    }
+
+    private static async Task StartAsync(CiScenario s)
+    {
+        await s.SettleAsync();
+        await SendAsync(s);
+    }
+
+    private static void Cancel(CiScenario s, CiRun run) =>
+        TestRunDomain.Pick(s.Get<CiCancellationService>().End(run, RunStatus.Cancelled));
+
+    private static readonly Dictionary<string, Func<CiScenario, Task>> Lifecycles = new()
+    {
+        ["a push"] = async s =>
+        {
+            s.Push(7, A);
+            await AnnounceAsync(s);
+        },
+        ["a push, then its run starts"] = async s =>
+        {
+            s.Push(7, A);
+            await AnnounceAsync(s);
+            await StartAsync(s);
+        },
+        ["a push that changes the definition"] = async s =>
+        {
+            s.GitHub.ChangedFiles[A] = [".pipelines/ci.ts"];
+            s.Push(7, A);
+            await AnnounceAsync(s);
+        },
+        ["a push that doesn't merge"] = async s =>
+        {
+            s.Push(7, A, mergeable: false);
+            await AnnounceAsync(s);
+            await StartAsync(s);
+        },
+        ["the head's run cancelled"] = async s =>
+        {
+            s.Push(7, A);
+            await StartAsync(s);
+            Cancel(s, s.Run(7));
+            await SendAsync(s);
+        },
+        ["an older head's run cancelled"] = async s =>
+        {
+            s.Push(7, A);
+            await StartAsync(s);
+            s.Push(7, B);
+            Cancel(s, s.Run(7));
+            await SendAsync(s);
+        },
+        ["closed while running"] = async s =>
+        {
+            s.Push(7, A);
+            await StartAsync(s);
+            s.Close(7, A, merged: false);
+            await SendAsync(s);
+        },
+    };
+
+    public static IEnumerable<Func<(string Case, string[] Posted)>> Lifecycle()
+    {
+        yield return () => ("a push", ["a pending: Waiting to start"]);
+        yield return () => ("a push, then its run starts", ["a pending: Waiting to start", "a pending: 0 of 3 steps done"]);
+        yield return () => ("a push that changes the definition", []);
+        yield return () => ("a push that doesn't merge", ["a pending: Waiting to start", "a error: Doesn't merge onto 'main'"]);
+        yield return () => ("the head's run cancelled", ["a pending: 0 of 3 steps done", "a error: Cancelled"]);
+        yield return () => ("an older head's run cancelled", ["a pending: 0 of 3 steps done"]);
+        yield return () => ("closed while running", ["a pending: 0 of 3 steps done"]);
+    }
+
+    [Test]
+    [MethodDataSource(nameof(Lifecycle))]
+    public async Task GitHub_sees_a_head_wait_start_and_end(string @case, string[] posted)
+    {
+        await using var s = new CiScenario();
+
+        await Lifecycles[@case](s);
+
+        await Assert.That(string.Join(" | ", s.Statuses.Posted.Select(p => $"{p.Sha[..1]} {p.Status.State}: {p.Status.Description}")))
+            .IsEqualTo(string.Join(" | ", posted));
+    }
+
     [Test]
     public async Task A_superseded_run_reports_nothing_more_and_the_run_replacing_it_reports_on_its_head()
     {
@@ -155,7 +244,8 @@ public class CiStatusTests
         s.Push(7, A);
         await s.SettleAsync();
 
-        var status = new CiStatusPlanner(s.Get<CiRunViewService>(), new CiStatusOptions("https://pipelines.example/")).For(s.Run(7));
+        var status = new CiStatusPlanner(s.Get<CiRunViewService>(), s.Get<PullRequestService>(), new CiStatusOptions("https://pipelines.example/"))
+            .For(s.Run(7));
 
         await Assert.That(status!.TargetUrl).IsEqualTo($"https://pipelines.example/pipeline/{s.Pipeline.Id.Value.Value:D}/ci/run/1");
     }

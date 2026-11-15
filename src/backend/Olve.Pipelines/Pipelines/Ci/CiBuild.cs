@@ -263,6 +263,7 @@ public class CiDefinitionService(
                 logger.LogInformation("Pull request #{Pull} of pipeline '{PipelineId}' removes CI: CI run #{RunNumber} is dropped",
                     run.Pull, run.PipelineId, run.Number);
                 runs.Delete(run.Id).DiscardResult();
+                sp.GetRequiredService<CiStatusReporter>().NoCi(run.PipelineId, run.HeadSha);
                 continue;
             }
 

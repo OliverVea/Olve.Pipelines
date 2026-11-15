@@ -104,12 +104,15 @@ picks Scheduled attempts in this order:
 
 The service reports commit statuses from CI run state, with the binding's token:
 
-- `olve/ci` on the PR's head: pending with the steps done, success with the time taken, failure
-  naming the failed steps (or the definition's problem). Cancelled and superseded runs leave it to
-  the run that replaced them. A run building its own definition reports nothing until the
-  definition is known: a definition without CI must leave no status, and GitHub can't take one back.
-  A conflict reports nothing either: there is no run. The status links the run's page
-  (`/pipeline/<id>/ci/run/<n>`).
+- `olve/ci` on the PR's head: pending "Waiting to start" as soon as a push arrives, then pending with
+  the steps done, success with the time taken, failure naming the failed steps (or the definition's
+  problem). A push that may change the definition gets nothing until its own build shows whether it
+  keeps CI: a definition without CI must leave no status, and GitHub can't take one back. Deciding
+  that takes one compare of the active version's commit with the head per push. A waiting head
+  that gets no run says why: error "Doesn't merge onto '<branch>'", or success "No CI to run".
+- A run of the current head that is cancelled reports error "Cancelled" (no result; a new run
+  replaces it). A superseded run, and one cancelled because its PR closed or merged, report nothing
+  more. The status links the run's page (`/pipeline/<id>/ci/run/<n>`).
 - Statuses are sent in the background, the latest state per commit, with retries on server errors.
   A token that can't write statuses (403/404) shows as a warning on the binding. At startup the latest
   run of each open PR reports again, in case a status was lost with the process.

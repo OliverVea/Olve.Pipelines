@@ -11,7 +11,7 @@ using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Ci;
 
-/// <summary>A commit status as GitHub takes it: <c>pending</c>, <c>success</c> or <c>failure</c>, in <see cref="Context"/>.</summary>
+/// <summary>A commit status as GitHub takes it: <c>pending</c>, <c>success</c>, <c>failure</c> or <c>error</c>, in <see cref="Context"/>.</summary>
 public sealed record CiCommitStatus(string State, string Description, string? TargetUrl, string Context = CiCommitStatus.CiContext)
 {
     public const string CiContext = "olve/ci";
@@ -25,16 +25,23 @@ public sealed record CiCommitStatus(string State, string Description, string? Ta
 public sealed record CiStatusOptions(string LinkBaseUrl);
 
 /// <summary>
-/// The <c>olve/ci</c> status a CI run stands for, or null when it reports nothing: a cancelled or superseded run (the
-/// run that replaced it reports), and a run still building its own definition (a definition without CI must leave
-/// no status, and GitHub can't take one back). Transient.
+/// The <c>olve/ci</c> status a CI run stands for, or null when it reports nothing: a superseded run (the run that
+/// replaced it reports), a run cancelled because its pull request closed or merged, a cancelled run of a head the
+/// pull request has moved on from, and a run still building its own definition (a definition without CI must leave
+/// no status, and GitHub can't take one back). A run of the current head cancelled otherwise reports <c>error</c>:
+/// no result, which a new run replaces. Transient.
 /// </summary>
-public class CiStatusPlanner(CiRunViewService views, CiStatusOptions options)
+public class CiStatusPlanner(CiRunViewService views, PullRequestService pulls, CiStatusOptions options)
 {
     public CiCommitStatus? For(CiRun run)
     {
-        if (run.IsQueue || run.Status is RunStatus.Cancelled or RunStatus.Superseded)
+        if (run.IsQueue || run.Status is RunStatus.Superseded)
             return null;
+        if (run.Status is RunStatus.Cancelled)
+            return run.CancelReason is CiCancelReason.Closed or CiCancelReason.Merged
+                   || !pulls.TryGet(run.PipelineId, run.Pull, out var pull) || pull.HeadSha != run.HeadSha
+                ? null
+                : new CiCommitStatus("error", "Cancelled", Link(run));
 
         var steps = views.Summarize(run).Steps.Where(s => s.Status is not Contract.RunStepStatus.Excluded).ToList();
         var url = Link(run);
@@ -285,13 +292,52 @@ public class CiStatusDelivery(
     }
 }
 
-/// <summary>Turns CI run changes into statuses for <see cref="CiStatusDelivery"/>. Transient.</summary>
-public class CiStatusReporter(CiRunService runs, CiStatusPlanner planner, CiStatusDelivery delivery)
+/// <summary>
+/// The heads given "Waiting to start" before their run existed: if no run comes (a conflict, no CI), that status
+/// must be replaced. In memory: after a restart such a head keeps its pending status until it is pushed again. Singleton.
+/// </summary>
+public class CiWaitingHeads
 {
+    private readonly ConcurrentDictionary<(Id<Pipeline>, string), byte> _heads = new();
+
+    public void Add(Id<Pipeline> pipelineId, string head) => _heads[(pipelineId, head)] = 0;
+
+    /// <summary>True when the head was waiting; it no longer is.</summary>
+    public bool Take(Id<Pipeline> pipelineId, string head) => _heads.TryRemove((pipelineId, head), out _);
+}
+
+/// <summary>Turns CI run changes into statuses for <see cref="CiStatusDelivery"/>. Transient.</summary>
+public class CiStatusReporter(CiRunService runs, CiStatusPlanner planner, CiStatusDelivery delivery, CiWaitingHeads waiting)
+{
+    public const string WaitingToStart = "Waiting to start";
+
+    /// <summary>A pull request's new head that will get a run: <c>pending</c> until the run reports.</summary>
+    public void Waiting(Id<Pipeline> pipelineId, string head)
+    {
+        waiting.Add(pipelineId, head);
+        delivery.Offer(new CiStatusKey(pipelineId, head), new CiCommitStatus("pending", WaitingToStart, null));
+    }
+
+    /// <summary>A head that was waiting gets no run because it doesn't merge onto <paramref name="branch"/>.</summary>
+    public void Conflict(Id<Pipeline> pipelineId, string head, string branch)
+    {
+        if (waiting.Take(pipelineId, head))
+            delivery.Offer(new CiStatusKey(pipelineId, head), new CiCommitStatus("error", CiCommitStatus.Cap($"Doesn't merge onto '{branch}'"), null));
+    }
+
+    /// <summary>A head that was waiting gets no run because its definition (or the pipeline's) declares no CI.</summary>
+    public void NoCi(Id<Pipeline> pipelineId, string head)
+    {
+        if (waiting.Take(pipelineId, head))
+            delivery.Offer(new CiStatusKey(pipelineId, head), new CiCommitStatus("success", "No CI to run", null));
+    }
+
     public void Report(CiRun run)
     {
-        if (planner.For(run) is { } status)
-            delivery.Offer(new CiStatusKey(run.PipelineId, run.HeadSha, status.Context), status);
+        if (planner.For(run) is not { } status)
+            return;
+        waiting.Take(run.PipelineId, run.HeadSha);
+        delivery.Offer(new CiStatusKey(run.PipelineId, run.HeadSha, status.Context), status);
     }
 
     public void Report(Id<CiRun> runId)

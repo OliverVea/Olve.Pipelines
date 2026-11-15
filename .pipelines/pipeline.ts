@@ -5,10 +5,8 @@ import { pipeline, steps, type ConfigRef } from '@olivervea/pipelines';
 import {
   AUTH,
   DEPLOYER_TOKEN,
-  GITHUB_TOKEN,
   PUBLISH,
   REGISTRY_SECRETS,
-  SOURCE,
   SSH_PRIVATE_KEY,
   TARGET,
   TELEMETRY,
@@ -25,15 +23,9 @@ import { publishCli } from './steps/publish-cli';
 import { publishImages } from './steps/publish-images';
 import { publishSdk } from './steps/publish-sdk';
 import { realSystemTest } from './steps/real-system-test';
+import { source } from './steps/source';
 import { spec } from './steps/spec';
 import { test } from './steps/test';
-
-const source = steps.gitHubSource({
-  name: 'source',
-  description: 'Fetches the pushed commit from GitHub.',
-  token: GITHUB_TOKEN,
-  apiUrl: SOURCE.apiUrl,
-});
 
 const buildHarness = steps.imageBuild({
   name: 'build-harness',
@@ -67,6 +59,8 @@ const deployOptions = (target: { auth: ConfigRef; telemetry: ConfigRef }) =>
   }) as const;
 const describeDeploy = (stage: string) =>
   `Deploys this run's images with Helm to the ${stage} target and checks its health.`;
+
+export { ci } from './ci';
 
 export default pipeline({
   name: 'Olve.Pipelines v2',

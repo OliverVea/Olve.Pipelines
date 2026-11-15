@@ -161,6 +161,18 @@ export const stepPath = (id: string, step: string) =>
 export const stepRunsPath = (id: string, step: string) =>
   `${pipelinePath(id)}/step/${encodeURIComponent(step)}/runs`;
 export const criticalPathPath = (id: string) => `${pipelinePath(id)}/critical-path`;
+export const ciPath = (id: string) => `${pipelinePath(id)}/ci`;
+export const ciQueuePath = (id: string) => `${ciPath(id)}/queue`;
+export const ciClosedPath = (id: string) => `${ciPath(id)}/closed`;
+export const ciRunPath = (id: string, n: number | null | undefined) =>
+  `${ciPath(id)}/run/${n ?? ''}`;
+export const ciStepLogsPath = (
+  id: string,
+  run: number,
+  step: string,
+  attempt?: number | null,
+) =>
+  `${ciRunPath(id, run)}/step/${encodeURIComponent(step)}/logs${attempt ? `?attempt=${attempt}` : ''}`;
 
 /** Shared styles for the v2 views (buttons, pills, status dots, panels). */
 export const sharedStyles = css`
@@ -548,16 +560,20 @@ export const headerStyles = css`
 export type PipelineTab =
   | 'overview'
   | 'runs'
+  | 'ci'
   | 'versions'
   | 'config'
   | 'secrets'
   | 'binding';
 
-/** The tab bar shared by a pipeline's pages. */
-export function pipelineTabs(id: string, active: PipelineTab, bound = true) {
+/** The tab bar shared by a pipeline's pages; CI only for a pipeline that declares it. */
+export function pipelineTabs(id: string, active: PipelineTab, bound = true, ci = false) {
   const tabs: [PipelineTab, string, string][] = [
     ['overview', 'Overview', pipelinePath(id)],
     ['runs', 'Runs', runsPath(id)],
+    ...(ci || active === 'ci'
+      ? [['ci', 'CI', ciPath(id)] as [PipelineTab, string, string]]
+      : []),
     ['versions', 'Versions', versionsPath(id)],
     ['config', 'Config', configPath(id)],
     ['secrets', 'Secrets', secretsPath(id)],

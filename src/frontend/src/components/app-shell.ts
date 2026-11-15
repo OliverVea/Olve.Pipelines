@@ -288,6 +288,23 @@ export class AppShell extends LitElement {
           .pipelineId=${this._route.params.pipelineId}
           .run=${this._route.params.run}
         ></run-view>`;
+      case 'ci-view':
+        return html`<ci-view
+          .pipelineId=${this._route.params.pipelineId}
+          .filter=${(this._route.params.filter ?? 'open') as 'open' | 'queue' | 'closed'}
+        ></ci-view>`;
+      case 'ci-run-view':
+        return html`<ci-run-view
+          .pipelineId=${this._route.params.pipelineId}
+          .run=${this._route.params.run}
+        ></ci-run-view>`;
+      case 'ci-step-logs-view':
+        return html`<step-logs-view
+          ci
+          .pipelineId=${this._route.params.pipelineId}
+          .run=${this._route.params.run}
+          .step=${this._route.params.step}
+        ></step-logs-view>`;
       case 'step-logs-view':
         return html`<step-logs-view
           .pipelineId=${this._route.params.pipelineId}

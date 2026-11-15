@@ -31,6 +31,7 @@ import {
   configPath,
   bindingPath,
   criticalPathPath,
+  ciPath,
   formatSeconds,
   median,
 } from '../styles/ui.js';
@@ -42,6 +43,7 @@ import {
 } from '../model/versions.js';
 import { LiveController, forPipeline } from '../api/events.js';
 import { expiryText } from '../model/secrets.js';
+import { pullsCell } from '../model/ci.js';
 import './clamped-text.js';
 import './relative-time.js';
 import './favorite-star.js';
@@ -186,7 +188,7 @@ export class PipelineHeader extends LitElement {
       ${this._description
         ? html`<clamped-text class="desc" .text=${this._description}></clamped-text>`
         : nothing}
-      ${pipelineTabs(this.pipelineId, this.tab, !!this._binding)}
+      ${pipelineTabs(this.pipelineId, this.tab, !!this._binding, !!this._health?.ci)}
       ${this.tab === 'overview' ? this._renderStatus() : nothing}`;
   }
 
@@ -203,6 +205,7 @@ export class PipelineHeader extends LitElement {
       )
       .map((s) => s.name);
     const failed = b?.result === 'Error';
+    const pulls = pullsCell(h?.ci);
     return html`<div class="status">
         <div class="cell">
           <span class="label">Version</span>
@@ -256,6 +259,18 @@ export class PipelineHeader extends LitElement {
                 >${running} running</a
               >
               <span class="sub ${held ? 'warn' : ''}">${held} held</span>
+            </div>`
+          : nothing}
+        ${pulls
+          ? html`<div class="cell">
+              <span class="label">Pull requests</span>
+              <a
+                class="value st t-${pulls.tone}"
+                href=${ciPath(this.pipelineId)}
+                @click=${navClick}
+                ><span class="dot"></span>${pulls.value}</a
+              >
+              <span class="sub">${pulls.sub}</span>
             </div>`
           : nothing}
       </div>

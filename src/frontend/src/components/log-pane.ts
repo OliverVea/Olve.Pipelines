@@ -2,24 +2,25 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { AnsiUp } from 'ansi_up';
-import { runStepsLogs } from '@olve/api';
-import { logEvents } from '@olve/client';
+import { ciRunStepsLogs, runStepsLogs } from '@olve/api';
+import { ciLogEvents, logEvents } from '@olve/client';
 import { api, extractErrorMessage } from '../api/client.js';
 import { sharedStyles } from '../styles/ui.js';
 
 const ansi = new AnsiUp();
 ansi.use_classes = false;
 
-/** One attempt of a step in a run. */
+/** One attempt of a step in a run (a CI run with `ci`). */
 export interface LogAddress {
   pipelineId: string;
   number: number;
   step: string;
   attempt: number;
+  ci?: boolean;
 }
 
 const keyOf = (a: LogAddress | null) =>
-  a ? `${a.pipelineId}#${a.number}/${a.step}@${a.attempt}` : '';
+  a ? `${a.pipelineId}#${a.ci ? 'ci' : ''}${a.number}/${a.step}@${a.attempt}` : '';
 
 /**
  * Logs of one attempt. While `live`, follows the log stream (falling back to re-fetching every few
@@ -117,7 +118,7 @@ export class LogPane extends LitElement {
     const { pipelineId, number, step, attempt } = address;
     let ended = false;
     try {
-      for await (const event of logEvents(
+      for await (const event of (address.ci ? ciLogEvents : logEvents)(
         api,
         stream.signal,
         { pipelineId, number, step },
@@ -163,7 +164,7 @@ export class LogPane extends LitElement {
     const key = this._key;
     if (!silent) this._loading = true;
     try {
-      const res = await runStepsLogs({
+      const res = await (this.address.ci ? ciRunStepsLogs : runStepsLogs)({
         client: api,
         path: { pipelineId, number, step },
         query: { attempt },

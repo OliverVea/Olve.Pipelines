@@ -2,11 +2,13 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { api, errorMessages } from '../api/client.js';
 import {
+  ciRunsAttempts,
   pipelinesGet,
   runsAttempts,
   runStepsCancel,
   type AttemptState,
   type Attempt,
+  type CiAttempt,
 } from '@olve/api';
 import {
   sharedStyles,
@@ -15,6 +17,7 @@ import {
   formatDuration,
   navClick,
   runPath,
+  ciRunPath,
   pipelinePath,
   isActiveStatus,
   isLiveStatus,
@@ -30,9 +33,9 @@ type AttemptStatusFields = {
   reason?: string | null;
 };
 
-const statusOf = (a: Attempt) => a.status as AttemptStatusFields;
+const statusOf = (a: Attempt | CiAttempt) => a.status as AttemptStatusFields;
 
-/** The log of one step's attempt in a run, full height. */
+/** The log of one step's attempt in a run (a CI run with `ci`), full height. */
 @customElement('step-logs-view')
 export class StepLogsView extends LitElement {
   static styles = [
@@ -75,9 +78,10 @@ export class StepLogsView extends LitElement {
   @property() declare pipelineId: string;
   @property() declare run: string;
   @property() declare step: string;
+  @property({ type: Boolean }) declare ci: boolean;
 
   @state() declare private _name: string;
-  @state() declare private _attempts: Attempt[] | null;
+  @state() declare private _attempts: (Attempt | CiAttempt)[] | null;
   @state() declare private _attempt: number | null;
   @state() declare private _error: string | null;
   @state() declare private _busy: boolean;
@@ -87,6 +91,7 @@ export class StepLogsView extends LitElement {
     this.pipelineId = '';
     this.run = '';
     this.step = '';
+    this.ci = false;
     this._name = '';
     this._attempts = null;
     this._attempt = null;
@@ -97,7 +102,8 @@ export class StepLogsView extends LitElement {
       () => this.reload(),
       (n) =>
         n.pipelineId === this.pipelineId &&
-        (n.type === 'run' || (n.type === 'attempt' && n.step === this.step)) &&
+        (n.type === (this.ci ? 'ci-run' : 'run') ||
+          (n.type === (this.ci ? 'ci-attempt' : 'attempt') && n.step === this.step)) &&
         String(n.run) === this.run,
     );
   }
@@ -116,9 +122,10 @@ export class StepLogsView extends LitElement {
     try {
       const [pipeline, attempts] = await Promise.all([
         this._name ? null : pipelinesGet({ client: api, path }).then((r) => r.data),
-        runsAttempts({ client: api, path: { ...path, number: Number(this.run) } }).then(
-          (r) => r.data,
-        ),
+        (this.ci ? ciRunsAttempts : runsAttempts)({
+          client: api,
+          path: { ...path, number: Number(this.run) },
+        }).then((r) => r.data as (Attempt | CiAttempt)[] | undefined),
       ]);
       if (pipeline) this._name = pipeline.name ?? '';
       this._attempts = (attempts ?? [])
@@ -130,7 +137,7 @@ export class StepLogsView extends LitElement {
     }
   }
 
-  private _selected(): Attempt | null {
+  private _selected(): Attempt | CiAttempt | null {
     const list = this._attempts ?? [];
     return list.find((a) => a.number === this._attempt) ?? list[list.length - 1] ?? null;
   }
@@ -162,7 +169,7 @@ export class StepLogsView extends LitElement {
   }
 
   render() {
-    const run = runPath(this.pipelineId, Number(this.run));
+    const run = (this.ci ? ciRunPath : runPath)(this.pipelineId, Number(this.run));
     const list = this._attempts;
     const a = this._selected();
     const st = a ? statusOf(a) : null;
@@ -188,7 +195,7 @@ export class StepLogsView extends LitElement {
               >${formatDuration(st.startedAt, st.finishedAt ?? st.cancelledAt)}</span
             >`
           : nothing}
-        ${isActiveStatus(st?.type)
+        ${isActiveStatus(st?.type) && !this.ci
           ? html`<button
               class="btn danger small cancel"
               ?disabled=${this._busy}
@@ -220,6 +227,7 @@ export class StepLogsView extends LitElement {
               number: Number(this.run),
               step: this.step,
               attempt: a.number,
+              ci: this.ci,
             }}
             ?live=${isLiveStatus(st?.type)}
           ></log-pane>`

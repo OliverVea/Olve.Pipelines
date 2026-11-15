@@ -72,14 +72,16 @@ public class CiQueueTests
         await result.Problems.IsSingle<ConflictProblem>("Pipeline 'widgets' declares no CI.");
     }
 
-    // The service tracks neither, so the handler asks GitHub before refusing them by name.
+    // The service tracks none of them, so the handler asks GitHub before refusing them by name.
     [Test]
     [Arguments("someone/fork", "main", "Pull request #9 comes from a fork.")]
     [Arguments("OliverVea/Olve.Pipelines", "release", "Pull request #9 is not into 'main'.")]
-    public async Task A_pull_request_from_a_fork_or_into_another_branch_is_refused_by_name(string headRepo, string @base, string problem)
+    [Arguments("OliverVea/Olve.Pipelines", "main", "Pull request #9 is by 'someone', whose pull requests get no CI.")]
+    public async Task A_pull_request_from_a_fork_into_another_branch_or_by_an_author_without_CI_is_refused_by_name(string headRepo, string @base, string problem)
     {
         await using var s = new CiScenario();
-        s.GitHub.Answer(PullRequestFixtures.Pull(9, headSha: A, headRepo: headRepo, @base: @base));
+        var author = problem.Contains("someone", StringComparison.Ordinal) ? "someone" : PullRequestFixtures.Author;
+        s.GitHub.Answer(PullRequestFixtures.Pull(9, headSha: A, headRepo: headRepo, @base: @base, author: author));
 
         var response = await Handler(s).HandleAsync(
             new Contract.CiQueueEnqueueRequest(s.Pipeline.Id.Value.Value, new Contract.EnqueuePull { Pull = 9 }), default);
@@ -389,6 +391,6 @@ public class CiQueueTests
     }
 
     private static EnqueuePullHandler Handler(CiScenario s) => new(
-        s.Get<PipelineService>(), s.Get<PipelineConfigBindingService>(), s.Get<PullRequestService>(), s.GitHub, s.QueueActions,
+        s.Get<PipelineService>(), s.Get<PipelineConfigBindingService>(), s.Get<PullRequestService>(), s.GitHub, s.Get<CiOptions>(), s.QueueActions,
         s.Get<CiRunViewService>(), s.Get<CiPersistenceService>(), new HttpContextAccessor(), s.Clock);
 }

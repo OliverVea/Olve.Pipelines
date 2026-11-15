@@ -10,15 +10,15 @@ public enum PullRequestChange
     /// <summary>Added or updated (also when nothing differed).</summary>
     Tracked,
 
-    /// <summary>It no longer targets the binding's branch, so it is not tracked any more.</summary>
+    /// <summary>It no longer targets the binding's branch, or its author is no longer in <c>Ci:Authors</c>, so it is not tracked any more.</summary>
     Removed,
 
-    /// <summary>From a fork, into another branch, or older than what is held.</summary>
+    /// <summary>From a fork, by an author not in <c>Ci:Authors</c>, into another branch, or older than what is held.</summary>
     Ignored,
 }
 
 /// <summary>The pull requests of each pipeline's binding. Singleton: owns the indexes.</summary>
-public class PullRequestService(EntityStore<PullRequest> store, IdProvider idProvider)
+public class PullRequestService(EntityStore<PullRequest> store, IdProvider idProvider, CiOptions options)
 {
     private readonly EntityStoreIndex<PullRequest, Id<Pipeline>> _byPipeline = store.CreateIndex(p => p.PipelineId);
     private readonly EntityStoreUniqueIndex<PullRequest, Id<PullRequest>, (Id<Pipeline>, int)> _byNumber =
@@ -44,7 +44,7 @@ public class PullRequestService(EntityStore<PullRequest> store, IdProvider idPro
                 return PullRequestChange.Ignored;
             if (held is not null && reported.UpdatedAt < held.UpdatedAt)
                 return PullRequestChange.Ignored;
-            if (!string.Equals(reported.Base.Ref, branch, StringComparison.Ordinal))
+            if (!string.Equals(reported.Base.Ref, branch, StringComparison.Ordinal) || !options.Allows(reported.User?.Login))
             {
                 if (held is null)
                     return PullRequestChange.Ignored;

@@ -48,7 +48,7 @@ public class PullRequestCatchUpTests
 
     private static (PullRequestCatchUp CatchUp, PullRequestService Pulls, FakeSource Source) Create()
     {
-        var pulls = new PullRequestService(new EntityStore<PullRequest>([]), new IdProvider());
+        var pulls = new PullRequestService(new EntityStore<PullRequest>([]), new IdProvider(), PullRequestFixtures.AllowedAuthors);
         var source = new FakeSource();
         return (new PullRequestCatchUp(source, pulls, new FixedTime(T0.AddHours(1))), pulls, source);
     }

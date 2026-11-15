@@ -46,6 +46,9 @@ auth:
 #   allow:
 #     users: [OliverVea]
 
+ci:
+  authors: [OliverVea]
+
 telemetry:
   exporter: none
 # To export to an OTLP collector (headers only when the receiver needs a key):

@@ -57,7 +57,7 @@ internal static partial class GitHubCapture
     private static readonly string[] PullFields =
     [
         "number", "title", "state", "draft", "merged_at", "updated_at", "mergeable", "merge_commit_sha",
-        "head.ref", "head.sha", "head.repo.full_name", "base.ref", "base.repo.full_name",
+        "head.ref", "head.sha", "head.repo.full_name", "base.ref", "base.repo.full_name", "user.login",
     ];
 
     public static async Task<IReadOnlyList<Recording>> CaptureAsync(DateOnly today)
@@ -149,10 +149,19 @@ internal static partial class GitHubCapture
         "changed_files", "closed_at", "comments", "comments_url", "commits", "commits_url", "created_at", "deletions", "diff_url",
         "html_url", "id", "issue_url", "labels", "locked", "maintainer_can_modify", "mergeable_state", "merged",
         "merged_by", "milestone", "node_id", "patch_url", "rebaseable", "requested_reviewers", "requested_teams",
-        "review_comment_url", "review_comments", "review_comments_url", "statuses_url", "url", "user",
+        "review_comment_url", "review_comments", "review_comments_url", "statuses_url", "url",
         "head.label", "head.user", "base.label", "base.user",
-        .. RepoElisions("head"), .. RepoElisions("base"),
+        .. UserElisions("user"), .. RepoElisions("head"), .. RepoElisions("base"),
     ];
+
+    /// <summary>Every field of a GitHub account but <c>login</c>.</summary>
+    private static IEnumerable<string> UserElisions(string at) =>
+        new[]
+        {
+            "avatar_url", "events_url", "followers_url", "following_url", "gists_url", "gravatar_id", "html_url", "id", "node_id",
+            "organizations_url", "received_events_url", "repos_url", "site_admin", "starred_url", "subscriptions_url", "type", "url",
+            "user_view_type",
+        }.Select(f => $"{at}.{f}");
 
     private static IEnumerable<string> RepoElisions(string side) =>
     [

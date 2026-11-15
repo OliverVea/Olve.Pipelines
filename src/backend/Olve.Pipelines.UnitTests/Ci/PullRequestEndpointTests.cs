@@ -19,7 +19,8 @@ public class PullRequestEndpointTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection([KeyValuePair.Create<string, string?>("Ci:Authors:0", PullRequestFixtures.Author)]).Build());
         services.AddPipelineServices();
         var provider = services.BuildServiceProvider();
         foreach (var startup in provider.GetServices<IRunOnStartup>().Where(s => s is PullRequestEventRegistration or PipelineEventRegistration))

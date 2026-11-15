@@ -7,7 +7,7 @@
   "elided": "author, committer, html_url, message, node_id, url, verification, tree.url, parents.url, parents.html_url",
   "request": {
     "method": "GET",
-    "url": "/repos/OliverVea/Olve.Pipelines/git/commits/443905815a7c4608f2eb4a680295215b76259712",
+    "url": "/repos/OliverVea/Olve.Pipelines/git/commits/f82163a481f9fb88421590fb04abd2560dd64db4",
     "headers": {
       "accept": "application/vnd.github+json",
       "user-agent": "olve-pipelines"
@@ -17,18 +17,18 @@
     "status": 200,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"890d31999b8da1bf8415e1023c005a231949b20c4f7e898258132ad022cc62ad\"",
+      "etag": "W/\"03c148f124b4c49e2eb29a61b5553d0f2556f12c39e8894907f500eea16a2ee5\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },
     "body": {
-      "sha": "443905815a7c4608f2eb4a680295215b76259712",
+      "sha": "f82163a481f9fb88421590fb04abd2560dd64db4",
       "tree": {
-        "sha": "33300d6e32ae35b759c8bac6c4e603cbbcc8821d"
+        "sha": "67fb35486d7861bb86dc40f21c7bfaa8de3d7c82"
       },
       "parents": [
         {
-          "sha": "a31f28eba8cad5d67d3e9ee3aae28a2a3e1d9427"
+          "sha": "74183dfaa365bc683174cd2ae7ad0bd9e37ba022"
         }
       ]
     }

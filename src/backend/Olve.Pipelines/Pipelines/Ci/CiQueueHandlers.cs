@@ -20,7 +20,7 @@ public sealed class GetQueueHandler(PipelineService pipelines, CiRunViewService 
 
 /// <summary>
 /// Enqueues an open pull request into the binding's branch. One the service doesn't track is read from GitHub first,
-/// so a pull request from a fork or into another branch is refused by name. Replies once the entry is saved.
+/// so a pull request from a fork, into another branch or by an author without CI is refused by name. Replies once the entry is saved.
 /// </summary>
 [OperationHandler]
 public sealed class EnqueuePullHandler(
@@ -28,6 +28,7 @@ public sealed class EnqueuePullHandler(
     PipelineConfigBindingService bindings,
     PullRequestService pulls,
     IPullRequestSource source,
+    CiOptions ci,
     CiQueueActions actions,
     CiRunViewService views,
     CiPersistenceService durability,
@@ -51,6 +52,8 @@ public sealed class EnqueuePullHandler(
                     return Fail(new ConflictProblem("Pull request #{0} comes from a fork.", number));
                 if (reported.Base.Ref != binding.Branch)
                     return Fail(new ConflictProblem("Pull request #{0} is not into '{1}'.", number, binding.Branch));
+                if (!ci.Allows(reported.User?.Login))
+                    return Fail(new ConflictProblem("Pull request #{0} is by '{1}', whose pull requests get no CI.", number, reported.User?.Login ?? "ghost"));
                 pulls.Observe(id, binding.Branch, reported, time.GetUtcNow());
             }
         }

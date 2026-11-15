@@ -4,6 +4,7 @@
 import { pipeline, steps, type ConfigRef } from '@olivervea/pipelines';
 import {
   AUTH,
+  CI,
   DEPLOYER_TOKEN,
   PUBLISH,
   REGISTRY_SECRETS,
@@ -48,7 +49,7 @@ const deployOptions = (target: { auth: ConfigRef; telemetry: ConfigRef }) =>
   ({
     chart: 'src/deploy/helm',
     inlineValues: [
-      { auth: AUTH, telemetry: TELEMETRY },
+      { auth: AUTH, telemetry: TELEMETRY, ci: CI },
       { auth: target.auth, telemetry: target.telemetry },
     ],
     images: { server: 'image' },

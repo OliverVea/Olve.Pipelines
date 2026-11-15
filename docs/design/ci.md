@@ -31,6 +31,9 @@ its own runs, scheduling and tab in the UI. What they share is the SDK and the e
   second target branch is a second binding.
 - Draft PRs run at the lowest priority (below).
 - Pull requests from forks are ignored.
+- Only pull requests by the authors in `Ci:Authors`, a server setting, get CI; the rest are ignored
+  like forks. CI runs a pull request's own code, and many bound repositories are open source. The
+  list is the server's, not the definition's: a pull request can change its own definition.
 
 ## Runs of a pull request
 
@@ -155,10 +158,12 @@ The service reports commit statuses from CI run state, with the binding's token:
   switches and never changes CD's activation. Its manifest goes through the same
   `ManifestValidator`; a PR whose definition fails describe or validation gets a failed run that
   names the problems.
-- **Secrets:** a PR runs its own step code, and same-repo bot branches (Renovate) are not filtered
-  like forks are. `checks({ secrets: [...] })` lists the pipeline secrets CI may use. A CI step that
+- **Secrets:** a PR runs its own step code; a bot's PRs (Renovate) reach CI only if its login is in
+  `Ci:Authors`. `checks({ secrets: [...] })` lists the pipeline secrets CI may use. A CI step that
   declares a secret outside the list is a describe problem. Deploy credentials reach PR code only if
   they are listed.
+- **No cluster access:** a CI step can't declare `clusterAccess`, which would give PR code the
+  instance's step ServiceAccount, the account CD deploys with.
 - **Run numbers:** CI runs are numbered per pipeline in a sequence of their own. CD's numbers and
   version stamps keep counting deploys only.
 
@@ -234,7 +239,7 @@ number:
   that didn't succeed on this tree run.
 - `GET queue`: entries in order with their state and run, plus the day's finished ones.
 - `POST queue` `{pull}` enqueues; refused for a draft, a PR not based on `main`, a
-  conflicting PR and a fork. `DELETE queue/{pull}` dequeues.
+  conflicting PR, a fork and an author not in `Ci:Authors`. `DELETE queue/{pull}` dequeues.
 - The pipeline summary gains the counts the homepage tags and the overview's "Pull requests" cell
   show (open, failing, running, queued).
 - Change notices on `/api/events` for PRs, CI runs, attempts and the queue, like CD's.

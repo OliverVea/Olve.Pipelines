@@ -58,6 +58,7 @@ public class CiRunTests
                 p["merged_at"] = null;
                 p["head"]!["sha"] = A;
                 p["updated_at"] = s.Clock.GetUtcNow().ToString("O");
+                p["user"] = new System.Text.Json.Nodes.JsonObject { ["login"] = PullRequestFixtures.Author };
             }),
         }.ToJsonString());
         var handler = Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance<Olve.Pipelines.Pipelines.Sync.BindingWebhookHandler>(

@@ -323,7 +323,8 @@ internal sealed class CiScenario : IAsyncDisposable
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<TimeProvider>(Clock);
-        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection([KeyValuePair.Create<string, string?>("Ci:Authors:0", PullRequestFixtures.Author)]).Build());
         services.AddSingleton<IPullRequestSource>(GitHub);
         services.AddSingleton<ICiDefinitionBuilder>(Builder);
         services.AddSingleton<ICommitStatusClient>(Statuses);

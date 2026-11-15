@@ -95,6 +95,16 @@ export const TELEMETRY = config(
   Telemetry.prefault({ exporter: 'none' }),
 );
 
+export const CI = config(
+  'ci',
+  'Whose pull requests get CI on the deployed instances.',
+  z.object({
+    authors: z
+      .array(z.string())
+      .describe('GitHub logins; a pull request by anyone else gets no CI.'),
+  }),
+);
+
 const stageOverrides = {
   auth: Auth.optional().describe('Replaces `auth` for this target.'),
   telemetry: Telemetry.optional().describe('Replaces `telemetry` for this target.'),

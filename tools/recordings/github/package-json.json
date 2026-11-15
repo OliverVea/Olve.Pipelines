@@ -7,7 +7,7 @@
   "elided": "",
   "request": {
     "method": "GET",
-    "url": "/repos/OliverVea/Olve.Pipelines/contents/.pipelines/package.json?ref=f7990b0060dbea43c385666513b8ca0595130c21",
+    "url": "/repos/OliverVea/Olve.Pipelines/contents/.pipelines/package.json?ref=c5e721fee2e61f65a06c629241fa2e4f58e9a17d",
     "headers": {
       "accept": "application/vnd.github.raw+json",
       "user-agent": "olve-pipelines"

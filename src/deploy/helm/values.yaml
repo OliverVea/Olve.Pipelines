@@ -20,6 +20,10 @@ auth: {}
 #     (headers: a Secret key holding "k1=v1,k2=v2", e.g. a backend's API key)
 telemetry: {}
 
+# Whose pull requests get CI, mapped onto config.Ci__Authors__*. Empty: no pull request gets CI.
+#   authors: [GitHub logins]
+ci: {}
+
 # The controller's ServiceAccount, with rights in the runner namespace (config.Kubernetes__Namespace).
 serviceAccount:
   enabled: true

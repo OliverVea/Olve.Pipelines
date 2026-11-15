@@ -17,11 +17,15 @@ public record GitHubPullRequest(
     [property: JsonPropertyName("base")] GitHubPullRequestRef Base,
     [property: JsonPropertyName("mergeable")] bool? Mergeable = null,
     [property: JsonPropertyName("merge_commit_sha")] string? MergeCommitSha = null,
-    [property: JsonPropertyName("auto_merge")] GitHubAutoMerge? AutoMerge = null)
+    [property: JsonPropertyName("auto_merge")] GitHubAutoMerge? AutoMerge = null,
+    [property: JsonPropertyName("user")] GitHubUser? User = null)
 {
     /// <summary>From another repository; a fork whose repository was deleted has none.</summary>
     public bool FromFork => !string.Equals(Head.Repo?.FullName, Base.Repo?.FullName, StringComparison.OrdinalIgnoreCase);
 }
+
+/// <summary>The account that opened the pull request.</summary>
+public record GitHubUser([property: JsonPropertyName("login")] string Login);
 
 /// <summary>Set while GitHub auto-merge is turned on for the pull request.</summary>
 public record GitHubAutoMerge([property: JsonPropertyName("merge_method")] string? MergeMethod);

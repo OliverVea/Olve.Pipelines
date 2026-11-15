@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Olve.Pipelines.GitHub;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.UnitTests.Recordings;
 
 namespace Olve.Pipelines.UnitTests.Ci;
@@ -9,6 +10,11 @@ namespace Olve.Pipelines.UnitTests.Ci;
 internal static class PullRequestFixtures
 {
     public const string Repo = "OliverVea/Olve.Pipelines";
+
+    /// <summary>The one author <see cref="AllowedAuthors"/> gives CI.</summary>
+    public const string Author = "OliverVea";
+
+    public static readonly CiOptions AllowedAuthors = new([Author]);
 
     /// <summary>The recorded pull request's JSON, with <paramref name="change"/> applied.</summary>
     public static JsonObject Json(Action<JsonObject>? change = null)
@@ -21,7 +27,7 @@ internal static class PullRequestFixtures
     public static GitHubPullRequest Pull(
         int number = 7, string @base = "main", string state = "open", bool merged = false, bool draft = false,
         string headSha = "aaaaaaa", string? headRepo = Repo, DateTimeOffset? updatedAt = null, bool? mergeable = null, string title = "Add a thing",
-        string? mergeCommitSha = null, bool autoMerge = false) =>
+        string? mergeCommitSha = null, bool autoMerge = false, string? author = Author) =>
         Parse(Json(p =>
         {
             p["number"] = number;
@@ -37,6 +43,7 @@ internal static class PullRequestFixtures
             p["head"]!["repo"] = headRepo is null ? null : new JsonObject { ["full_name"] = headRepo };
             p["base"]!["ref"] = @base;
             p["auto_merge"] = autoMerge ? new JsonObject { ["merge_method"] = "rebase" } : null;
+            p["user"] = author is null ? null : new JsonObject { ["login"] = author };
         }));
 
     public static GitHubPullRequest Parse(JsonNode json) =>

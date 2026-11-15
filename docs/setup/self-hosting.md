@@ -58,7 +58,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Kubernetes:Namespace` | — (the chart: the release namespace) | Runner namespace for step Jobs and pipeline Secrets |
 | `Kubernetes:AuthMode` | — | `InCluster`: the pod's ServiceAccount reaches the cluster API (the chart sets it and grants a Role in the runner namespace). Unset = no Kubernetes |
 | `Kubernetes:RuntimeClassName` | — | RuntimeClass for step pods (`gvisor`); empty = runc |
-| `Kubernetes:StepServiceAccount` | — | ServiceAccount (in the runner namespace) whose token steps that declare `clusterAccess` get (`steps.helmDeploy` in-cluster); empty = no step pod gets a token |
+| `Kubernetes:StepServiceAccount` | — | ServiceAccount (in the runner namespace) whose token steps that declare `clusterAccess` get (`steps.helmDeploy` in-cluster); empty = no step pod gets a token. CI steps can't declare `clusterAccess` |
 | `Harness:HarnessBaseImage` | `ghcr.io/olivervea/olve-pipelines-harness-base:src-…` (`HarnessImage.cs`) | Step-pod init image (pinned, never `latest`). The chart sets it from `harness.image`, which the deploy fills from the `publish-harness` step |
 | `Harness:BunImage` | `oven/bun:1.4.3-slim` | Build/describe Job image (glibc, never alpine) |
 | `GitHub:ApiUrl` / `GitHub:CodeloadUrl` | `https://api.github.com` / `https://codeload.github.com` | Where bindings read config cursors and the build Job fetches tarballs (GitHub Enterprise, or a local stand-in for tests) |
@@ -71,6 +71,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used for the repo tarball when the binding names no credentials key |
 | `Jobs:MaxConcurrent` | `4` | Step Jobs running at once across all pipelines; the rest wait in Scheduled |
 | `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
+| `Ci:Authors` | — | GitHub logins whose pull requests get CI, on every binding; a pull request by anyone else is ignored like one from a fork. Empty = no pull request gets CI. The chart sets it from `ci.authors` |
 | `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes). Changing it repoints the registered hooks |
 | `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the run/log links in a failure handler's `FailureContext` |
 | `ExternalInputs:Poll:AllowedHosts` | — | Host names `poll()` inputs may reach although they resolve to private addresses (e.g. an in-cluster test service); empty = public addresses only. The server holds cluster and storage credentials, so list only hosts you trust |

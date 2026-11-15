@@ -142,7 +142,7 @@ enum QueueEntryState {
   removed,
 }
 
-/** How a pull request entered the queue: through the API (`pl ci merge`, the UI) or by GitHub auto-merge being turned on. */
+/** How a pull request entered the queue: through the API or by GitHub auto-merge being turned on. */
 enum QueueEntryVia {
   api,
   `auto-merge`: "auto-merge",

@@ -14,7 +14,7 @@ public class PullRequestServiceTests
     private static readonly DateTimeOffset Later = Seen.AddMinutes(5);
 
     private static (PullRequestService Service, Id<Pipeline> PipelineId) Create() =>
-        (new PullRequestService(new EntityStore<PullRequest>([]), new IdProvider()), Id.New<Pipeline>());
+        (new PullRequestService(new EntityStore<PullRequest>([]), new IdProvider(), PullRequestFixtures.AllowedAuthors), Id.New<Pipeline>());
 
     private static readonly Dictionary<string, (Func<GitHubPullRequest> Reported, PullRequestChange Change, PullRequestState? State)> FirstReports = new()
     {
@@ -24,6 +24,8 @@ public class PullRequestServiceTests
         ["a pull request from a fork is ignored"] = (() => Pull(headRepo: "someone/Olve.Pipelines"), PullRequestChange.Ignored, null),
         ["one whose fork was deleted is ignored"] = (() => Pull(headRepo: null), PullRequestChange.Ignored, null),
         ["one into another branch is ignored"] = (() => Pull(@base: "release"), PullRequestChange.Ignored, null),
+        ["one by an author without CI is ignored"] = (() => Pull(author: "someone"), PullRequestChange.Ignored, null),
+        ["one whose author GitHub doesn't name is ignored"] = (() => Pull(author: null), PullRequestChange.Ignored, null),
     };
 
     public static IEnumerable<string> FirstReportRules() => FirstReports.Keys;
@@ -38,6 +40,20 @@ public class PullRequestServiceTests
 
         await Assert.That(pulls.Observe(pipelineId, "main", pull, Seen)).IsEqualTo(change);
         await Assert.That(pulls.TryGet(pipelineId, pull.Number, out var held) ? held.State : (PullRequestState?)null).IsEqualTo(state);
+    }
+
+    [Test]
+    public async Task A_tracked_pull_request_whose_author_lost_CI_is_dropped_on_its_next_report()
+    {
+        var store = new EntityStore<PullRequest>([]);
+        var pipelineId = Id.New<Pipeline>();
+        new PullRequestService(store, new IdProvider(), AllowedAuthors).Observe(pipelineId, "main", Pull(), Seen);
+        var narrowed = new PullRequestService(store, new IdProvider(), new CiOptions([]));
+
+        var change = narrowed.Observe(pipelineId, "main", Pull(), Later);
+
+        await Assert.That(change).IsEqualTo(PullRequestChange.Removed);
+        await Assert.That(narrowed.TryGet(pipelineId, 7, out _)).IsFalse();
     }
 
     [Test]

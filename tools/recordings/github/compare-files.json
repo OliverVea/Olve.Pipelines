@@ -7,7 +7,7 @@
   "elided": "ahead_by, base_commit, behind_by, commits, diff_url, html_url, merge_base_commit, patch_url, permalink_url, status, total_commits, url, files.additions, files.blob_url, files.changes, files.contents_url, files.deletions, files.patch, files.previous_filename, files.raw_url, files.sha, files.status",
   "request": {
     "method": "GET",
-    "url": "/repos/OliverVea/Olve.Pipelines/compare/460772e59b16722d6c4ed5c58e1f9ac7fa98ba12...443905815a7c4608f2eb4a680295215b76259712",
+    "url": "/repos/OliverVea/Olve.Pipelines/compare/ad3d962e5f5316ed391619760c0af0a9158a0b3d...f82163a481f9fb88421590fb04abd2560dd64db4",
     "headers": {
       "accept": "application/vnd.github+json",
       "user-agent": "olve-pipelines"
@@ -17,7 +17,7 @@
     "status": 200,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"2e05d25d0476c1c143374ffcbca57e21cc57e248be093be4628248cf8b90b0f4\"",
+      "etag": "W/\"13036c67595132f72cfa7f21e6a7ab4e11fb749966a8d48dc2f6cd7a178d1062\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },
@@ -30,31 +30,22 @@
           "filename": "docs/design/ci.md"
         },
         {
-          "filename": "src/backend/Olve.Pipelines.RealSystemTests/Contracts/ResultCollectionContract.cs"
+          "filename": "docs/setup/binding-and-reconcile.md"
         },
         {
-          "filename": "src/backend/Olve.Pipelines.UnitTests/Configs/SelectTests.cs"
+          "filename": "src/backend/Olve.Pipelines.UnitTests/Ci/CiOutdatedTests.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines.UnitTests/Harness/HarnessJobBuilderTests.cs"
+          "filename": "src/backend/Olve.Pipelines.UnitTests/Ci/CiQueueTests.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines.UnitTests/Harness/HarnessJobFactoryTests.cs"
-        },
-        {
-          "filename": "src/backend/Olve.Pipelines.UnitTests/Harness/HarnessResultCollectorTests.cs"
-        },
-        {
-          "filename": "src/backend/Olve.Pipelines.UnitTests/HarnessFakes.cs"
+          "filename": "src/backend/Olve.Pipelines.UnitTests/Ci/CiStatusTests.cs"
         },
         {
           "filename": "src/backend/Olve.Pipelines.UnitTests/JobDispatchTests.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines.UnitTests/LeftoverJobCleanupServiceTests.cs"
-        },
-        {
-          "filename": "src/backend/Olve.Pipelines/Jobs/HarnessAttempt.cs"
+          "filename": "src/backend/Olve.Pipelines/Configuration/ServiceConfiguration.cs"
         },
         {
           "filename": "src/backend/Olve.Pipelines/Jobs/JobDispatch.cs"
@@ -63,43 +54,34 @@
           "filename": "src/backend/Olve.Pipelines/Jobs/JobRunner.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Jobs/JobWatcherRegistry.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiBuild.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Jobs/KubernetesJobExecutor.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiChecks.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Jobs/LeftoverJobCleanupService.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiEventRegistration.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessAttemptIdentity.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiQueueProcessor.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessAttemptLiveLogs.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiRun.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessJobBuilder.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiRunService.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessJobFactory.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiRunStartService.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessResultCollector.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiStatus.cs"
         },
         {
-          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessStorage.cs"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Ci/CiTriggerService.cs"
         },
         {
-          "filename": "src/frontend/src/components/pipeline-runs-view.ts"
-        },
-        {
-          "filename": "src/frontend/src/components/run-changes.ts"
-        },
-        {
-          "filename": "src/frontend/src/model/changes.ts"
-        },
-        {
-          "filename": "src/frontend/test/changes.test.ts"
+          "filename": "src/backend/Olve.Pipelines/Pipelines/Manifests/ManifestWriter.cs"
         }
       ]
     }

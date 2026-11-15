@@ -1,3 +1,4 @@
+using Olve.Pipelines.UnitTests.Ci;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines.Ci;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -42,7 +43,7 @@ public class ChangeEventRegistrationTests
             secrets, pullEvents, new CiRunEvents(), new CiAttemptEvents(), queueEvents, broadcaster);
         if (registration.Run().TryPickProblems(out var problems))
             throw new InvalidOperationException(string.Join("; ", problems));
-        return new Wired(s, secrets, new PullRequestService(pullStore, new IdProvider()), new CiQueueService(queueStore, new IdProvider(), d.Time),
+        return new Wired(s, secrets, new PullRequestService(pullStore, new IdProvider(), PullRequestFixtures.AllowedAuthors), new CiQueueService(queueStore, new IdProvider(), d.Time),
             broadcaster.Subscribe(s.Pipeline.Id, lastEventId: null));
     }
 

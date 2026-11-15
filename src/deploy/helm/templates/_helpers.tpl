@@ -1,6 +1,6 @@
 {{/*
-The server's settings: .Values.config, with .Values.auth and .Values.telemetry (when set) mapped onto the
-Auth__* and OpenTelemetry__* keys. An empty value drops the key, as in .Values.config. Unset, the runner
+The server's settings: .Values.config, with .Values.auth, .Values.telemetry and .Values.ci (when set) mapped
+onto the Auth__*, OpenTelemetry__* and Ci__* keys. An empty value drops the key, as in .Values.config. Unset, the runner
 namespace is the release's and storage is the bundled Garage.
 */}}
 {{- define "olve-pipelines.config" -}}
@@ -53,6 +53,11 @@ namespace is the release's and storage is the bundled Garage.
 {{- $_ := set $c "Auth__FrontendAudience" .frontendAudience -}}
 {{- else if $mode -}}
 {{- fail (printf "auth.mode must be none, dex or authentik, got %q" $mode) -}}
+{{- end -}}
+{{- end -}}
+{{- with .Values.ci -}}
+{{- range $i, $v := (.authors | default list) -}}
+{{- $_ := set $c (printf "Ci__Authors__%d" $i) $v -}}
 {{- end -}}
 {{- end -}}
 {{- with .Values.telemetry -}}

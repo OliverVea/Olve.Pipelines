@@ -65,6 +65,10 @@ public static class ServiceConfiguration
 
         // CI: a binding's pull requests, from its webhook and a catch-up read of GitHub.
         services.AddSingleton<EntityStore<PullRequest>>();
+        services.AddSingleton(sp => new CiOptions([
+            .. sp.GetRequiredService<IConfiguration>().GetSection("Ci:Authors").GetChildren()
+                .Select(c => c.Value?.Trim()).Where(v => !string.IsNullOrEmpty(v)).Cast<string>(),
+        ]));
         services.AddSingleton<PullRequestEvents>();
         services.AddSingleton<PullRequestService>();
         services.AddTransient<PullRequestCleanupService>();

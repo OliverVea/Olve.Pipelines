@@ -26,7 +26,7 @@ public class CiPersistenceServiceTests
         var (writer, writerStore, _) = Create(snapshots);
         await writer.StartingAsync(default);
         var pipelineId = Id.New<Pipeline>();
-        var pulls = new PullRequestService(writerStore, new IdProvider());
+        var pulls = new PullRequestService(writerStore, new IdProvider(), PullRequestFixtures.AllowedAuthors);
         pulls.Observe(pipelineId, "main", Pull(number: 3, draft: true, mergeable: false), DateTimeOffset.UnixEpoch);
         pulls.Observe(pipelineId, "main", Pull(number: 4, state: "closed", merged: true), DateTimeOffset.UnixEpoch);
         await writer.SaveIfDirtyAsync();
@@ -73,7 +73,7 @@ public class CiPersistenceServiceTests
     {
         var snapshots = new MemorySnapshotStore();
         var pulls = new EntityStore<PullRequest>([]);
-        var tracked = new PullRequestService(pulls, new IdProvider());
+        var tracked = new PullRequestService(pulls, new IdProvider(), PullRequestFixtures.AllowedAuthors);
         var pipelineId = Id.New<Pipeline>();
         tracked.Observe(pipelineId, "main", Pull(number: 3), DateTimeOffset.UnixEpoch);
         tracked.Observe(pipelineId, "main", Pull(number: 4), DateTimeOffset.UnixEpoch);

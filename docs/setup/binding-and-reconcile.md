@@ -46,7 +46,8 @@ from the webhook. Use it for a pipeline something else drives, such as a test fi
 pipeline reconciles and triggers. When `Webhooks:PublicBaseUrl` changes, the registered hooks
 are pointed at the new URL (a hook deleted on GitHub is registered again); clearing it deletes them.
 
-The binding also keeps track of its repository's pull requests into its branch (not those from forks),
+The binding also keeps track of its repository's pull requests into its branch by the authors in
+`Ci:Authors` (not those from forks),
 whether or not the pipeline declares CI: `GET /api/pipelines/{id}/ci/pulls` lists them, open or
 closed. The `pull_request` deliveries keep them current, and the service reads the open ones from
 GitHub at startup, when a binding is created or its branch changes, and when its hook is registered,
@@ -104,7 +105,7 @@ warning saying so until a status gets through.
 
 A pull request enters the pipeline's merge queue with `POST /api/pipelines/{id}/ci/queue` (`{pull}`)
 or when GitHub auto-merge is turned on for it; `GET …/ci/queue` lists it, and `DELETE …/ci/queue/{pull}`
-takes one out. A draft, a pull request GitHub can't merge, one from a fork or into another branch, and
+takes one out. A draft, a pull request GitHub can't merge, one from a fork, by an author not in `Ci:Authors` or into another branch, and
 any pull request of a pipeline that declares no CI are refused.
 
 The queue tests the pull requests at its head together, up to 5: it creates a branch

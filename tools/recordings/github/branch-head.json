@@ -17,17 +17,17 @@
     "status": 200,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"55d49c1ac7598289a7587cb164677e0b6ba8f9dfcf927846994c5995119d9888\"",
+      "etag": "W/\"8bab62f9d14f1b80930218e49ad4a5d810a7431b1c5cc029c4517fd41ec21afe\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },
     "body": {
-      "sha": "87a10f6232f008ddf76be789e21ff994921d45dc",
+      "sha": "f82163a481f9fb88421590fb04abd2560dd64db4",
       "commit": {
         "committer": {
-          "date": "2026-11-15T07:28:21Z"
+          "date": "2026-11-15T16:38:50Z"
         },
-        "message": "feat(ui): the overview's status card drops failed-for-no-reason, newest commit and source\n\nThe binding tab shows the source; the newest commit belongs with the run view. The reliability\nreport stays at /pipeline/<id>/reliability and in `pl pipeline reliability`.\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
+        "message": "fix(ci): auto-merge puts a pull request back in the queue on a new head\n\nThe queue only enqueued when auto-merge was turned on, so a pull request\npushed to, or removed by a failed batch and then fixed, stayed out while\nauto-merge stayed on. Now auto-merge also asks for the queue on a new\nhead, out of draft and on reopen; one removed at the same head stays out.\n\nDocs: drop the unbuilt pl ci merge from the queue description, and the\npublishing policy lands PRs with auto-merge, as ovea-workstyle says.\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
       }
     }
   }

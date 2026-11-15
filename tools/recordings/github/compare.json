@@ -7,7 +7,7 @@
   "elided": "ahead_by, base_commit, behind_by, diff_url, files, merge_base_commit, patch_url, permalink_url, status, url, commits.author.avatar_url, commits.author.events_url, commits.author.followers_url, commits.author.following_url, commits.author.gists_url, commits.author.gravatar_id, commits.author.html_url, commits.author.id, commits.author.node_id, commits.author.organizations_url, commits.author.received_events_url, commits.author.repos_url, commits.author.site_admin, commits.author.starred_url, commits.author.subscriptions_url, commits.author.type, commits.author.url, commits.author.user_view_type, commits.comments_url, commits.commit.author.email, commits.commit.author.date, commits.commit.comment_count, commits.commit.committer.email, commits.commit.committer.name, commits.commit.tree, commits.commit.url, commits.commit.verification, commits.committer, commits.node_id, commits.parents, commits.url",
   "request": {
     "method": "GET",
-    "url": "/repos/OliverVea/Olve.Pipelines/compare/c6fc7a3732eb9c185143723a9fb8dce177860a19...87a10f6232f008ddf76be789e21ff994921d45dc",
+    "url": "/repos/OliverVea/Olve.Pipelines/compare/ad3d962e5f5316ed391619760c0af0a9158a0b3d...f82163a481f9fb88421590fb04abd2560dd64db4",
     "headers": {
       "accept": "application/vnd.github+json",
       "user-agent": "olve-pipelines"
@@ -17,58 +17,58 @@
     "status": 200,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"113cbc7470863dfa6acce922964e52046c17f0a3069c8b35cae61fb931a8e75f\"",
+      "etag": "W/\"13036c67595132f72cfa7f21e6a7ab4e11fb749966a8d48dc2f6cd7a178d1062\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },
     "body": {
-      "html_url": "https://github.com/OliverVea/Olve.Pipelines/compare/c6fc7a3732eb9c185143723a9fb8dce177860a19...87a10f6232f008ddf76be789e21ff994921d45dc",
+      "html_url": "https://github.com/OliverVea/Olve.Pipelines/compare/ad3d962e5f5316ed391619760c0af0a9158a0b3d...f82163a481f9fb88421590fb04abd2560dd64db4",
       "total_commits": 3,
       "commits": [
         {
-          "sha": "a6d2fbcbbdb8fa73449f8c3b5f1690cd56b584ad",
+          "sha": "134decb2d8049dc16b8f567bf3b1becdae71b1c5",
           "commit": {
             "author": {
               "name": "Oliver Vea"
             },
             "committer": {
-              "date": "2026-11-14T01:24:38Z"
+              "date": "2026-11-15T16:15:40Z"
             },
-            "message": "feat(ui): the stage graph centres when narrower than the page and widens to 90% of a wide screen\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
+            "message": "feat(ci): olve/ci says when a run is waiting and when it was cancelled\n\nA new head that will run on the active version gets pending 'Waiting to\nstart' right away (one compare per push decides it doesn't change the\ndefinition); a waiting head that gets no run says why (a conflict, no\nCI). A run of the current head that is cancelled reports error\n'Cancelled' instead of leaving the check pending.\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
           },
-          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/a6d2fbcbbdb8fa73449f8c3b5f1690cd56b584ad",
+          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/134decb2d8049dc16b8f567bf3b1becdae71b1c5",
           "author": {
             "login": "OliverVea"
           }
         },
         {
-          "sha": "b00f62a750bf6778072a37303011880c4efc0caa",
+          "sha": "74183dfaa365bc683174cd2ae7ad0bd9e37ba022",
           "commit": {
             "author": {
               "name": "Oliver Vea"
             },
             "committer": {
-              "date": "2026-11-14T12:50:27Z"
+              "date": "2026-11-15T16:35:51Z"
             },
-            "message": "docs(agents): the publishing policy: what agents land themselves and what needs review\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
+            "message": "feat(ci): open pull requests run again when the checks change\n\nWhen the active version's ci section or code hash differs from the one an\nopen, ready pull request's latest run used (not its own build), the pull\nrequest runs again by itself, at a priority between ready pull requests'\nown runs and drafts.\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
           },
-          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/b00f62a750bf6778072a37303011880c4efc0caa",
+          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/74183dfaa365bc683174cd2ae7ad0bd9e37ba022",
           "author": {
             "login": "OliverVea"
           }
         },
         {
-          "sha": "87a10f6232f008ddf76be789e21ff994921d45dc",
+          "sha": "f82163a481f9fb88421590fb04abd2560dd64db4",
           "commit": {
             "author": {
               "name": "Oliver Vea"
             },
             "committer": {
-              "date": "2026-11-15T07:28:21Z"
+              "date": "2026-11-15T16:38:50Z"
             },
-            "message": "feat(ui): the overview's status card drops failed-for-no-reason, newest commit and source\n\nThe binding tab shows the source; the newest commit belongs with the run view. The reliability\nreport stays at /pipeline/<id>/reliability and in `pl pipeline reliability`.\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
+            "message": "fix(ci): auto-merge puts a pull request back in the queue on a new head\n\nThe queue only enqueued when auto-merge was turned on, so a pull request\npushed to, or removed by a failed batch and then fixed, stayed out while\nauto-merge stayed on. Now auto-merge also asks for the queue on a new\nhead, out of draft and on reopen; one removed at the same head stays out.\n\nDocs: drop the unbuilt pl ci merge from the queue description, and the\npublishing policy lands PRs with auto-merge, as ovea-workstyle says.\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
           },
-          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/87a10f6232f008ddf76be789e21ff994921d45dc",
+          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/f82163a481f9fb88421590fb04abd2560dd64db4",
           "author": {
             "login": "OliverVea"
           }

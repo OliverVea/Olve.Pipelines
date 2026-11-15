@@ -40,7 +40,9 @@ public class RecordedGitHubPullRequestTests
         var result = await Source(server).ListOpenAsync(Binding());
 
         await Assert.That(result).Succeeded();
-        await Assert.That(TestRunDomain.Pick(result)).IsEmpty();
+        var recorded = RecordingReplay.Get("github", "pulls-open").Response.Body!.AsArray();
+        await Assert.That(TestRunDomain.Pick(result).Select(p => (p.Number, p.User?.Login)))
+            .IsEquivalentTo(recorded.Select(p => (p!["number"]!.GetValue<int>(), (string?)p["user"]!["login"]!.GetValue<string>())));
     }
 
     [Test]
@@ -58,6 +60,7 @@ public class RecordedGitHubPullRequestTests
         await Assert.That(pull.Head.Sha).IsEqualTo(recorded["head"]!["sha"]!.GetValue<string>());
         await Assert.That(pull.Base.Ref).IsEqualTo("main");
         await Assert.That(pull.FromFork).IsFalse();
+        await Assert.That(pull.User?.Login).IsEqualTo(recorded["user"]!["login"]!.GetValue<string>());
         await Assert.That(pull.MergedAt is not null).IsEqualTo(recorded["merged_at"] is not null);
         await Assert.That(pull.MergeCommitSha).IsEqualTo(recorded["merge_commit_sha"]!.GetValue<string>());
     }

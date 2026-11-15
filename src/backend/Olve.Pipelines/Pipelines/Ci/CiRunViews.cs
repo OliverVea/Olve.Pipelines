@@ -94,6 +94,7 @@ public class CiRunViewService(
             Stale = latest is not null && BranchHead(pull.PipelineId) is { } head && latest.MainSha != head,
             LatestRun = latest is null ? null : Summarize(latest),
             Queue = queue.Latest(pull.PipelineId, pull.Number) is { } entry ? Entry(entry) : null,
+            Preview = null,
             UpdatedAt = pull.UpdatedAt,
         };
     }
@@ -113,6 +114,7 @@ public class CiRunViewService(
             Stale = view.Stale,
             LatestRun = view.LatestRun,
             Queue = view.Queue,
+            Preview = view.Preview,
             UpdatedAt = view.UpdatedAt,
             Runs = [.. runs.ListByPull(pull.PipelineId, pull.Number)
                 .Concat(runs.ListByPipeline(pull.PipelineId).Where(r => r.IsQueue && (r.Batch ?? []).Any(p => p.Number == pull.Number)))

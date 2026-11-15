@@ -113,6 +113,7 @@ const pull = (overrides: Partial<PullDetail> = {}): PullDetail => ({
   stale: false,
   latestRun: summary(7, 'Succeeded'),
   queue: null,
+  preview: null,
   updatedAt: '2026-11-15T09:59:00Z',
   runs: [summary(7, 'Succeeded'), summary(6, 'Superseded', { supersededByNumber: 7 })],
   ...overrides,

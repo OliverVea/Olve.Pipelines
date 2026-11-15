@@ -1,13 +1,18 @@
 [
   {
     "path": "src/backend/Olve.Pipelines.UnitTests/BindingWebhookReceiverTests.cs",
-    "standsFor": "GitHub push webhook body",
+    "standsFor": "GitHub push webhook body, and the pull_request envelope around the recorded pull request",
     "notRecordedBecause": "a delivery needs a hook on a repo, which is a write to GitHub"
   },
   {
     "path": "src/backend/Olve.Pipelines.UnitTests/Sources/WebhookVerificationTests.cs",
     "standsFor": "GitHub webhook signature headers",
     "notRecordedBecause": "a delivery needs a hook on a repo, which is a write to GitHub"
+  },
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/Ci/PullRequestCatchUpTests.cs",
+    "standsFor": "GitHub pull request list and read, as FakeSource",
+    "notRecordedBecause": "it scripts closes, merges and retargets; RecordedGitHubPullRequestTests covers the real exchanges"
   },
   {
     "path": "src/backend/Olve.Pipelines.UnitTests/BindingHookRegistrationTests.cs",

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Jobs;
@@ -98,5 +99,46 @@ public class BindingWebhookReceiverTests
 
         await Assert.That(action).IsEqualTo(BindingWebhookAction.NotFound);
         await Assert.That(push).IsNull();
+    }
+
+    // A delivery carries the pull request as the REST API returns it (GitHub's documented pull_request payload), here
+    // the recorded one; every action is applied the same way, so the action doesn't decide anything.
+    [Test]
+    [Arguments("opened")]
+    [Arguments("reopened")]
+    [Arguments("synchronize")]
+    [Arguments("edited")]
+    [Arguments("ready_for_review")]
+    [Arguments("converted_to_draft")]
+    [Arguments("closed")]
+    [Arguments("labeled")]
+    public async Task Evaluate_PullRequest_ReportsThePullRequestWithTheBoundBranch(string action)
+    {
+        var (receiver, svc) = Create();
+        var binding = Pick(svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
+        var body = Encoding.UTF8.GetBytes(new JsonObject { ["action"] = action, ["number"] = 52, ["pull_request"] = Ci.PullRequestFixtures.Json() }.ToJsonString());
+        var sig = GitHubWebhookSignature.Compute(binding.WebhookSecret!, body);
+
+        var decision = receiver.Evaluate(binding.Id, body, sig, "pull_request");
+
+        await Assert.That(decision.Action).IsEqualTo(BindingWebhookAction.PullRequest);
+        await Assert.That(decision.PipelineId).IsEqualTo(binding.PipelineId);
+        await Assert.That(decision.Branch).IsEqualTo("main");
+        await Assert.That(decision.PullRequest!.Number).IsEqualTo(52);
+    }
+
+    [Test]
+    [Arguments("{")]
+    [Arguments("""{"action":"opened"}""")]
+    public async Task Evaluate_PullRequestWithoutOne_Ignores(string payload)
+    {
+        var (receiver, svc) = Create();
+        var binding = Pick(svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
+        var body = Encoding.UTF8.GetBytes(payload);
+        var sig = GitHubWebhookSignature.Compute(binding.WebhookSecret!, body);
+
+        var (action, _, _) = receiver.Evaluate(binding.Id, body, sig, "pull_request");
+
+        await Assert.That(action).IsEqualTo(BindingWebhookAction.Ignore);
     }
 }

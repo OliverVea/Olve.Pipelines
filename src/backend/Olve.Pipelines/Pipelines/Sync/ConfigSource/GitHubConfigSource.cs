@@ -185,7 +185,7 @@ public class GitHubConfigSource(
         return Result.Success(dependencies);
     }
 
-    private static HttpRequestMessage BuildRequest(HttpMethod method, string url, string? token)
+    internal static HttpRequestMessage BuildRequest(HttpMethod method, string url, string? token)
     {
         var request = new HttpRequestMessage(method, url);
         request.Headers.UserAgent.ParseAdd("olve-pipelines");
@@ -196,26 +196,6 @@ public class GitHubConfigSource(
         return request;
     }
 
-    private async Task<string?> GetTokenAsync(PipelineConfigBinding binding, CancellationToken ct)
-    {
-        if (string.IsNullOrEmpty(binding.CredentialsSecret))
-            return null;
-
-        try
-        {
-            var secretName = PipelineSecrets.Name(binding.PipelineId);
-            var secrets = await kubernetes.GetSecretAsync(kubernetesOptions.Namespace, secretName, ct);
-            if (secrets is not null && secrets.TryGetValue(binding.CredentialsSecret, out var token))
-                return token;
-
-            logger.LogWarning(
-                "Credentials secret key '{Key}' not found for pipeline '{PipelineId}'", binding.CredentialsSecret, binding.PipelineId);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to resolve credentials for pipeline '{PipelineId}'", binding.PipelineId);
-            return null;
-        }
-    }
+    private Task<string?> GetTokenAsync(PipelineConfigBinding binding, CancellationToken ct)
+        => BindingTokens.GetAsync(kubernetes, kubernetesOptions, binding, logger, ct);
 }

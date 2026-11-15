@@ -1,4 +1,5 @@
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
@@ -76,6 +77,9 @@ public sealed record ChangeEvent(Id<Pipeline> PipelineId, Contract.ChangeEvent P
 
     public static ChangeEvent Secrets(Id<Pipeline> pipelineId)
         => new(pipelineId, new Contract.SecretsChanged { PipelineId = pipelineId.Value.Value });
+
+    public static ChangeEvent Pull(PullRequest pull)
+        => new(pull.PipelineId, new Contract.PullChanged { PipelineId = pull.PipelineId.Value.Value, Pull = pull.Number });
 
     public static ChangeEvent Poll(Id<Pipeline> pipelineId)
         => new(pipelineId, new Contract.PollChanged { PipelineId = pipelineId.Value.Value });

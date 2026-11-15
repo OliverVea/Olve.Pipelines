@@ -5,6 +5,7 @@ using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Failures;
 using Olve.Pipelines.Pipelines.Manifests;
@@ -61,6 +62,19 @@ public static class ServiceConfiguration
         services.AddHostedService<BindingHookRegistrationService>();
         services.AddHostedService<BindingHookPersistenceService>();
         services.AddSingleton<IConfigSource, GitHubConfigSource>();
+
+        // CI: a binding's pull requests, from its webhook and a catch-up read of GitHub.
+        services.AddSingleton<EntityStore<PullRequest>>();
+        services.AddSingleton<PullRequestEvents>();
+        services.AddSingleton<PullRequestService>();
+        services.AddTransient<PullRequestCleanupService>();
+        services.AddSingleton<IRunOnStartup, PullRequestEventRegistration>();
+        services.TryAddSingleton<IPullRequestSource, GitHubPullRequestSource>();
+        services.AddTransient<PullRequestCatchUp>();
+        services.AddSingleton<PullRequestCatchUpQueue>();
+        services.AddSingleton<IRunOnStartup, PullRequestCatchUpRegistration>();
+        services.AddHostedService<PullRequestCatchUpService>();
+        services.AddHostedService<CiPersistenceService>();
         services.AddTransient<IConfigReconciler, PipelineReconcileService>();
         services.AddTransient<IPushTriggerHandler, PushTriggerHandler>();
         services.AddTransient<RunInputService>();

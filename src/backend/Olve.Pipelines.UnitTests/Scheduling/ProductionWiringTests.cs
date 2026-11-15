@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Ci;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -69,6 +70,7 @@ public class ProductionWiringTests
             typeof(BindingHookRegistrationService), typeof(BindingHookPersistenceService), typeof(DeployPollService), typeof(PushTriggerService),
             typeof(PollScheduler), typeof(WebhookTriggerService), typeof(JobRunner), typeof(StartupRunner),
             typeof(ConfigurationPersistenceService), typeof(RunPersistenceService), typeof(RetentionService),
+            typeof(PullRequestCatchUpService), typeof(CiPersistenceService),
         });
         await Assert.That(provider.GetServices<IRunOnStartup>().Select(s => s.GetType())).IsEquivalentTo(new[]
         {
@@ -76,6 +78,7 @@ public class ProductionWiringTests
             typeof(ConfigEventRegistration), typeof(FailureHandlerEventRegistration), typeof(JobEventRegistration),
             typeof(RunSchedulingEventRegistration), typeof(RunSchedulingStartup), typeof(ChangeEventRegistration),
             typeof(PipelineEventRegistration), typeof(PipelineVersionEventRegistration), typeof(RunEventRegistration),
+            typeof(PullRequestEventRegistration), typeof(PullRequestCatchUpRegistration),
         });
     }
 

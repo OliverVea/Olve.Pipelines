@@ -56,7 +56,7 @@ public class BindingHookRegistrationService(
     {
         var url = BindingHookUrl(options, work.BindingId);
         var registered = hookState.TryGet(work.BindingId, out var existing) ? existing : null;
-        if (registered?.Url == url)
+        if (registered?.IsCurrent(url) == true)
             return;
 
         var patResult = await secretReader.TryGetSecretAsync(work.PipelineId, work.CredentialsSecret, ct);
@@ -68,11 +68,11 @@ public class BindingHookRegistrationService(
 
         if (registered is not null)
         {
-            var updateResult = await gitHub.UpdateHookConfigAsync(
+            var updateResult = await gitHub.UpdateHookAsync(
                 registered.Owner, registered.Repo, pat, registered.HookId, new GitHubHookConfig(url, work.HookSecret), ct);
             if (!updateResult.TryPickProblems(out var updateProblems))
             {
-                hookState.Set(work.BindingId, registered with { Url = url });
+                hookState.Set(work.BindingId, registered with { Url = url, Events = IGitHubClient.HookEvents });
                 return;
             }
             if (!updateProblems.Any(p => p is NotFoundProblem))
@@ -93,7 +93,7 @@ public class BindingHookRegistrationService(
         }
 
         hookState.Set(work.BindingId, new BindingHookState(
-            work.PipelineId, work.Owner, work.Repo, hookId, work.CredentialsSecret, url));
+            work.PipelineId, work.Owner, work.Repo, hookId, work.CredentialsSecret, url, IGitHubClient.HookEvents));
     }
 
     /// <summary>Where GitHub delivers a binding's pushes.</summary>

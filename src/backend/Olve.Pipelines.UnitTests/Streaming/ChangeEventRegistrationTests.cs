@@ -1,3 +1,5 @@
+using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Pipelines.Ci;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
@@ -16,21 +18,26 @@ namespace Olve.Pipelines.UnitTests.Streaming;
 /// </summary>
 public class ChangeEventRegistrationTests
 {
-    private sealed record Wired(SchedulerScenario S, PipelineSecretEvents Secrets, ChangeSubscription Subscription);
+    private sealed record Wired(SchedulerScenario S, PipelineSecretEvents Secrets, PullRequestService Pulls, ChangeSubscription Subscription);
 
     private static Wired Wire()
     {
         var s = new SchedulerScenario();
         var d = s.D;
         var secrets = new PipelineSecretEvents();
+        var pullStore = new EntityStore<PullRequest>([]);
+        var pullEvents = new PullRequestEvents();
+        pullStore.OnAdded.Subscribe(pullEvents.OnAdded.Invoke);
+        pullStore.OnUpdated.Subscribe(pullEvents.OnUpdated.Invoke);
+        pullStore.OnDeleted.Subscribe(pullEvents.OnDeleted.Invoke);
         var broadcaster = new ChangeBroadcaster(d.Time, NullLogger<ChangeBroadcaster>.Instance);
         var registration = new ChangeEventRegistration(
             d.PipelineEvents, d.RunEvents, d.AttemptEvents, d.VersionEvents, new PipelineConfigBindingEvents(),
             d.Activations, d.BlockedSteps, d.PendingVersions, d.PendingStarts, d.PollTriggers, d.ConfigSnapshotStore,
-            secrets, broadcaster);
+            secrets, pullEvents, broadcaster);
         if (registration.Run().TryPickProblems(out var problems))
             throw new InvalidOperationException(string.Join("; ", problems));
-        return new Wired(s, secrets, broadcaster.Subscribe(s.Pipeline.Id, lastEventId: null));
+        return new Wired(s, secrets, new PullRequestService(pullStore, new IdProvider()), broadcaster.Subscribe(s.Pipeline.Id, lastEventId: null));
     }
 
     private static List<string> Drain(ChangeSubscription subscription)
@@ -68,9 +75,12 @@ public class ChangeEventRegistrationTests
         d.PollTriggers.Set(p, new PollTriggerStates(new Dictionary<string, PollTriggerState>()));
         w.Secrets.OnChanged.Invoke(p);
         w.S.AddVersion();
+        w.Pulls.Observe(p, "main", Ci.PullRequestFixtures.Pull(updatedAt: DateTimeOffset.UnixEpoch), DateTimeOffset.UnixEpoch);
+        w.Pulls.Observe(p, "main", Ci.PullRequestFixtures.Pull(title: "Renamed", updatedAt: DateTimeOffset.UnixEpoch.AddSeconds(1)), DateTimeOffset.UnixEpoch);
+        w.Pulls.Observe(p, "main", Ci.PullRequestFixtures.Pull(@base: "release", updatedAt: DateTimeOffset.UnixEpoch.AddSeconds(2)), DateTimeOffset.UnixEpoch);
 
         await Assert.That(Drain(w.Subscription)).IsEquivalentTo(
-            ["blocked", "blocked", "queued", "queued", "poll", "secrets", "version"], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+            ["blocked", "blocked", "queued", "queued", "poll", "secrets", "version", "pull", "pull", "pull"], TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
 
     [Test]

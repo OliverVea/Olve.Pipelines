@@ -1,0 +1,29 @@
+{
+  "system": "github",
+  "name": "pull-unknown",
+  "source": "https://api.github.com (anonymous)",
+  "capturedAt": "2026-11-15",
+  "systemVersion": "2022-11-28",
+  "elided": "",
+  "request": {
+    "method": "GET",
+    "url": "/repos/OliverVea/Olve.Pipelines/pulls/999999",
+    "headers": {
+      "accept": "application/vnd.github+json",
+      "user-agent": "olve-pipelines"
+    }
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "x-github-api-version-selected": "2022-11-28",
+      "x-github-media-type": "github.v3; format=json"
+    },
+    "body": {
+      "message": "Not Found",
+      "documentation_url": "https://docs.github.com/rest/pulls/pulls#get-a-pull-request",
+      "status": "404"
+    }
+  }
+}

@@ -109,6 +109,13 @@ model SecretsChanged {
   @format("uuid") pipelineId: string;
 }
 
+/** A pull request changed: opened, pushed, retitled, marked ready or draft, closed or merged, or its mergeability. */
+model PullChanged {
+  type: "pull";
+  @format("uuid") pipelineId: string;
+  pull: int32;
+}
+
 /** A poll trigger saw a new value. */
 model PollChanged {
   type: "poll";
@@ -136,6 +143,7 @@ union ChangeEvent {
   @TypeSpec.Events.contentType("application/json") queued: QueuedChanged,
   @TypeSpec.Events.contentType("application/json") secrets: SecretsChanged,
   @TypeSpec.Events.contentType("application/json") poll: PollChanged,
+  @TypeSpec.Events.contentType("application/json") pull: PullChanged,
 }
 
 /** Log text to append; with `reset` the text replaces what was shown. */

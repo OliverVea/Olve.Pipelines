@@ -41,6 +41,13 @@ internal static partial class GitHubCapture
         "commits.commit.url", "commits.commit.verification", "commits.committer", "commits.node_id", "commits.parents", "commits.url",
     ];
 
+    /// <summary>All of a pull request the service reads; everything else (bodies, users, links, ids) is dropped.</summary>
+    private static readonly string[] PullFields =
+    [
+        "number", "title", "state", "draft", "merged_at", "updated_at", "mergeable",
+        "head.ref", "head.sha", "head.repo.full_name", "base.ref", "base.repo.full_name",
+    ];
+
     public static async Task<IReadOnlyList<Recording>> CaptureAsync(DateOnly today)
     {
         using var client = new HttpClient();
@@ -68,6 +75,14 @@ internal static partial class GitHubCapture
         await GetAsync("compare", $"/repos/{Repo}/compare/{compareBase}...{headSha}", elided: CompareElisions);
         await GetAsync("compare-unknown", $"/repos/{Repo}/compare/{UnknownSha}...{headSha}");
         await GetAsync("no-user-agent", head, userAgent: false);
+
+        // What the pull-request catch-up asks for, and pull requests as GitHub lists and reads them (closed ones: a
+        // public repo has no open pull request to rely on).
+        await GetAsync("pulls-open", $"/repos/{Repo}/pulls?state=open&base={Branch}&per_page=100&page=1", elided: PullElisions);
+        var (_, closedText) = await GetAsync("pulls-listed", $"/repos/{Repo}/pulls?state=closed&base={Branch}&per_page=2&page=1", elided: PullElisions);
+        var pullNumber = JsonNode.Parse(closedText)![0]!["number"]!.GetValue<int>();
+        await GetAsync("pull", $"/repos/{Repo}/pulls/{pullNumber}", elided: PullElisions);
+        await GetAsync("pull-unknown", $"/repos/{Repo}/pulls/999999");
 
         var (cursor, cursorText) = await CursorAsync("config-cursor", Path);
         var sha = JsonNode.Parse(cursorText)![0]!["sha"]!.GetValue<string>();
@@ -109,6 +124,41 @@ internal static partial class GitHubCapture
             return first;
         }
     }
+
+    /// <summary>Every field of a pull request (listed or read) outside <see cref="PullFields"/>.</summary>
+    private static readonly string[] PullElisions =
+    [
+        "_links", "active_lock_reason", "additions", "assignee", "assignees", "author_association", "auto_merge", "body",
+        "changed_files", "closed_at", "comments", "comments_url", "commits", "commits_url", "created_at", "deletions", "diff_url",
+        "html_url", "id", "issue_url", "labels", "locked", "maintainer_can_modify", "merge_commit_sha", "mergeable_state", "merged",
+        "merged_by", "milestone", "node_id", "patch_url", "rebaseable", "requested_reviewers", "requested_teams",
+        "review_comment_url", "review_comments", "review_comments_url", "statuses_url", "url", "user",
+        "head.label", "head.user", "base.label", "base.user",
+        .. RepoElisions("head"), .. RepoElisions("base"),
+    ];
+
+    private static IEnumerable<string> RepoElisions(string side) =>
+    [
+        $"{side}.repo.allow_forking", $"{side}.repo.archive_url", $"{side}.repo.archived", $"{side}.repo.assignees_url",
+        $"{side}.repo.blobs_url", $"{side}.repo.branches_url", $"{side}.repo.clone_url", $"{side}.repo.collaborators_url",
+        $"{side}.repo.comments_url", $"{side}.repo.commits_url", $"{side}.repo.compare_url", $"{side}.repo.contents_url",
+        $"{side}.repo.contributors_url", $"{side}.repo.created_at", $"{side}.repo.default_branch", $"{side}.repo.deployments_url",
+        $"{side}.repo.description", $"{side}.repo.disabled", $"{side}.repo.downloads_url", $"{side}.repo.events_url", $"{side}.repo.fork",
+        $"{side}.repo.forks", $"{side}.repo.forks_count", $"{side}.repo.forks_url", $"{side}.repo.git_commits_url",
+        $"{side}.repo.git_refs_url", $"{side}.repo.git_tags_url", $"{side}.repo.git_url", $"{side}.repo.has_discussions",
+        $"{side}.repo.has_downloads", $"{side}.repo.has_issues", $"{side}.repo.has_pages", $"{side}.repo.has_projects",
+        $"{side}.repo.has_pull_requests", $"{side}.repo.has_wiki", $"{side}.repo.homepage", $"{side}.repo.hooks_url",
+        $"{side}.repo.html_url", $"{side}.repo.id", $"{side}.repo.is_template", $"{side}.repo.issue_comment_url",
+        $"{side}.repo.issue_events_url", $"{side}.repo.issues_url", $"{side}.repo.keys_url", $"{side}.repo.labels_url",
+        $"{side}.repo.language", $"{side}.repo.languages_url", $"{side}.repo.license", $"{side}.repo.merges_url",
+        $"{side}.repo.milestones_url", $"{side}.repo.mirror_url", $"{side}.repo.name", $"{side}.repo.node_id",
+        $"{side}.repo.notifications_url", $"{side}.repo.open_issues", $"{side}.repo.open_issues_count", $"{side}.repo.owner",
+        $"{side}.repo.private", $"{side}.repo.pull_request_creation_policy", $"{side}.repo.pulls_url", $"{side}.repo.pushed_at", $"{side}.repo.releases_url",
+        $"{side}.repo.size", $"{side}.repo.ssh_url", $"{side}.repo.stargazers_count", $"{side}.repo.stargazers_url",
+        $"{side}.repo.statuses_url", $"{side}.repo.subscribers_url", $"{side}.repo.subscription_url", $"{side}.repo.svn_url",
+        $"{side}.repo.tags_url", $"{side}.repo.teams_url", $"{side}.repo.topics", $"{side}.repo.trees_url", $"{side}.repo.updated_at",
+        $"{side}.repo.url", $"{side}.repo.visibility", $"{side}.repo.watchers", $"{side}.repo.watchers_count", $"{side}.repo.web_commit_signoff_required",
+    ];
 
     private static Recording ToRecording(
         string name, HttpRequestMessage request, HttpResponseMessage response, string text, string[] elided, string systemVersion, DateOnly today)

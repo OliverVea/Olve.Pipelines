@@ -37,13 +37,20 @@ bind seeds a provisional name from the repo.
 
 The service polls every binding's branch every 15 minutes (an unchanged branch costs a free
 conditional request). When the instance has `Webhooks:PublicBaseUrl` set and the binding has a
-`credentialsSecret` token with `admin:repo_hook`, it also registers a GitHub `push` hook, so changes
-are picked up within seconds; deliveries are authenticated by an HMAC secret the binding generates.
+`credentialsSecret` token with `admin:repo_hook`, it also registers a GitHub hook for `push` and
+`pull_request` events, so changes are picked up within seconds; deliveries are authenticated by an
+HMAC secret the binding generates.
 A binding with polling off (`pl binding set-polling <pipeline> off`) never polls: it syncs only on
 `pl binding reconcile` (`POST …/binding/reconcile`) or its webhook, and its push trigger fires only
 from the webhook. Use it for a pipeline something else drives, such as a test fixture another
 pipeline reconciles and triggers. When `Webhooks:PublicBaseUrl` changes, the registered hooks
 are pointed at the new URL (a hook deleted on GitHub is registered again); clearing it deletes them.
+
+The binding also keeps track of its repository's pull requests into its branch (not those from forks),
+whether or not the pipeline declares CI: `GET /api/pipelines/{id}/ci/pulls` lists them, open or
+closed. The `pull_request` deliveries keep them current, and the service reads the open ones from
+GitHub at startup, when a binding is created or its branch changes, and when its hook is registered,
+so a delivery it missed is caught up. Reading them needs no more access than the binding already has.
 
 Either way, a branch-head change fires the pipeline's **`onPush`** trigger. `onPoll` triggers are
 separate: they are declared in `pipeline.ts` and poll their own URL.

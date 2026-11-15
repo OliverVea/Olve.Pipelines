@@ -1,8 +1,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { RunChanges } from '@olve/api';
+import type { RunChanges, RunSummary } from '@olve/api';
 import { sharedStyles, headerStyles, navClick, runPath, shortSha } from '../styles/ui.js';
-import { hasChanges } from '../model/changes.js';
+import { commitRuns, hasChanges } from '../model/changes.js';
 import './relative-time.js';
 
 const FOLDED = 8;
@@ -56,6 +56,13 @@ export class RunChangesView extends LitElement {
         align-items: baseline;
         padding: 0.18rem 0;
       }
+      ul.by-run li {
+        grid-template-columns: 3rem 5.2rem minmax(0, 1fr) auto auto;
+      }
+      .run {
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+      }
       .title {
         overflow: hidden;
         text-overflow: ellipsis;
@@ -70,6 +77,9 @@ export class RunChangesView extends LitElement {
       @media (max-width: 640px) {
         li {
           grid-template-columns: 4.6rem minmax(0, 1fr);
+        }
+        ul.by-run li {
+          grid-template-columns: 2.6rem 4.6rem minmax(0, 1fr);
         }
         .who,
         .when {
@@ -86,6 +96,8 @@ export class RunChangesView extends LitElement {
   @property({ attribute: false }) declare changes: RunChanges | null;
   @property({ type: Number }) declare versionNumber: number;
   @property({ type: Number }) declare configSnapshot: number | null;
+  /** The pipeline's runs, to mark each commit with the run that pushed it; null shows no run column. */
+  @property({ attribute: false }) declare runs: readonly RunSummary[] | null;
   /** `h3` on the run page, `h4` inside a row of the runs list. */
   @property() declare heading: 'h3' | 'h4';
 
@@ -97,6 +109,7 @@ export class RunChangesView extends LitElement {
     this.changes = null;
     this.versionNumber = 0;
     this.configSnapshot = null;
+    this.runs = null;
     this.heading = 'h3';
     this._all = false;
   }
@@ -145,11 +158,16 @@ export class RunChangesView extends LitElement {
     const commits = c.commits ?? [];
     if (!commits.length) return nothing;
     const shown = this._all ? commits : commits.slice(0, FOLDED);
-    return html`<ul>
+    const byRun = this.runs && commitRuns(shown, this.runs, c.sinceNumber!, c.number);
+    return html`<ul class=${byRun ? 'by-run' : ''}>
         ${shown.map(
-          (x) =>
+          (x, i) =>
             html`<li>
-              <a class="mono" href=${x.url} target="_blank" rel="noopener"
+              ${byRun ? this._run(byRun[i]) : nothing}<a
+                class="mono"
+                href=${x.url}
+                target="_blank"
+                rel="noopener"
                 >${shortSha(x.sha)}</a
               ><span class="title" title=${x.title}>${x.title}</span
               ><span class="who">${x.author}</span
@@ -168,6 +186,14 @@ export class RunChangesView extends LitElement {
             Show all ${c.totalCommits ?? commits.length}
           </button>`
         : nothing}`;
+  }
+
+  private _run(n: number | null) {
+    return html`<span class="run"
+      >${n == null
+        ? nothing
+        : html`<a href=${runPath(this.pipelineId, n)} @click=${navClick}>#${n}</a>`}</span
+    >`;
   }
 }
 

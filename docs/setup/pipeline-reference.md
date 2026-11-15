@@ -191,7 +191,8 @@ export const deployBeta = step({
 - **`clusterAccess: true`** asks for a Kubernetes API token in the step pod: the instance's step
   ServiceAccount (`Kubernetes:StepServiceAccount`), with whatever RBAC the operator gave it (e.g.
   admin of the namespaces it deploys to). On an instance that grants none the pod gets no token, like
-  every other step pod. `steps.helmDeployInCluster` declares it.
+  every other step pod. `steps.helmDeployInCluster` declares it. A CI step can't: a pull request's
+  code never gets the token.
   **There is one such account per instance:** every step that declares `clusterAccess`, in every
   pipeline bound on the instance, runs with the same token and so has that account's whole RBAC
   reach. Grant it only rights every bound repository may use, and keep the namespaces it can write

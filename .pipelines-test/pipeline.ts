@@ -12,6 +12,7 @@
 //   onFailure: log-failure (mode = fail makes echo throw)
 // Four images (alpine, debian, busybox) exercise the bundled loader; hello → count passes a file ref.
 import { pipeline } from "@olivervea/pipelines";
+export { ci } from "./ci";
 import * as M from "./models";
 import { NOTIFY } from "./shared";
 import { calledBack } from "./steps/called-back";

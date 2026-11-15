@@ -252,8 +252,7 @@ The numbers have limits:
   image tag that moved under the same step definition, reads as flaky.
 - Timeouts count as infrastructure, though a step can hang by itself. Check the logs when `TIMEOUT` grows.
 
-In the UI, the overview's status card shows the share of runs that failed for no real reason and
-links to `/pipeline/<id>/reliability`: the same report for the last 50, 100 or 500 runs. `--json`
+In the UI, `/pipeline/<id>/reliability` shows the same report for the last 50, 100 or 500 runs. `--json`
 gives the whole report (`GET …/reliability`).
 
 ## Live events

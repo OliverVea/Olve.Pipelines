@@ -227,7 +227,17 @@ describe('ci commands', () => {
   test('show prints the pull request and its runs', async () => {
     const { fetch } = fakeFetch((req) => {
       if (req.path === '/api/pipelines') return { body: [alpha] };
-      if (req.path === `${ciPath}/pulls/12`) return { body: pull({ stale: true }) };
+      if (req.path === `${ciPath}/pulls/12`)
+        return {
+          body: pull({
+            stale: true,
+            runs: [
+              summary(8, 'Succeeded', { kind: 'close' }),
+              summary(7, 'Succeeded'),
+              summary(6, 'Superseded', { supersededByNumber: 7 }),
+            ],
+          }),
+        };
       return { status: 404 };
     });
     const result = await pl(['ci', 'show', 'alpha', '#12'], { fetch });
@@ -236,6 +246,7 @@ describe('ci commands', () => {
     expect(result.stdout).toContain(
       'note:      stale: tested on a main that has moved since',
     );
+    expect(result.stdout).toMatch(/\n#ci8 +close +Succeeded /);
     expect(result.stdout).toMatch(/\n#ci7 +pull +Succeeded +2\/2 +ccccccc +eeeeeee /);
     expect(result.stdout).toMatch(/\n#ci6 +pull +Superseded .*superseded by #ci7\n/);
   });

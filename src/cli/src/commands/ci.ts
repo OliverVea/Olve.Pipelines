@@ -94,7 +94,7 @@ export function runRows(runs: readonly CiRunSummary[]): string[] {
     ['RUN', 'KIND', 'STATUS', 'STEPS', 'TESTED', 'MAIN', 'STARTED', 'TOOK', 'NOTE'],
     runs.map((r) => [
       `#ci${r.number}`,
-      r.kind === 'queue' ? `queue (${r.pulls.map((n) => `#${n}`).join(' ')})` : 'pull',
+      r.kind === 'queue' ? `queue (${r.pulls.map((n) => `#${n}`).join(' ')})` : r.kind,
       r.status,
       stepCounts(r.steps),
       short(r.testedSha),

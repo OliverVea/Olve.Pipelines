@@ -144,6 +144,16 @@ tree it has already tested with the same definition, it doesn't run the passing 
   The PR number is run metadata, not step input.
 - **CI only.** CD never reads CI results (below).
 
+## Without a CI definition
+
+- A pipeline whose entry point exports no `ci` has no CI: no runs, no statuses, no CI tab, and
+  `ci` in its health is null. Enqueueing is refused. The binding still keeps track of its pull
+  requests, so a PR that adds CI is seen.
+- A PR that adds CI touches the definition, so it is built on its own and runs the CI it adds.
+- A PR that removes CI gets no run and no `olve/ci` status. The queue still lands it: its batch's
+  definition has no CI steps, so it merges once built and described.
+- A PR whose definition doesn't build or describe gets a failed run that lists the problems.
+
 ## CD stays self-contained
 
 CD after a merge builds and tests again, even when the queue has just tested the same tree. CD

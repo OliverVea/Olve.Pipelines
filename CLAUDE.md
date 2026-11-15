@@ -63,7 +63,7 @@ Run state is written within a second by a timer, or at once through `IStateDurab
 |---|---|
 | `Pipelines` | `Pipeline`, `PipelineService`, `PipelineSummaryService`, `PipelineHealthService`, `StorageLayout` |
 | `Pipelines.Sync` | `PipelineConfigBinding(Service)`, `DeployPollService`, `PipelineReconcileService`, `BindingWebhookReceiver`, `BindingHook*`, `GitHubConfigSource` |
-| `Pipelines.Ci` | `PullRequest`, `PullRequestService`, `PullRequestCatchUp(Service)`, `GitHubPullRequestSource`, `CiTriggerService` (debounce), `CiRunStartService`, `CiRun(Service)`, `CiAttempt(Service)`, `CiScheduler`, `CiCancellationService`, `CiHarnessAttempt`, `CiRunViewService`, `CiBuild(Service)` + `CiDefinitionService` (a PR's own definition, built by `BuildJobRunner` like reconcile's), `CiPersistenceService` |
+| `Pipelines.Ci` | `PullRequest`, `PullRequestService`, `PullRequestCatchUp(Service)`, `GitHubPullRequestSource`, `CiTriggerService` (debounce), `CiRunStartService`, `CiRun(Service)`, `CiAttempt(Service)`, `CiScheduler`, `CiCancellationService`, `CiHarnessAttempt`, `CiRunViewService`, `CiBuild(Service)` + `CiDefinitionService` (a PR's own definition, built by `BuildJobRunner` like reconcile's), `CiStatusPlanner` + `CiStatusDelivery` (`olve/ci` commit statuses), `CiPersistenceService` |
 | `Pipelines.Manifests` | `Manifest`, `ManifestParser`, `ManifestValidator`, `ManifestVersioning`, `JsonSchemaValidator`, `CanonicalJson` |
 | `Pipelines.Versions` | `PipelineVersion(Service)`, `PipelineActivationService` |
 | `Pipelines.Configs` | `ConfigSnapshot(Service)`, `ConfigService`, `ConfigValidation`, `ConfigActivationService` (the activation gate, `PendingVersion`), `YamlJson` |

@@ -47,9 +47,17 @@ public record GitHubPullRequestEvent(
     [property: JsonPropertyName("action")] string Action,
     [property: JsonPropertyName("pull_request")] GitHubPullRequest? PullRequest);
 
+/// <summary>The body of <c>POST …/statuses/{sha}</c>; a null <c>target_url</c> is left out.</summary>
+public record GitHubCommitStatusRequest(
+    [property: JsonPropertyName("state")] string State,
+    [property: JsonPropertyName("description")] string Description,
+    [property: JsonPropertyName("context")] string Context,
+    [property: JsonPropertyName("target_url"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TargetUrl);
+
 [JsonSerializable(typeof(GitHubPullRequest))]
 [JsonSerializable(typeof(GitHubPullRequest[]))]
 [JsonSerializable(typeof(GitHubPullRequestEvent))]
 [JsonSerializable(typeof(GitHubGitCommit))]
 [JsonSerializable(typeof(GitHubComparedFiles))]
+[JsonSerializable(typeof(GitHubCommitStatusRequest))]
 internal partial class GitHubPullRequestJsonContext : JsonSerializerContext;

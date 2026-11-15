@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
@@ -59,7 +60,7 @@ public class BindingApiTests
             new GetBindingHandler(Bindings).HandleAsync(new Contract.BindingsGetRequest(id), default);
 
         public Task<Contract.BindingsStatusResponse> Status(Guid id) =>
-            new GetBindingStatusHandler(Bindings, Get<PipelineActivationService>(), Get<PipelineVersionService>(), Get<ConfigActivationService>())
+            new GetBindingStatusHandler(Bindings, Get<PipelineActivationService>(), Get<PipelineVersionService>(), Get<ConfigActivationService>(), new CiStatusWarnings())
                 .HandleAsync(new Contract.BindingsStatusRequest(id), default);
 
         public Task<Contract.BindingsUpdateResponse> Update(Guid id, string? credentials) =>

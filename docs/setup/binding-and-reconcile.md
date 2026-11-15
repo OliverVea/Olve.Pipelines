@@ -66,6 +66,15 @@ running run and the build it waits for. CI runs are numbered per
 pipeline on their own, and `GET /api/pipelines/{id}/ci/runs/{number}` shows one, its steps and their
 logs, files and outputs; `POST …/ci/pulls/{pull}/runs` runs a pull request again.
 
+Each CI run reports the commit status `olve/ci` on its pull request's head, linking the run's page:
+`pending` with how many steps are done, then `success` ("Succeeded in 6m12s") or `failure` naming the
+failed steps, or the problem with the definition. A cancelled or superseded run reports nothing more
+(the run replacing it reports), and neither does a run still building its own definition, so a pull
+request whose definition removes CI gets no status. Statuses go out in the background; a newer state
+replaces one not yet sent, and a GitHub server error is tried again. This needs the binding's token to
+have **Commit statuses: write** (a classic token: `repo`). Without it, `pl binding status` shows a
+warning saying so until a status gets through.
+
 Either way, a branch-head change fires the pipeline's **`onPush`** trigger. `onPoll` triggers are
 separate: they are declared in `pipeline.ts` and poll their own URL.
 

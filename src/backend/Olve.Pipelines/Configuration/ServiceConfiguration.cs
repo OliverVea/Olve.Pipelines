@@ -99,6 +99,20 @@ public static class ServiceConfiguration
         services.AddSingleton<CiTriggerService>();
         services.AddHostedService(sp => sp.GetRequiredService<CiTriggerService>());
         services.AddSingleton<IRunOnStartup, CiEventRegistration>();
+        // olve/ci commit statuses on the pull requests' heads.
+        services.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var linkBase = config["Links:BaseUrl"];
+            if (string.IsNullOrWhiteSpace(linkBase)) linkBase = config["Webhooks:PublicBaseUrl"];
+            return new CiStatusOptions(linkBase ?? "");
+        });
+        services.AddTransient<CiStatusPlanner>();
+        services.AddTransient<CiStatusReporter>();
+        services.AddSingleton<CiStatusWarnings>();
+        services.TryAddSingleton<ICommitStatusClient, GitHubCommitStatusClient>();
+        services.AddSingleton<CiStatusDelivery>();
+        services.AddHostedService(sp => sp.GetRequiredService<CiStatusDelivery>());
         services.AddTransient<IConfigReconciler, PipelineReconcileService>();
         services.AddTransient<IPushTriggerHandler, PushTriggerHandler>();
         services.AddTransient<RunInputService>();

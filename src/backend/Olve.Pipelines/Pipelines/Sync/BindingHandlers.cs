@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared.Problems;
@@ -61,7 +62,11 @@ public sealed class GetBindingHandler(PipelineConfigBindingService bindings) : C
 
 [OperationHandler]
 public sealed class GetBindingStatusHandler(
-    PipelineConfigBindingService bindings, PipelineActivationService activations, PipelineVersionService versions, ConfigActivationService gate)
+    PipelineConfigBindingService bindings,
+    PipelineActivationService activations,
+    PipelineVersionService versions,
+    ConfigActivationService gate,
+    CiStatusWarnings ciWarnings)
     : Contract.IBindingsStatusHandler
 {
     public Task<Contract.BindingsStatusResponse> HandleAsync(Contract.BindingsStatusRequest request, CancellationToken cancellationToken)
@@ -83,7 +88,7 @@ public sealed class GetBindingStatusHandler(
             Result = BindingViews.ToApi(status.Result),
             LastSyncTime = status.LastSyncTime,
             Problems = status.Problems,
-            Warnings = status.Warnings ?? [],
+            Warnings = [.. status.Warnings ?? [], .. ciWarnings.For(id)],
             ReconcileSha = status.Sha,
             ReconcileInProgress = status.InProgress,
             // Snapshots from before VersionNumber existed: the version built from the reconciled commit.

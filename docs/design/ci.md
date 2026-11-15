@@ -1,8 +1,8 @@
 # CI
 
 Status: partly built. Pull requests get CI runs, on the active version's definition and binary or,
-for a PR that changes the definition, on a build of its own; statuses to GitHub, reuse by identical
-tree, the merge queue, the UI and `pl ci` are not built. The CI scheduler
+for a PR that changes the definition, on a build of its own, and report `olve/ci`; reuse by
+identical tree, the merge queue (and `olve/merge-queue`), the UI and `pl ci` are not built. The CI scheduler
 doesn't apply a matrix step's `cascadeFailure`, and CI stages can't branch on config (`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has
@@ -99,8 +99,15 @@ picks Scheduled attempts in this order:
 
 The service reports commit statuses from CI run state, with the binding's token:
 
-- `olve/ci` on the PR's head: pending, success, failure (cancelled and superseded runs leave it to
-  the run that replaced them).
+- `olve/ci` on the PR's head: pending with the steps done, success with the time taken, failure
+  naming the failed steps (or the definition's problem). Cancelled and superseded runs leave it to
+  the run that replaced them. A run building its own definition reports nothing until the
+  definition is known: a definition without CI must leave no status, and GitHub can't take one back.
+  A conflict reports nothing either: there is no run. The status links the run's page
+  (`/pipeline/<id>/ci/run/<n>`).
+- Statuses are sent in the background, the latest state per commit, with retries on server errors.
+  A token that can't write statuses (403/404) shows as a warning on the binding. At startup the latest
+  run of each open PR reports again, in case a status was lost with the process.
 - `olve/merge-queue` on the head of a queued PR: queued, testing, merged, or removed with the
   failing step.
 

@@ -121,6 +121,30 @@ internal sealed class FakeGitHub : IPullRequestSource
         Task.FromResult(Result.Success(ChangedFiles.TryGetValue(head, out var files) ? files : (IReadOnlyList<string>)["src/app.cs"]));
 }
 
+/// <summary>GitHub's statuses endpoint: records each post; answers from <see cref="Outcomes"/> in order, then Posted.</summary>
+internal sealed class FakeCommitStatuses : ICommitStatusClient
+{
+    private readonly Lock _gate = new();
+
+    public List<(string Sha, CiCommitStatus Status)> Posted { get; } = [];
+    public Queue<(CommitStatusOutcome, int?)> Outcomes { get; } = new();
+
+    /// <summary>Runs before each post answers (e.g. a newer state arriving while one is in flight).</summary>
+    public Action? DuringPost { get; set; }
+
+    public Task<(CommitStatusOutcome Outcome, int? Code)> PostAsync(PipelineConfigBinding binding, string sha, CiCommitStatus status, CancellationToken ct)
+    {
+        DuringPost?.Invoke();
+        lock (_gate)
+        {
+            var answer = Outcomes.Count > 0 ? Outcomes.Dequeue() : (CommitStatusOutcome.Posted, 201);
+            if (answer.Item1 == CommitStatusOutcome.Posted)
+                Posted.Add((sha, status));
+            return Task.FromResult(answer);
+        }
+    }
+}
+
 /// <summary>Builds of pull requests' own definitions, finished by the test: each commit's build waits for <see cref="Finish"/>.</summary>
 internal sealed class FakeCiBuilder : ICiDefinitionBuilder
 {
@@ -198,6 +222,7 @@ internal sealed class CiScenario : IAsyncDisposable
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         services.AddSingleton<IPullRequestSource>(GitHub);
         services.AddSingleton<ICiDefinitionBuilder>(Builder);
+        services.AddSingleton<ICommitStatusClient>(Statuses);
         services.AddSingleton(new StorageOptions("bucket", Mode: StorageMode.Ephemeral));
         services.AddPipelineServices();
         Provider = services.BuildServiceProvider();
@@ -218,6 +243,7 @@ internal sealed class CiScenario : IAsyncDisposable
     public CiClock Clock { get; } = new();
     public FakeGitHub GitHub { get; } = new();
     public FakeCiBuilder Builder { get; } = new();
+    public FakeCommitStatuses Statuses { get; } = new();
     public ServiceProvider Provider { get; }
     public Pipeline Pipeline { get; }
     public PipelineConfigBinding Binding { get; }

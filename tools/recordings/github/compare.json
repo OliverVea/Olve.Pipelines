@@ -1,0 +1,79 @@
+{
+  "system": "github",
+  "name": "compare",
+  "source": "https://api.github.com (anonymous)",
+  "capturedAt": "2026-11-15",
+  "systemVersion": "2022-11-28",
+  "elided": "ahead_by, base_commit, behind_by, diff_url, files, merge_base_commit, patch_url, permalink_url, status, url, commits.author.avatar_url, commits.author.events_url, commits.author.followers_url, commits.author.following_url, commits.author.gists_url, commits.author.gravatar_id, commits.author.html_url, commits.author.id, commits.author.node_id, commits.author.organizations_url, commits.author.received_events_url, commits.author.repos_url, commits.author.site_admin, commits.author.starred_url, commits.author.subscriptions_url, commits.author.type, commits.author.url, commits.author.user_view_type, commits.comments_url, commits.commit.author.email, commits.commit.author.date, commits.commit.comment_count, commits.commit.committer.email, commits.commit.committer.name, commits.commit.tree, commits.commit.url, commits.commit.verification, commits.committer, commits.node_id, commits.parents, commits.url",
+  "request": {
+    "method": "GET",
+    "url": "/repos/OliverVea/Olve.Pipelines/compare/c6fc7a3732eb9c185143723a9fb8dce177860a19...87a10f6232f008ddf76be789e21ff994921d45dc",
+    "headers": {
+      "accept": "application/vnd.github+json",
+      "user-agent": "olve-pipelines"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "W/\"113cbc7470863dfa6acce922964e52046c17f0a3069c8b35cae61fb931a8e75f\"",
+      "x-github-api-version-selected": "2022-11-28",
+      "x-github-media-type": "github.v3; format=json"
+    },
+    "body": {
+      "html_url": "https://github.com/OliverVea/Olve.Pipelines/compare/c6fc7a3732eb9c185143723a9fb8dce177860a19...87a10f6232f008ddf76be789e21ff994921d45dc",
+      "total_commits": 3,
+      "commits": [
+        {
+          "sha": "a6d2fbcbbdb8fa73449f8c3b5f1690cd56b584ad",
+          "commit": {
+            "author": {
+              "name": "Oliver Vea"
+            },
+            "committer": {
+              "date": "2026-11-14T01:24:38Z"
+            },
+            "message": "feat(ui): the stage graph centres when narrower than the page and widens to 90% of a wide screen\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
+          },
+          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/a6d2fbcbbdb8fa73449f8c3b5f1690cd56b584ad",
+          "author": {
+            "login": "OliverVea"
+          }
+        },
+        {
+          "sha": "b00f62a750bf6778072a37303011880c4efc0caa",
+          "commit": {
+            "author": {
+              "name": "Oliver Vea"
+            },
+            "committer": {
+              "date": "2026-11-14T12:50:27Z"
+            },
+            "message": "docs(agents): the publishing policy: what agents land themselves and what needs review\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
+          },
+          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/b00f62a750bf6778072a37303011880c4efc0caa",
+          "author": {
+            "login": "OliverVea"
+          }
+        },
+        {
+          "sha": "87a10f6232f008ddf76be789e21ff994921d45dc",
+          "commit": {
+            "author": {
+              "name": "Oliver Vea"
+            },
+            "committer": {
+              "date": "2026-11-15T07:28:21Z"
+            },
+            "message": "feat(ui): the overview's status card drops failed-for-no-reason, newest commit and source\n\nThe binding tab shows the source; the newest commit belongs with the run view. The reliability\nreport stays at /pipeline/<id>/reliability and in `pl pipeline reliability`.\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
+          },
+          "html_url": "https://github.com/OliverVea/Olve.Pipelines/commit/87a10f6232f008ddf76be789e21ff994921d45dc",
+          "author": {
+            "login": "OliverVea"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -63,7 +63,9 @@ public enum RunTriggerKind
 /// (pipeline + mapped input); null for explicit (manual) runs, which always create work.
 /// </summary>
 /// <param name="Origin">For automatic triggers: when the event happened and how it reached the run.</param>
-public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null, RunOrigin? Origin = null)
+/// <param name="Name">For automatic triggers: the trigger's name in the pipeline definition.</param>
+/// <param name="StartedBy">For explicit runs: the user or machine token that started it.</param>
+public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null, RunOrigin? Origin = null, string? Name = null, string? StartedBy = null)
 {
     /// <summary>Webhook/poll triggers: de-duplicated and superseding. Explicit actions are neither.</summary>
     [JsonIgnore]
@@ -75,7 +77,8 @@ public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null, RunOrigin
 /// poll check started (<see cref="Via"/> <c>webhook</c> | <c>poll</c>); <see cref="PushedAt"/>: GitHub's push time,
 /// when the webhook announced this commit; <see cref="ConfigReadyAt"/>: the pipeline's config commit was applied
 /// (after reading the branch head and any reconcile); <see cref="MapStartedAt"/>..<see cref="MapFinishedAt"/>: the
-/// map-trigger Job; <see cref="PushSha"/>: the branch head a push trigger fired for.
+/// map-trigger Job; <see cref="PushSha"/>: the branch head a push trigger fired for; <see cref="Event"/>: the event JSON
+/// the mapper received, null when larger than <see cref="MaxEventBytes"/>.
 /// </summary>
 public record RunOrigin(
     DateTimeOffset NoticedAt,
@@ -84,7 +87,14 @@ public record RunOrigin(
     DateTimeOffset? ConfigReadyAt = null,
     DateTimeOffset? MapStartedAt = null,
     DateTimeOffset? MapFinishedAt = null,
-    string? PushSha = null);
+    string? PushSha = null,
+    string? Event = null)
+{
+    public const int MaxEventBytes = 64 * 1024;
+
+    public RunOrigin WithEvent(string eventJson)
+        => this with { Event = System.Text.Encoding.UTF8.GetByteCount(eventJson) <= MaxEventBytes ? eventJson : null };
+}
 
 public static class RunStatusExtensions
 {

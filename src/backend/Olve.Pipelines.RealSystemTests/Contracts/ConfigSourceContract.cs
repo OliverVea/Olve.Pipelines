@@ -10,7 +10,10 @@ namespace Olve.Pipelines.RealSystemTests.Contracts;
 /// <summary>A binding's repository as the deploy poll reads it: an idle poll is free, and an ETag the source can't use never hides a change.</summary>
 public abstract class ConfigSourceContract : ContractSuite
 {
-    public sealed record Repository(IConfigSource Source, string BranchHead, string HeadMessage, string ConfigSha);
+    /// <param name="Compared">Commits between <paramref name="CompareBase"/> and <paramref name="CompareHead"/>, newest first.</param>
+    public sealed record Repository(
+        IConfigSource Source, string BranchHead, string HeadMessage, string ConfigSha,
+        string CompareBase, string CompareHead, IReadOnlyList<string> Compared);
 
     protected abstract Task<ContractSubject<Repository>> SubjectAsync();
 
@@ -73,5 +76,21 @@ public abstract class ConfigSourceContract : ContractSuite
         var changed = await ChangedAsync(s.Client, etag: "stale");
 
         await Assert.That(changed.Sha).IsEqualTo(s.Client.ConfigSha);
+    }
+
+    [Test]
+    public async Task Compare_ListsTheCommitsBetween_NewestFirst_WithTheirCount()
+    {
+        Rule();
+        await using var s = await SubjectAsync();
+        var repository = s.Client;
+
+        var result = await repository.Source.CompareAsync(Binding(), repository.CompareBase, repository.CompareHead);
+        if (result.TryPickProblems(out var problems, out var comparison))
+            throw new InvalidOperationException(string.Join("; ", problems.Select(p => p.Message)));
+
+        await Assert.That(comparison.Commits.Select(c => c.Sha)).IsEquivalentTo(repository.Compared, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        await Assert.That(comparison.TotalCommits).IsEqualTo(repository.Compared.Count);
+        await Assert.That(comparison.Commits.Select(c => c.Title)).DoesNotContain(t => t.Contains('\n') || t.Length == 0);
     }
 }

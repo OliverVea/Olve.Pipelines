@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared.Persistence;
@@ -30,15 +31,32 @@ public sealed class ListRunsHandler(PipelineService pipelines, RunViewService vi
 
 /// <summary>Invalid input is a 400 listing every problem — never a half-started run.</summary>
 [OperationHandler]
-public sealed class StartRunHandler(RunInputService inputs, RunViewService views, IStateDurability durability) : Contract.IRunsStartHandler
+public sealed class StartRunHandler(RunService runs, RunInputService inputs, RunViewService views, IStateDurability durability, IHttpContextAccessor http) : Contract.IRunsStartHandler
 {
     public async Task<Contract.RunsStartResponse> HandleAsync(Contract.RunsStartRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
-        var started = inputs.StartManual(id, JsonFields.ToJsonObject(request.Body)).Bind(outcome => RunViews.ToApi(views, id, outcome));
+        var input = JsonFields.ToJsonObject(request.Body);
+        var startedBy = SecretViews.Actor(http.HttpContext?.User);
+        var outcome = request.RerunOf is { } rerunOf
+            ? RunViews.Find(runs, id, rerunOf).Bind(original => inputs.RerunRun(original, input, startedBy))
+            : inputs.StartManual(id, input, startedBy);
+        var started = outcome.Bind(o => RunViews.ToApi(views, id, o));
         return (await durability.SavedAsync(started, cancellationToken)).TryPickProblems(out var problems, out var start)
             ? RunViews.Fail<Contract.RunsStartResponse>(problems, p => new Contract.RunsStartResponse.NotFound(p), p => new Contract.RunsStartResponse.Conflict(p), p => new Contract.RunsStartResponse.BadRequest(p), p => new Contract.RunsStartResponse.ServiceUnavailable(p))
             : new Contract.RunsStartResponse.Ok(start);
+    }
+}
+
+[OperationHandler]
+public sealed class GetRunChangesHandler(RunChangesService changes) : Contract.IRunsChangesHandler
+{
+    public async Task<Contract.RunsChangesResponse> HandleAsync(Contract.RunsChangesRequest request, CancellationToken cancellationToken)
+    {
+        var listed = await changes.GetAsync(PipelineViews.PipelineId(request.PipelineId), request.From, request.To, cancellationToken);
+        return listed.TryPickProblems(out var problems, out var items)
+            ? RunViews.Fail<Contract.RunsChangesResponse>(problems, p => new Contract.RunsChangesResponse.NotFound(p), null, p => new Contract.RunsChangesResponse.BadRequest(p))
+            : new Contract.RunsChangesResponse.Ok(new Contract.RunChangesList { Items = [.. items.Select(RunViews.ToApi)] });
     }
 }
 
@@ -83,12 +101,13 @@ public sealed class CancelRunHandler(RunService runs, RunCancellationService can
 
 /// <summary>A new run with the same input on the active version, linked via rerunOf.</summary>
 [OperationHandler]
-public sealed class RerunRunHandler(RunService runs, RunInputService inputs, RunViewService views, IStateDurability durability) : Contract.IRunsRerunHandler
+public sealed class RerunRunHandler(RunService runs, RunInputService inputs, RunViewService views, IStateDurability durability, IHttpContextAccessor http) : Contract.IRunsRerunHandler
 {
     public async Task<Contract.RunsRerunResponse> HandleAsync(Contract.RunsRerunRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
-        var started = RunViews.Find(runs, id, request.Number).Bind(inputs.RerunRun).Bind(outcome => RunViews.ToApi(views, id, outcome));
+        var startedBy = SecretViews.Actor(http.HttpContext?.User);
+        var started = RunViews.Find(runs, id, request.Number).Bind(r => inputs.RerunRun(r, startedBy: startedBy)).Bind(outcome => RunViews.ToApi(views, id, outcome));
         return (await durability.SavedAsync(started, cancellationToken)).TryPickProblems(out var problems, out var start)
             ? RunViews.Fail<Contract.RunsRerunResponse>(problems, p => new Contract.RunsRerunResponse.NotFound(p), p => new Contract.RunsRerunResponse.Conflict(p), p => new Contract.RunsRerunResponse.BadRequest(p), p => new Contract.RunsRerunResponse.ServiceUnavailable(p))
             : new Contract.RunsRerunResponse.Ok(start);
@@ -191,6 +210,43 @@ public static class RunViews
             Continuable = d.Continuable,
             Stages = [.. d.Stages.Select(ToApi)],
             Config = d.Config,
+            Origin = ToApi(d.Trigger),
+        };
+    }
+
+    public static Contract.RunChanges ToApi(RunChanges c) => new()
+    {
+        Number = c.Number,
+        SinceNumber = c.Since?.Number,
+        SinceVersionNumber = c.Since?.VersionNumber,
+        SinceConfigSnapshot = c.Since?.ConfigSnapshot,
+        Commits = c.Comparison?.Commits.Select(x => new Contract.RunCommit
+        {
+            Sha = x.Sha,
+            Title = x.Title,
+            Author = x.Author,
+            CommittedAt = x.CommittedAt,
+            Url = x.Url,
+        }).ToArray(),
+        TotalCommits = c.Comparison?.TotalCommits,
+        CompareUrl = c.Comparison?.Url,
+        CommitsError = c.CommitsError,
+    };
+
+    private static Contract.RunOrigin ToApi(RunTrigger? t)
+    {
+        var o = t?.Origin;
+        return new Contract.RunOrigin
+        {
+            Trigger = t?.Name,
+            StartedBy = t?.StartedBy,
+            Via = o?.Via,
+            PushedAt = o?.PushedAt,
+            NoticedAt = o?.NoticedAt,
+            ConfigReadyAt = o?.ConfigReadyAt,
+            MapStartedAt = o?.MapStartedAt,
+            MapFinishedAt = o?.MapFinishedAt,
+            Event = o?.Event is { } json ? JsonDocument.Parse(json).RootElement.Clone() : null,
         };
     }
 

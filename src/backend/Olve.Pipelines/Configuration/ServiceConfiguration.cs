@@ -106,6 +106,8 @@ public static class ServiceConfiguration
         services.AddTransient<RunQueryService>();
         services.AddTransient<RunViewService>();
         services.AddTransient<CriticalPathService>();
+        services.AddTransient<RunChangesService>();
+        services.AddSingleton<CommitComparisonCache>();
         services.AddTransient<StepReliabilityService>();
         services.AddTransient<ActiveAttemptQuery>();
         services.AddTransient<AttemptFileService>();

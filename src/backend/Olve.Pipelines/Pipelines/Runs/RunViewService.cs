@@ -67,7 +67,7 @@ public class RunViewService(
             ? []
             : BuildStages(run, input, plan, version);
 
-        return new RunDetail(Summarize(run), run.VersionId, version?.CommitSha, input, continuable, stages, run.Config);
+        return new RunDetail(Summarize(run), run.VersionId, version?.CommitSha, input, continuable, stages, run.Config, run.Trigger);
     }
 
     private RunStageView[] BuildStages(Run run, JsonElement input, RunPlan plan, PipelineVersion? version)

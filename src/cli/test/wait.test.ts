@@ -39,6 +39,17 @@ const run = (
   continuable: true,
   stages: [],
   config: null,
+  origin: {
+    trigger: null,
+    startedBy: null,
+    via: null,
+    pushedAt: null,
+    noticedAt: null,
+    configReadyAt: null,
+    mapStartedAt: null,
+    mapFinishedAt: null,
+    event: null,
+  },
   ...overrides,
 });
 

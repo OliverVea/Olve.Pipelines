@@ -17,6 +17,7 @@ public class RecordedGitHubTests
     private static readonly string[] Names =
     [
         "branch-head", "config-cursor", "config-cursor-not-modified", "dependency-cursor", "dependency-cursor-not-modified", "package-json",
+        "compare", "compare-unknown",
     ];
 
     private static readonly IReadOnlyList<Recording> Exchanges = Names.Select(n => RecordingReplay.Get("github", n)).ToList();
@@ -45,6 +46,23 @@ public class RecordedGitHubTests
         return (body is System.Text.Json.Nodes.JsonArray list ? list[0]! : body)["sha"]!.GetValue<string>();
     }
 
+    /// <summary>The base and head a recorded comparison asked for.</summary>
+    internal static (string Base, string Head) Compared(string name)
+    {
+        var url = RecordingReplay.Get("github", name).Request.Url;
+        var range = url[(url.LastIndexOf('/') + 1)..].Split("...");
+        return (range[0], range[1]);
+    }
+
+    internal static IReadOnlyList<string> ComparedShas() =>
+        [.. RecordingReplay.Get("github", "compare").Response.Body!["commits"]!.AsArray().Select(c => c!["sha"]!.GetValue<string>()).Reverse()];
+
+    /// <summary>The config commit: the newer of the two recorded cursors.</summary>
+    internal static string NewestCursorSha() =>
+        new[] { "config-cursor", "dependency-cursor" }
+            .Select(n => RecordingReplay.Get("github", n).Response.Body!.AsArray()[0]!)
+            .MaxBy(c => c["commit"]!["committer"]!["date"]!.GetValue<DateTimeOffset>())!["sha"]!.GetValue<string>();
+
     internal static string HeadMessage() =>
         RecordingReplay.Get("github", "branch-head").Response.Body!["commit"]!["message"]!.GetValue<string>();
 
@@ -58,6 +76,9 @@ public class RecordedGitHubTests
         TestRunDomain.Pick(await source.GetBranchHeadAsync(binding));
         var first = (ConfigFetch.Changed)TestRunDomain.Pick(await source.FetchConfigAsync(binding));
         TestRunDomain.Pick(await source.FetchConfigAsync(binding, first.ETag));
+        var (compareBase, compareHead) = Compared("compare");
+        TestRunDomain.Pick(await source.CompareAsync(binding, compareBase, compareHead));
+        await Assert.That(await source.CompareAsync(binding, Compared("compare-unknown").Base, compareHead)).Failed();
 
         var answered = server.Requests.Select(head => (Head: head, Recording: RecordingReplay.Match(Exchanges, head)!)).ToList();
         await Assert.That(answered.Select(a => a.Recording.Name)).IsEquivalentTo(Names);
@@ -87,6 +108,17 @@ public class RecordedGitHubTests
     }
 
     [Test]
+    public async Task AnUnknownCommit_IsNamedInTheRefusal()
+    {
+        await using var server = GitHub();
+        var (unknown, head) = Compared("compare-unknown");
+
+        var result = await Source(server).CompareAsync(Binding(), unknown, head);
+
+        await result.Problems.IsSingle<ResultProblem>($"GitHub doesn't know commit 0000000 or {head[..7]} in 'OliverVea/Olve.Pipelines'.");
+    }
+
+    [Test]
     public async Task ARefusal_NamesTheBindingAndTheStatus()
     {
         await using var server = LoopbackHttpServer.Start(RecordingReplay.Respond(NoUserAgent));
@@ -106,7 +138,9 @@ public class RecordedGitHubContract : ConfigSourceContract
     protected override Task<ContractSubject<Repository>> SubjectAsync()
     {
         var server = RecordedGitHubTests.GitHub();
-        var repository = new Repository(RecordedGitHubTests.Source(server), RecordedGitHubTests.Sha("branch-head"), RecordedGitHubTests.HeadMessage(), RecordedGitHubTests.Sha("dependency-cursor"));
+        var (compareBase, compareHead) = RecordedGitHubTests.Compared("compare");
+        var repository = new Repository(RecordedGitHubTests.Source(server), RecordedGitHubTests.Sha("branch-head"), RecordedGitHubTests.HeadMessage(), RecordedGitHubTests.NewestCursorSha(),
+            compareBase, compareHead, RecordedGitHubTests.ComparedShas());
         return Task.FromResult(new ContractSubject<Repository>(repository, "", () => "", server));
     }
 }

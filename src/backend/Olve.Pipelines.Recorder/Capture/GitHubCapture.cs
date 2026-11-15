@@ -14,6 +14,7 @@ internal static partial class GitHubCapture
     private const string Repo = "OliverVea/Olve.Pipelines";
     private const string Branch = "main";
     private const string Path = ".pipelines";
+    private const string UnknownSha = "0000000000000000000000000000000000000000";
 
     private static readonly string[] Headers = ["content-type", "etag", "x-github-api-version-selected", "x-github-media-type"];
 
@@ -26,6 +27,19 @@ internal static partial class GitHubCapture
     ];
 
     private static readonly string[] CommitElisions = [.. HeadElisions, "commit.message"];
+
+    /// <summary>A comparison keeps each commit's sha, link, login, author name, committer date and message.</summary>
+    private static readonly string[] CompareElisions =
+    [
+        "ahead_by", "base_commit", "behind_by", "diff_url", "files", "merge_base_commit", "patch_url", "permalink_url", "status", "url",
+        "commits.author.avatar_url", "commits.author.events_url", "commits.author.followers_url", "commits.author.following_url",
+        "commits.author.gists_url", "commits.author.gravatar_id", "commits.author.html_url", "commits.author.id", "commits.author.node_id",
+        "commits.author.organizations_url", "commits.author.received_events_url", "commits.author.repos_url", "commits.author.site_admin",
+        "commits.author.starred_url", "commits.author.subscriptions_url", "commits.author.type", "commits.author.url",
+        "commits.author.user_view_type", "commits.comments_url", "commits.commit.author.email", "commits.commit.author.date",
+        "commits.commit.comment_count", "commits.commit.committer.email", "commits.commit.committer.name", "commits.commit.tree",
+        "commits.commit.url", "commits.commit.verification", "commits.committer", "commits.node_id", "commits.parents", "commits.url",
+    ];
 
     public static async Task<IReadOnlyList<Recording>> CaptureAsync(DateOnly today)
     {
@@ -48,7 +62,11 @@ internal static partial class GitHubCapture
         }
 
         var head = $"/repos/{Repo}/commits/{Branch}";
-        await GetAsync("branch-head", head, elided: HeadElisions);
+        var (_, headText) = await GetAsync("branch-head", head, elided: HeadElisions);
+        var headSha = JsonNode.Parse(headText)!["sha"]!.GetValue<string>();
+        var compareBase = await AncestorAsync(headSha, 3);
+        await GetAsync("compare", $"/repos/{Repo}/compare/{compareBase}...{headSha}", elided: CompareElisions);
+        await GetAsync("compare-unknown", $"/repos/{Repo}/compare/{UnknownSha}...{headSha}");
         await GetAsync("no-user-agent", head, userAgent: false);
 
         var (cursor, cursorText) = await CursorAsync("config-cursor", Path);
@@ -66,6 +84,22 @@ internal static partial class GitHubCapture
             .Value?.Single() ?? throw new InvalidOperationException("GitHub reported no API version");
 
         return exchanges.Select(e => ToRecording(e.Name, e.Request, e.Response, e.Text, e.Elided, system, today)).ToList();
+
+        // The first-parent ancestor `depth` commits back, read without recording it.
+        async Task<string> AncestorAsync(string sha, int depth)
+        {
+            for (var i = 0; i < depth; i++)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{Api}/repos/{Repo}/commits/{sha}");
+                request.Headers.Accept.ParseAdd("application/vnd.github+json");
+                request.Headers.UserAgent.ParseAdd("olve-pipelines");
+                using var response = await client.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                sha = JsonNode.Parse(await response.Content.ReadAsStringAsync())!["parents"]![0]!["sha"]!.GetValue<string>();
+            }
+
+            return sha;
+        }
 
         async Task<(HttpResponseMessage, string)> CursorAsync(string name, string path)
         {

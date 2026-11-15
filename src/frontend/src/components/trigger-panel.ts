@@ -8,7 +8,7 @@ import { inputSchemaOf, type Manifest } from '../model/manifest.js';
 import type { InputForm } from './input-form.js';
 import './input-form.js';
 
-/** Manual trigger: a form generated from the pipeline input model. */
+/** Manual trigger: a form generated from the pipeline input model; with `rerunOf`, prefilled from that run and started as its rerun. */
 @customElement('trigger-panel')
 export class TriggerPanel extends LitElement {
   static styles = [
@@ -39,6 +39,8 @@ export class TriggerPanel extends LitElement {
   @property() declare pipelineId: string;
   @property({ attribute: false }) declare manifest: Manifest | null;
   @property({ type: Number }) declare versionNumber: number | null;
+  @property({ attribute: false }) declare initial: Record<string, unknown> | null;
+  @property({ type: Number }) declare rerunOf: number | null;
 
   @state() declare private _errors: string[];
   @state() declare private _busy: boolean;
@@ -50,6 +52,8 @@ export class TriggerPanel extends LitElement {
     this.pipelineId = '';
     this.manifest = null;
     this.versionNumber = null;
+    this.initial = null;
+    this.rerunOf = null;
     this._errors = [];
     this._busy = false;
     this._outcome = '';
@@ -64,7 +68,7 @@ export class TriggerPanel extends LitElement {
           ? html` on v${this.versionNumber}`
           : nothing}
       </h4>
-      <input-form .schema=${schema}></input-form>
+      <input-form .schema=${schema} .initial=${this.initial}></input-form>
       ${this._errors.length
         ? html`<div class="errors" role="alert">
             ${this._errors.map((e) => html`<p>${e}</p>`)}
@@ -94,6 +98,7 @@ export class TriggerPanel extends LitElement {
       const { data: res } = await runsStart({
         client: api,
         path: { pipelineId: this.pipelineId },
+        query: this.rerunOf ? { rerunOf: this.rerunOf } : undefined,
         body: r.value,
       });
       if (res?.run?.number) navigate(runPath(this.pipelineId, res.run.number));

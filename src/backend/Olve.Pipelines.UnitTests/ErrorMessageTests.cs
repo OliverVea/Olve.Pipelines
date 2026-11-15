@@ -40,6 +40,19 @@ public class ErrorMessageTests
 
     private static ResultProblemCollection? Wired(Func<TestRunDomain, ResultProblemCollection?> act) => act(new TestRunDomain().WireEvents());
 
+    private static RunChangesService ChangesService(TestRunDomain d) => new(
+        d.PipelineService, d.RunService,
+        new Olve.Pipelines.Pipelines.Sync.PipelineConfigBindingService(new EntityStore<Olve.Pipelines.Pipelines.Sync.PipelineConfigBinding>([]), new Olve.Pipelines.Jobs.IdProvider(), d.Time),
+        new FakeConfigSource(), new CommitComparisonCache(d.Time), NullLogger<RunChangesService>.Instance);
+
+    /// <summary>The changes of runs <paramref name="from"/>..<paramref name="to"/> of a pipeline with one run, or of no pipeline.</summary>
+    private static ResultProblemCollection? Changes(int? from, int? to, bool pipeline = true)
+    {
+        var d = new TestRunDomain();
+        var id = pipeline ? d.CreateRun().PipelineId : NoPipeline;
+        return ChangesService(d).GetAsync(id, from, to).GetAwaiter().GetResult().Problems;
+    }
+
     /// <summary>Run #1 of the self-deploy fixture, at its first step.</summary>
     private static ResultProblemCollection? Started(Func<SchedulerScenario, Run, ResultProblemCollection?> act)
     {
@@ -222,6 +235,9 @@ public class ErrorMessageTests
         ["decline no attempt"] = NotFound($"Attempt '{NoAttempt}' not found.", () => Domain(d => d.AttemptService.Decline(NoAttempt, "no").Problems)),
         ["cancel no attempt"] = NotFound($"Attempt '{NoAttempt}' not found.", () => Domain(d => d.AttemptService.Cancel(NoAttempt).Problems)),
         ["launch no attempt"] = NotFound($"Attempt '{NoAttempt}' not found.", () => Wired(d => d.Launches.Get(NoAttempt).Problems)),
+        ["changes in no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Changes(null, null, pipeline: false)),
+        ["changes of a backwards range"] = Invalid("from: from (5) is after to (1).", () => Changes(5, 1)),
+        ["changes of too many runs"] = Invalid("from: At most 50 runs at a time; narrow the range.", () => Changes(1, 51)),
         ["start in no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => d.Starts.Start(NoPipeline, "{}", new RunTrigger(RunTriggerKind.Manual)).Problems)),
         ["block in no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => d.GateService.Block(NoPipeline, "build").Problems)),
         ["config of no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => Config(d).Get(NoPipeline, null).Problems)),

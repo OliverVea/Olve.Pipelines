@@ -90,6 +90,17 @@ const run = (overrides: Partial<Run> = {}): Run => ({
     },
   ],
   config: null,
+  origin: {
+    trigger: null,
+    startedBy: null,
+    via: null,
+    pushedAt: null,
+    noticedAt: null,
+    configReadyAt: null,
+    mapStartedAt: null,
+    mapFinishedAt: null,
+    event: null,
+  },
   ...overrides,
 });
 
@@ -189,6 +200,45 @@ describe('run get and list', () => {
     expect(result.stdout).toContain('@2/2');
     expect(result.stdout).toContain('uses @1; boom');
     expect(result.stdout).toContain('blocked');
+  });
+
+  test('get shows what the run changes since the newest older run that succeeded', async () => {
+    const changes = {
+      number: 15,
+      sinceNumber: 12,
+      sinceVersionNumber: 3,
+      sinceConfigSnapshot: 13,
+      commits: [
+        {
+          sha: 'a6d2fbc4e1',
+          title: 'feat(ui): centre the graph',
+          author: 'OliverVea',
+          committedAt: '2026-10-28T09:00:00Z',
+          url: '',
+        },
+        {
+          sha: 'c6fc7a3b2d',
+          title: 'feat(runs): time the preflight',
+          author: 'OliverVea',
+          committedAt: '2026-10-28T08:00:00Z',
+          url: '',
+        },
+      ],
+      totalCommits: 2,
+      compareUrl: null,
+      commitsError: null,
+    };
+    const { fetch } = fakeFetch((req) =>
+      req.path === '/api/pipelines'
+        ? { body: [alpha] }
+        : req.path.includes('/runs/changes?')
+          ? { body: { items: [changes] } }
+          : { body: run({ origin: { ...run().origin, startedBy: 'oliver' } }) },
+    );
+    const result = await pl(['run', 'get', 'alpha#15'], { fetch });
+    expect(result.stdout).toContain('trigger:   Manual (by oliver)');
+    expect(result.stdout).toContain('changes:   since #12 · v3 → v4 · 2 commit(s)');
+    expect(result.stdout).toContain('  a6d2fbc  feat(ui): centre the graph  (OliverVea)');
   });
 
   test.each([

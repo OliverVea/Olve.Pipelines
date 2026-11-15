@@ -45,6 +45,7 @@ public class TriggerMappingService(
         origin = (origin ?? new RunOrigin(mapStarted, kind == RunTriggerKind.Webhook ? "webhook" : "poll"))
             with
         { MapStartedAt = mapStarted, MapFinishedAt = time.GetUtcNow() };
+        origin = origin.WithEvent(eventJson);
         if (mapped.TryPickProblems(out var mapProblems, out var output))
             return Result.Failure<RunStartOutcome?>(mapProblems);
         if (output is null)
@@ -57,7 +58,7 @@ public class TriggerMappingService(
         if (inputs.PrepareMapped(target.Manifest, JsonNode.Parse(output)).TryPickProblems(out var inputProblems, out var input))
             return Result.Failure<RunStartOutcome?>(inputProblems.Prepend("Trigger '{0}' produced invalid input.", triggerName));
 
-        var outcome = starts.Start(pipelineId, input, new RunTrigger(kind, Origin: origin));
+        var outcome = starts.Start(pipelineId, input, new RunTrigger(kind, Origin: origin, Name: triggerName));
         if (outcome.TryPickProblems(out var startProblems, out var started))
             return Result.Failure<RunStartOutcome?>(startProblems);
 

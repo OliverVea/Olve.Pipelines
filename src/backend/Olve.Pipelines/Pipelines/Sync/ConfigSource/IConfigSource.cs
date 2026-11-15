@@ -13,7 +13,22 @@ public interface IConfigSource
     /// </summary>
     Task<Result<ConfigFetch>> FetchConfigAsync(
         PipelineConfigBinding binding, string? etag = null, CancellationToken ct = default);
+
+    /// <summary>The commits reachable from <paramref name="head"/> but not from <paramref name="base"/>.</summary>
+    Task<Result<CommitComparison>> CompareAsync(
+        PipelineConfigBinding binding, string @base, string head, CancellationToken ct = default);
 }
+
+/// <param name="Commits">Newest first; a long comparison lists only its first <see cref="MaxListed"/>.</param>
+/// <param name="TotalCommits">How many commits lie between, listed or not.</param>
+public sealed record CommitComparison(IReadOnlyList<CommitInfo> Commits, int TotalCommits, string Url)
+{
+    public const int MaxListed = 250;
+}
+
+/// <param name="Title">The first line of the message.</param>
+/// <param name="Author">The author's GitHub login, else the git author name.</param>
+public sealed record CommitInfo(string Sha, string Title, string Author, DateTimeOffset CommittedAt, string Url);
 
 public abstract record ConfigFetch
 {

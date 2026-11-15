@@ -194,4 +194,16 @@ public class RunServiceTests
         await Assert.That(after.SupersededBy).IsEqualTo(newer.Id);
         await d.RunService.Supersede(newer.Id, newer.Id).Problems.IsSingle<ResultProblem>("A run cannot supersede itself.");
     }
+
+    [Test]
+    [Arguments(RunOrigin.MaxEventBytes, true)]
+    [Arguments(RunOrigin.MaxEventBytes + 1, false)]
+    public async Task ATriggerEvent_IsKeptUpTo64KB(int bytes, bool kept)
+    {
+        var json = $$"""{"v":"{{new string('x', bytes - 8)}}"}""";
+
+        var origin = new RunOrigin(Oct21, "poll").WithEvent(json);
+
+        await Assert.That(origin.Event is not null).IsEqualTo(kept);
+    }
 }

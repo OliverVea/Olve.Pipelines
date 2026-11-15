@@ -1,6 +1,7 @@
 import {
   bindingsStatus,
   ciPullsGet,
+  ciQueueGet,
   ciRunsGet,
   type CiRun,
   runsGet,
@@ -19,11 +20,11 @@ import {
   resolvePipeline,
 } from '../address';
 import { call } from '../api';
-import { CliError } from '../errors';
+import { CliError, UsageError } from '../errors';
 import { short } from '../format';
 import type { Command, CommandContext } from '../registry';
 import { done, held, needsInput, pending, waitFor, type WaitCheck } from '../wait';
-import { stepCounts } from './ci';
+import { queueState, stepCounts } from './ci';
 import { describePending } from './pipeline';
 
 const clock = () => {
@@ -165,6 +166,24 @@ export function ciRunFinished(label: string, run: CiRun): WaitCheck {
 }
 
 const inputSha = (run: Run) => (typeof run.input.sha === 'string' ? run.input.sha : '');
+
+/** Until the pull request's latest queue entry merged (success) or was removed. */
+function waitQueue(
+  ctx: CommandContext,
+  pipelineId: string,
+  label: string,
+  pull: number,
+): Promise<void> {
+  const pr = `${label} #${pull}`;
+  return waitFor(ctx, pipelineId, new Set(['ci-queue', 'pull']), async () => {
+    const queue = await call(ciQueueGet({ client: ctx.api, path: { pipelineId } }));
+    const entry = [...queue.entries, ...queue.finished].find((e) => e.pull === pull);
+    if (!entry) return done(`${pr}  not in the queue`, false);
+    if (entry.state === 'merged' || entry.state === 'removed')
+      return done(`${pr}  ${queueState(entry)}`, entry.state === 'merged');
+    return pending(`${pr}: ${queueState(entry)}`);
+  });
+}
 
 export const waitCommands: Command[] = [
   {
@@ -319,9 +338,10 @@ export const waitCommands: Command[] = [
     verb: 'ci',
     operands: 2,
     options: ['timeout'],
-    flags: ['no-follow'],
-    summary: "Wait for a pull request's latest CI run to finish; exit 0 if it succeeded",
+    flags: ['no-follow', 'queue'],
+    summary: "Wait for a pull request's latest CI run to finish (--queue: to merge)",
     detail: `pl wait ci <pipeline> <pr> [--timeout 30m] [--no-follow]
+pl wait ci <pipeline> <pr> --queue [--timeout 2h]
 
   Blocks until the CI run of the pull request's current head finishes, and prints its address
   and status (e.g. olve-pipelines#ci12  Succeeded). Right after a push, the run of the new
@@ -331,10 +351,17 @@ export const waitCommands: Command[] = [
 
   Exit 0: Succeeded. Exit 1: Failed or Cancelled, or no run of the head can come: the PR
   conflicts with main (no run until a push lets it merge), or it closed without one. A run of
-  the head that started before main moved on still counts. 124: --timeout elapsed.`,
+  the head that started before main moved on still counts. 124: --timeout elapsed.
+
+  --queue waits for the pull request's latest merge-queue entry instead: exit 0 once it merged,
+  1 when it was removed (prints why, and the failed step when a run failed) or the pull request
+  is not in the queue.`,
     async run(ctx) {
       const number = parsePull(ctx.args.operand(1)!);
+      if (ctx.args.flag('queue') && ctx.args.flag('no-follow'))
+        throw new UsageError('--no-follow does not apply to --queue.');
       const { id, label } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
+      if (ctx.args.flag('queue')) return waitQueue(ctx, id, label, number);
       const follow = !ctx.args.flag('no-follow');
       const pr = `${label} #${number}`;
       const getRun = (n: number) =>

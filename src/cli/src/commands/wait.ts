@@ -346,7 +346,9 @@ pl wait ci <pipeline> <pr> --queue [--timeout 2h]
   Blocks until the CI run of the pull request's current head finishes, and prints its address
   and status (e.g. olve-pipelines#ci12  Succeeded). Right after a push, the run of the new
   head starts once the head has been still for a minute: until then the wait keeps waiting
-  rather than report the previous head's result. A superseded run is followed to the run
+  rather than report the previous head's result. A pull request the instance hasn't seen yet
+  (just opened) is waited for too; one that never gets CI keeps the wait going until
+  --timeout. A superseded run is followed to the run
   that superseded it (printed on stderr); --no-follow stops there instead (exit 1).
 
   Exit 0: Succeeded. Exit 1: Failed or Cancelled, or no run of the head can come: the PR
@@ -370,9 +372,15 @@ pl wait ci <pipeline> <pr> --queue [--timeout 2h]
       let following: { number: number; running: boolean } | undefined;
       await waitFor(ctx, id, new Set(['pull', 'ci-run', 'ci-attempt']), async () => {
         if (locked !== undefined) return ciRunFinished(label, await getRun(locked));
-        const pull = await call(
-          ciPullsGet({ client: ctx.api, path: { pipelineId: id, pull: number } }),
-        );
+        const answer = await ciPullsGet({
+          client: ctx.api,
+          path: { pipelineId: id, pull: number },
+        });
+        if (answer.response?.status === 404)
+          return pending(
+            `${pr}: not tracked yet (CI comes to a pull request into the bound branch, from the same repo, by an author in the instance's CI authors)`,
+          );
+        const pull = await call(Promise.resolve(answer));
         const conflict = `${pr}  conflict: no CI run until a push lets it merge onto main`;
         if (!pull.latestRun)
           return pull.conflict

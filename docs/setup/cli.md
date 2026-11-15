@@ -109,7 +109,7 @@ pl watch [<pipeline>] [--json]
 pl wait run <pipeline>#<run>[/<step>[@<attempt>]] [--until finished|started|held] [--timeout 45m]   # a step wait follows its latest attempt, also a rerun in an ended run
 pl wait push <pipeline> <sha> [--until started|finished]   # the run the push trigger started for <sha> (a prefix); prints its address: addr=$(pl wait push p <sha>)
 pl wait reconcile <pipeline> <sha>                         # the binding applied that config commit
-pl wait ci <pipeline> <pr> [--timeout 30m] [--no-follow]   # the CI run of the PR's current head (a run of an older head doesn't count); 1 also for a conflict or a PR closed without a run
+pl wait ci <pipeline> <pr> [--timeout 30m] [--no-follow]   # the CI run of the PR's current head (a run of an older head doesn't count; a PR not seen yet is waited for); 1 also for a conflict or a PR closed without a run
 pl wait ci <pipeline> <pr> --queue [--timeout 2h]           # the PR's latest queue entry: 0 merged; 1 removed (prints why and the failed step) or not in the queue
 
 # secrets and bindings

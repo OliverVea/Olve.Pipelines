@@ -644,6 +644,38 @@ describe('wait ci', () => {
     );
   });
 
+  test('a pull request the instance has not seen yet is waited for', async () => {
+    let checks = 0;
+    const notTracked = {
+      status: 404,
+      body: {
+        problems: [{ message: "Pull request #12 not found in pipeline 'alpha'." }],
+      },
+    };
+    const { fetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith('/api/events')) return events;
+      if (req.path === `${ciPath}/pulls/12`)
+        return (checks += 1) < 3 ? notTracked : { body: pull() };
+      return { body: ciRun(7, 'Succeeded') };
+    });
+    const seen = await pl(['wait', 'ci', 'alpha', '12'], { fetch });
+    expect({ code: seen.code, stdout: seen.stdout }).toEqual({
+      code: 0,
+      stdout: 'alpha#ci7  Succeeded\n',
+    });
+
+    checks = -Infinity;
+    const never = await pl(['wait', 'ci', 'alpha', '12', '--timeout', '0.05s'], {
+      fetch,
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    });
+    expect(never.code).toBe(124);
+    expect(never.stderr).toContain(
+      "Timed out after 0.05s (alpha #12: not tracked yet (CI comes to a pull request into the bound branch, from the same repo, by an author in the instance's CI authors)).",
+    );
+  });
+
   test('--timeout gives up with 124', async () => {
     const { fetch } = serve(
       () => pull({ latestRun: summary(7, 'Running') }),

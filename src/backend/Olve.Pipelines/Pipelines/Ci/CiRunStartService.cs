@@ -90,7 +90,9 @@ public class CiRunStartService(
         [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(16), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30)];
 
     /// <param name="expectedHead">For an automatic start: the head that was debounced; a pull request that moved on since starts nothing.</param>
-    public async Task<Result<CiStart>> StartAsync(Id<Pipeline> pipelineId, int number, string? expectedHead = null, CancellationToken ct = default)
+    /// <param name="outdated">The run replaces a result the active version's new checks made outdated.</param>
+    public async Task<Result<CiStart>> StartAsync(Id<Pipeline> pipelineId, int number, string? expectedHead = null, CancellationToken ct = default,
+        bool outdated = false)
     {
         if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var bindingProblems, out var binding))
             return bindingProblems;
@@ -133,7 +135,8 @@ public class CiRunStartService(
         var run = schedulingLock.Run(() =>
         {
             var created = runs.Create(new CiRunRequest(pipelineId, number, reported.Title, reported.Head.Ref, reported.Draft, reported.Head.Sha,
-                tested, commit.Tree.Sha, commit.Parents[0].Sha, version, input, config.Snapshot, config.Config, problems, ownDefinition));
+                tested, commit.Tree.Sha, commit.Parents[0].Sha, version, input, config.Snapshot, config.Config, problems, ownDefinition,
+                Outdated: outdated));
             foreach (var older in runs.ListByPull(pipelineId, number).Where(r => r.Id != created.Id && r.Status is RunStatus.Running))
                 cancellation.End(older, RunStatus.Superseded, supersededBy: created.Number).DiscardResult();
             scheduler.Advance(created.Id);

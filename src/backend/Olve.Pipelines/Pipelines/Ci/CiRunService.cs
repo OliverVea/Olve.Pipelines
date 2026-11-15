@@ -27,7 +27,8 @@ public sealed record CiRunRequest(
     bool OwnDefinition = false,
     CiRunKind Kind = CiRunKind.Pull,
     IReadOnlyList<CiBatchPull>? Batch = null,
-    int? Number = null);
+    int? Number = null,
+    bool Outdated = false);
 
 /// <summary>CI runs: their numbers (a sequence per pipeline of their own), lookups and status. Singleton: owns indexes and the numbering lock.</summary>
 public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeProvider timeProvider)
@@ -84,7 +85,8 @@ public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeP
                 OwnDefinition: request.OwnDefinition,
                 Building: request.OwnDefinition && !failed,
                 Kind: request.Kind,
-                Batch: request.Batch);
+                Batch: request.Batch,
+                Outdated: request.Outdated);
             store.Set(run);
             return run;
         }

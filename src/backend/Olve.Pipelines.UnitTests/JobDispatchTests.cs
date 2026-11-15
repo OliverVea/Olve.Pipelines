@@ -13,9 +13,12 @@ public class JobDispatchTests
         yield return () => ("a deploy goes before older checks", 1,
             [new("draft", DraftPull, 0), new("ready", ReadyPull, 1), new("queue", MergeQueue, 2), new("deploy", Deploy, 3)],
             ["deploy"]);
-        yield return () => ("each class goes in its order", 4,
-            [new("draft", DraftPull, 0), new("ready", ReadyPull, 1), new("queue", MergeQueue, 2), new("deploy", Deploy, 3)],
-            ["deploy", "queue", "ready", "draft"]);
+        yield return () => ("each class goes in its order", 5,
+            [new("draft", DraftPull, 0), new("outdated", OutdatedPull, 1), new("ready", ReadyPull, 2), new("queue", MergeQueue, 3), new("deploy", Deploy, 4)],
+            ["deploy", "queue", "ready", "outdated", "draft"]);
+        yield return () => ("a rerun for new checks waits behind a pull request's own run", 1,
+            [new("outdated", OutdatedPull, 0), new("ready", ReadyPull, 1)],
+            ["ready"]);
         yield return () => ("within a class, oldest first", 2,
             [new("ready-new", ReadyPull, 5), new("ready-old", ReadyPull, 1), new("ready-mid", ReadyPull, 3)],
             ["ready-old", "ready-mid"]);

@@ -150,6 +150,7 @@ public class CiEndpointTests
         var runs = new EntityStore<CiRun>([]);
         var attempts = new EntityStore<CiAttempt>([]);
         return (new CiPersistenceService(new EntityStore<PullRequest>([]), runs, attempts, new EntityStore<CiBuild>([]), new StorageOptions("bucket"), new PersistenceReadiness(),
-            NullLogger<CiPersistenceService>.Instance, snapshots), runs, attempts);
+            NullLogger<CiPersistenceService>.Instance, snapshots)
+        { SaveTimeout = TimeSpan.FromMinutes(5) }, runs, attempts);
     }
 }

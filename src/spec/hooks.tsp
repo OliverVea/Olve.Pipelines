@@ -43,7 +43,7 @@ model DeliveryUnavailable {
 @tag("Bindings")
 @route("/api/webhooks/binding")
 interface BindingWebhooks {
-  /** Receives the binding's GitHub push webhook, verified with the webhook's HMAC signature over the raw body (at most 5 MB). A push queues a push check (config first) and answers 202; other events answer 204. */
+  /** Receives the binding's GitHub webhook (`push` and `pull_request`), verified with the webhook's HMAC signature over the raw body (at most 5 MB). A push queues a push check (config first) and a `pull_request` updates the pull requests CI tracks; both answer 202, other events 204. */
   @summary("GitHub push webhook")
   @useAuth(NoAuth)
   @post @route("{bindingId}/github") github(

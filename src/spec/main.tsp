@@ -3,6 +3,7 @@
 // compiled from these files.
 import "@typespec/http";
 import "./bindings.tsp";
+import "./ci.tsp";
 import "./config.tsp";
 import "./distribution.tsp";
 import "./errors.tsp";

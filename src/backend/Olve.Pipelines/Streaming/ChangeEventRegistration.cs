@@ -1,4 +1,5 @@
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
@@ -23,6 +24,7 @@ public class ChangeEventRegistration(
     AttachmentStore<Pipeline, PollTriggerStates> pollStates,
     EntityStore<ConfigSnapshot> configSnapshots,
     PipelineSecretEvents secretEvents,
+    PullRequestEvents pullEvents,
     ChangeBroadcaster broadcaster) : IRunOnStartup
 {
     public Result Run()
@@ -56,6 +58,10 @@ public class ChangeEventRegistration(
         queuedStarts.OnRemoved.Subscribe(id => broadcaster.Publish(ChangeEvent.Queued(id, false)));
         pollStates.OnSet.Subscribe(id => broadcaster.Publish(ChangeEvent.Poll(id)));
         secretEvents.OnChanged.Subscribe(id => broadcaster.Publish(ChangeEvent.Secrets(id)));
+
+        pullEvents.OnAdded.Subscribe(e => broadcaster.Publish(ChangeEvent.Pull(e.Entity)));
+        pullEvents.OnUpdated.Subscribe(e => broadcaster.Publish(ChangeEvent.Pull(e.After)));
+        pullEvents.OnDeleted.Subscribe(e => broadcaster.Publish(ChangeEvent.Pull(e.Entity)));
 
         return Result.Success();
     }

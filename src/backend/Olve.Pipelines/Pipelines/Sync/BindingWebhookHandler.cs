@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Sources;
 using Olve.TypeSpec;
@@ -10,6 +11,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 public sealed class BindingWebhookHandler(
     BindingWebhookReceiver receiver,
     PushTriggerService pushTriggers,
+    PullRequestService pulls,
     IHttpContextAccessor http,
     TimeProvider time,
     ILogger<BindingWebhookHandler> logger) : Contract.IBindingWebhooksGithubHandler
@@ -22,7 +24,8 @@ public sealed class BindingWebhookHandler(
 
         var receivedAt = time.GetUtcNow();
         var bindingId = new Id<PipelineConfigBinding>(new Id(request.BindingId));
-        var (action, pipelineId, push) = receiver.Evaluate(bindingId, delivery.Body, request.Signature, request.Event);
+        var decision = receiver.Evaluate(bindingId, delivery.Body, request.Signature, request.Event);
+        var (action, pipelineId, push) = decision;
         switch (action)
         {
             case BindingWebhookAction.NotFound:
@@ -31,6 +34,10 @@ public sealed class BindingWebhookHandler(
                 return new Contract.BindingWebhooksGithubResponse.Unauthorized();
             case BindingWebhookAction.Ignore:
                 return new Contract.BindingWebhooksGithubResponse.NoContent();
+            case BindingWebhookAction.PullRequest:
+                var change = pulls.Observe(pipelineId, decision.Branch!, decision.PullRequest!, receivedAt);
+                logger.LogInformation("Binding webhook for '{BindingId}': pull request #{Number} {Change}", bindingId, decision.PullRequest!.Number, change);
+                return new Contract.BindingWebhooksGithubResponse.Accepted();
         }
 
         // GitHub gives a delivery 10 s: queue the push check (config first) and acknowledge.

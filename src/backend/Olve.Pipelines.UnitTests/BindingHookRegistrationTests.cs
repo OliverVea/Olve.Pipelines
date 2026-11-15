@@ -30,7 +30,7 @@ public class BindingHookRegistrationTests
         public List<(long HookId, GitHubHookConfig Config)> UpdateCalls { get; } = [];
         public Result UpdateResult { get; set; } = Result.Success();
 
-        public Task<Result> UpdateHookConfigAsync(string owner, string repo, string pat, long hookId, GitHubHookConfig config, CancellationToken ct = default)
+        public Task<Result> UpdateHookAsync(string owner, string repo, string pat, long hookId, GitHubHookConfig config, CancellationToken ct = default)
         {
             UpdateCalls.Add((hookId, config));
             return Task.FromResult(UpdateResult);
@@ -71,6 +71,7 @@ public class BindingHookRegistrationTests
         await Assert.That(gh.CreateCalls[0].Config.Secret).IsEqualTo("hook-secret");
         await Assert.That(state.TryGet(bindingId, out var stored)).IsTrue();
         await Assert.That(stored!.HookId).IsEqualTo(321L);
+        await Assert.That(stored.Events).IsEquivalentTo(["push", "pull_request"]);
     }
 
     [Test]
@@ -96,12 +97,33 @@ public class BindingHookRegistrationTests
         var state = new BindingHookStateStore();
         var bindingId = Id.New<PipelineConfigBinding>();
         var pipelineId = Id.New<Pipeline>();
-        state.Set(bindingId, new BindingHookState(pipelineId, "acme", "widgets", 7L, "GITHUB_TOKEN", UrlOf(bindingId)));
+        state.Set(bindingId, new BindingHookState(pipelineId, "acme", "widgets", 7L, "GITHUB_TOKEN", UrlOf(bindingId), IGitHubClient.HookEvents));
 
         await CreateDrainer(gh, state, "ghp_tok").ProcessAsync(new CreateBindingHookWork(bindingId, pipelineId, "acme", "widgets", "GITHUB_TOKEN", "s"), CancellationToken.None);
 
         await Assert.That(gh.CreateCalls).IsEmpty();
         await Assert.That(gh.UpdateCalls).IsEmpty();
+    }
+
+    // Catches: hooks registered before CI keep delivering pushes only, so pull requests are never seen.
+    [Test]
+    [Arguments("unrecorded")]
+    [Arguments("push")]
+    public async Task Create_RegisteredForPushesOnly_SubscribesTheSameHookToPullRequests(string recorded)
+    {
+        string[]? events = recorded == "push" ? ["push"] : null;
+        var gh = new FakeGitHubClient();
+        var state = new BindingHookStateStore();
+        var bindingId = Id.New<PipelineConfigBinding>();
+        var pipelineId = Id.New<Pipeline>();
+        state.Set(bindingId, new BindingHookState(pipelineId, "acme", "widgets", 7L, "GITHUB_TOKEN", UrlOf(bindingId), events));
+
+        await CreateDrainer(gh, state, "ghp_tok").ProcessAsync(new CreateBindingHookWork(bindingId, pipelineId, "acme", "widgets", "GITHUB_TOKEN", "hook-secret"), CancellationToken.None);
+
+        await Assert.That(gh.CreateCalls).IsEmpty();
+        await Assert.That(gh.UpdateCalls.Select(c => c.HookId)).IsEquivalentTo([7L]);
+        await Assert.That(state.TryGet(bindingId, out var stored)).IsTrue();
+        await Assert.That(stored!.Events).IsEquivalentTo(["push", "pull_request"]);
     }
 
     [Test]
@@ -283,17 +305,20 @@ public class BindingHookRegistrationTests
     }
 
     [Test]
-    public async Task BindingUpdated_HookAtTheCurrentUrl_EnqueuesNothing()
+    [Arguments(true, false)]
+    [Arguments(false, true)]
+    public async Task BindingUpdated_HookAtTheCurrentUrl_EnqueuesWorkOnlyWhenItMissesPullRequests(bool allEvents, bool enqueued)
     {
         var h = await CreateEventHarness();
         var pid = Id.New<Pipeline>();
         var binding = Pick(h.Svc.Create(pid, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
         h.Queue.Reader.TryRead(out _);
-        h.HookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 5L, "GITHUB_TOKEN", UrlOf(binding.Id)));
+        h.HookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 5L, "GITHUB_TOKEN", UrlOf(binding.Id),
+            allEvents ? IGitHubClient.HookEvents : ["push"]));
 
         Pick(h.Svc.SetLastPushSha(binding.Id, "abc"));
 
-        await Assert.That(h.Queue.Reader.TryRead(out _)).IsFalse();
+        await Assert.That(h.Queue.Reader.TryRead(out _)).IsEqualTo(enqueued);
     }
 
     [Test]

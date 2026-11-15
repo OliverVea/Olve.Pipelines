@@ -9,17 +9,20 @@ namespace Olve.Pipelines.GitHub;
 public record GitHubHookConfig(string Url, string Secret);
 
 /// <summary>
-/// Manages repository <c>push</c> webhooks via the GitHub REST API. The personal access token is a
+/// Manages a binding's repository webhook (<see cref="HookEvents"/>) via the GitHub REST API. The personal access token is a
 /// per-call argument (each pipeline carries its own fine-grained PAT), so a single shared client
 /// serves every pipeline — the token is attached per request rather than baked into the client.
 /// </summary>
 public interface IGitHubClient
 {
-    /// <summary>Creates a <c>push</c> webhook on the repo and returns its hook id.</summary>
+    /// <summary>The events a binding's hook delivers: pushes, and pull requests for CI.</summary>
+    static readonly IReadOnlyList<string> HookEvents = ["push", "pull_request"];
+
+    /// <summary>Creates a webhook for <see cref="HookEvents"/> on the repo and returns its hook id.</summary>
     Task<Result<long>> CreateHookAsync(string owner, string repo, string pat, GitHubHookConfig config, CancellationToken ct = default);
 
-    /// <summary>Points an existing hook at <paramref name="config"/>; a missing hook (404) is a <see cref="NotFoundProblem"/>.</summary>
-    Task<Result> UpdateHookConfigAsync(string owner, string repo, string pat, long hookId, GitHubHookConfig config, CancellationToken ct = default);
+    /// <summary>Points an existing hook at <paramref name="config"/> and <see cref="HookEvents"/>; a missing hook (404) is a <see cref="NotFoundProblem"/>.</summary>
+    Task<Result> UpdateHookAsync(string owner, string repo, string pat, long hookId, GitHubHookConfig config, CancellationToken ct = default);
 
     /// <summary>Deletes the hook. A missing hook (404) is treated as success — the end state is the same.</summary>
     Task<Result> DeleteHookAsync(string owner, string repo, string pat, long hookId, CancellationToken ct = default);
@@ -46,7 +49,7 @@ public class GitHubClient : IGitHubClient, IDisposable
         {
             Content = JsonContent.Create(
                 new CreateHookRequest(
-                    "web", true, ["push"],
+                    "web", true, [.. IGitHubClient.HookEvents],
                     new CreateHookConfig(config.Url, "json", config.Secret, "0")),
                 GitHubApiJsonContext.Default.CreateHookRequest),
         };
@@ -74,18 +77,18 @@ public class GitHubClient : IGitHubClient, IDisposable
         if (created is null || created.Id == 0)
             return Result.Failure<long>(new ResultProblem($"GitHub create-hook for '{owner}/{repo}' returned no hook id."));
 
-        _logger?.LogInformation("Created GitHub push hook {HookId} on {Owner}/{Repo}", created.Id, owner, repo);
+        _logger?.LogInformation("Created GitHub hook {HookId} on {Owner}/{Repo}", created.Id, owner, repo);
         return created.Id;
     }
 
-    public async Task<Result> UpdateHookConfigAsync(
+    public async Task<Result> UpdateHookAsync(
         string owner, string repo, string pat, long hookId, GitHubHookConfig config, CancellationToken ct = default)
     {
-        var request = new HttpRequestMessage(HttpMethod.Patch, $"repos/{owner}/{repo}/hooks/{hookId}/config")
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"repos/{owner}/{repo}/hooks/{hookId}")
         {
             Content = JsonContent.Create(
-                new CreateHookConfig(config.Url, "json", config.Secret, "0"),
-                GitHubApiJsonContext.Default.CreateHookConfig),
+                new UpdateHookRequest(true, [.. IGitHubClient.HookEvents], new CreateHookConfig(config.Url, "json", config.Secret, "0")),
+                GitHubApiJsonContext.Default.UpdateHookRequest),
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", pat);
 
@@ -110,7 +113,7 @@ public class GitHubClient : IGitHubClient, IDisposable
             return new ResultProblem($"GitHub update-hook for '{owner}/{repo}' hook {hookId} returned {(int)response.StatusCode}.");
         }
 
-        _logger?.LogInformation("Pointed GitHub push hook {HookId} on {Owner}/{Repo} at {Url}", hookId, owner, repo, config.Url);
+        _logger?.LogInformation("Pointed GitHub hook {HookId} on {Owner}/{Repo} at {Url}", hookId, owner, repo, config.Url);
         return Result.Success();
     }
 
@@ -153,6 +156,8 @@ public class GitHubClient : IGitHubClient, IDisposable
 
 internal record CreateHookRequest(string Name, bool Active, string[] Events, CreateHookConfig Config);
 
+internal record UpdateHookRequest(bool Active, string[] Events, CreateHookConfig Config);
+
 internal record CreateHookConfig(
     string Url,
     [property: JsonPropertyName("content_type")] string ContentType,
@@ -164,5 +169,6 @@ internal record CreateHookResponse(long Id);
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(CreateHookRequest))]
 [JsonSerializable(typeof(CreateHookConfig))]
+[JsonSerializable(typeof(UpdateHookRequest))]
 [JsonSerializable(typeof(CreateHookResponse))]
 internal partial class GitHubApiJsonContext : JsonSerializerContext;

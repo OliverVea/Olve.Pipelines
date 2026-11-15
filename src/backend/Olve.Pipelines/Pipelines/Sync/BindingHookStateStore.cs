@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Sync;
@@ -12,8 +13,14 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// after a confirmed GitHub delete.
 /// </summary>
 /// <param name="Url">The delivery URL the hook was registered with; null for hooks recorded before it was kept.</param>
+/// <param name="Events">The events it was registered for; null for hooks recorded before they were kept (push only).</param>
 public record BindingHookState(
-    Id<Pipeline> PipelineId, string Owner, string Repo, long HookId, string CredentialsSecret, string? Url = null);
+    Id<Pipeline> PipelineId, string Owner, string Repo, long HookId, string CredentialsSecret, string? Url = null,
+    IReadOnlyList<string>? Events = null)
+{
+    /// <summary>Registered at <paramref name="url"/> for every event a binding's hook delivers.</summary>
+    public bool IsCurrent(string url) => Url == url && IGitHubClient.HookEvents.All(e => Events?.Contains(e) == true);
+}
 
 public class BindingHookStateStore
 {

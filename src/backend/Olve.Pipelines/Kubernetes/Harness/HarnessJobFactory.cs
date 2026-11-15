@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Failures;
@@ -19,15 +20,15 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
     /// <param name="step">The step from that version's manifest (image, timeout, secrets).</param>
     /// <param name="input">The attempt's assembled <c>input.json</c>, scanned for file refs (→ <c>OLVE_FILE_URLS</c>); null = no input file.</param>
     public async Task<Result<HarnessJobSpec>> CreateStepJobAsync(
-        Attempt attempt, string binaryKey, string versionStamp, StepDescriptor step, JsonElement? input,
+        HarnessAttemptIdentity attempt, string binaryKey, string versionStamp, StepDescriptor step, JsonElement? input,
         IReadOnlyList<string>? cases = null, IReadOnlyDictionary<string, string>? callbackUrls = null, MatrixCell? cell = null, CancellationToken ct = default)
     {
         var lateExpiry = options.LateUrlExpiry(step.TimeoutSeconds);
 
         var stepUrl = await presigner.PresignGetAsync(binaryKey, ct: ct);
-        var inputUrl = input is null ? null : await presigner.PresignGetAsync(HarnessStorageKeys.AttemptInputKey(attempt), ct: ct);
+        var inputUrl = input is null ? null : await presigner.PresignGetAsync(attempt.InputKey, ct: ct);
         // A preflight uploads nothing: its envelope (links only) is read from the log.
-        var resultUrl = attempt.InPreflight ? null : await presigner.PresignPutAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), lateExpiry, ct);
+        var resultUrl = attempt.InPreflight ? null : await presigner.PresignPutAsync(attempt.ResultArchiveKey, lateExpiry, ct);
 
         IReadOnlyDictionary<string, string> fileUrls = new Dictionary<string, string>();
         if (input is { } json)
@@ -59,7 +60,7 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
 
         var run = dispatch.Run;
         var request = new HarnessJobRequest(
-            dispatch.JobName, AttemptId: null, run.PipelineId, run.Id, run.Number, dispatch.Handler.Name, AttemptNumber: 1,
+            dispatch.JobName, AttemptId: null, run.PipelineId, run.Id.Value.Value.ToString("D", CultureInfo.InvariantCulture), run.Number, dispatch.Handler.Name, AttemptNumber: 1,
             run.VersionStamp, dispatch.Handler.Image, dispatch.Handler.TimeoutSeconds, dispatch.Handler.Secrets,
             PipelineSecrets.Name(run.PipelineId),
             new HarnessUrls(stepUrl, inputUrl, ResultUrl: null, new Dictionary<string, string>()),

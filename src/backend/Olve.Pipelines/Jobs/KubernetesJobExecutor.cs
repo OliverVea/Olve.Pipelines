@@ -52,22 +52,26 @@ public class KubernetesJobExecutor(
 
     internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(3);
 
-    protected internal override async Task RunToCompletionAsync(Attempt attempt, CancellationToken ct)
-    {
-        var logKey = StorageLayout.AttemptLogKey(attempt);
+    protected internal override Task RunToCompletionAsync(Attempt attempt, CancellationToken ct) =>
+        RunAsync(new CdHarnessAttempt(attempt, attempts, launches, callbacks), ct);
 
-        await SubmitGuardedAsync(attempt, logKey, async token =>
+    /// <summary>Drives one attempt of any kind from submission (or reattach) to its verdict.</summary>
+    internal async Task RunAsync(IHarnessAttempt attempt, CancellationToken ct)
+    {
+        var id = attempt.Identity;
+
+        await SubmitGuardedAsync(attempt, async token =>
         {
-            var existing = await control.GetStateAsync(attempt.KubernetesJobName, token);
+            var existing = await control.GetStateAsync(id.JobName, token);
 
             if (existing is null)
             {
-                if (attempt.Status is InProgress)
+                if (attempt.IsInProgress())
                 {
                     // Never re-run an attempt that already started: its Job is gone (deleted by hand, or
                     // collected by TTL during a long outage), so its outcome is unknown.
-                    Fail(attempt, $"K8s Job '{attempt.KubernetesJobName}' no longer exists; the attempt's outcome is unknown", AttemptFailureKind.JobLost);
-                    await control.DeleteSecretAsync(HarnessStorageKeys.UrlSecretName(attempt));
+                    Fail(attempt, $"K8s Job '{id.JobName}' no longer exists; the attempt's outcome is unknown", AttemptFailureKind.JobLost);
+                    await control.DeleteSecretAsync(id.UrlSecretName);
                     return;
                 }
 
@@ -77,11 +81,11 @@ public class KubernetesJobExecutor(
             else
             {
                 logger.LogInformation("Reattaching to K8s Job '{JobName}' of step '{StepName}' (run #{RunNumber}, attempt {AttemptNumber}, pipeline '{PipelineId}')",
-                    attempt.KubernetesJobName, attempt.StepName, attempt.RunNumber, attempt.Number, attempt.PipelineId);
+                    id.JobName, id.StepName, id.RunNumber, id.AttemptNumber, id.PipelineId);
             }
 
-            LogIfFailed(attempts.MarkInProgress(attempt.Id), attempt.Id);
-            await WatchAsync(attempt, logKey, token);
+            LogIfFailed(attempt.MarkInProgress(), id);
+            await WatchAsync(attempt, token);
         }, ct);
     }
 
@@ -89,25 +93,26 @@ public class KubernetesJobExecutor(
     /// Uploads the input and creates the URL Secret + Job. False when the attempt was failed instead, or was
     /// cancelled or made obsolete meanwhile (then no Job is created).
     /// </summary>
-    private async Task<bool> SubmitAsync(Attempt attempt, CancellationToken ct)
+    private async Task<bool> SubmitAsync(IHarnessAttempt attempt, CancellationToken ct)
     {
-        if (IsAbandoned(attempt.Id))
+        var id = attempt.Identity;
+        if (attempt.IsAbandoned())
             return false;
 
-        if (launches.Get(attempt.Id).TryPickProblems(out var problems, out var launch))
+        if (attempt.Launch().TryPickProblems(out var problems, out var launch))
         {
             Fail(attempt, "cannot launch: " + string.Join("; ", problems.Select(p => p.FormattedMessage)), AttemptFailureKind.LaunchFailed);
             return false;
         }
 
-        await storage.PutTextAsync(HarnessStorageKeys.AttemptInputKey(attempt), launch.InputJson, "application/json", ct);
+        await storage.PutTextAsync(id.InputKey, launch.InputJson, "application/json", ct);
 
-        var callbackUrls = launch.Plan is { } plan ? await callbacks.ForRunAsync(launch.Run.Id, plan, ct) : null;
+        var callbackUrls = await attempt.CallbackUrlsAsync(ct);
         Result<HarnessJobSpec> specResult;
         using (var input = JsonDocument.Parse(launch.InputJson))
         {
             specResult = await factory.CreateStepJobAsync(
-                attempt, launch.Version.BinaryKey, launch.Run.VersionStamp, launch.Step, input.RootElement, launch.Cases, callbackUrls, launch.Cell, ct);
+                id, launch.BinaryKey, launch.VersionStamp, launch.Step, input.RootElement, launch.Cases, callbackUrls, launch.Cell, ct);
         }
 
         if (specResult.TryPickProblems(out var specProblems, out var spec))
@@ -121,61 +126,62 @@ public class KubernetesJobExecutor(
             throw new IOException(unsaved.Single().FormattedMessage);
 
         // The upload, the Secret and the save took time: a newer attempt of the step may have made this one obsolete.
-        if (IsAbandoned(attempt.Id))
+        if (attempt.IsAbandoned())
         {
             logger.LogInformation("Not creating K8s Job '{JobName}': attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') was cancelled or made obsolete while it was being submitted",
-                spec.Job.Metadata.Name, attempt.Number, attempt.StepName, attempt.RunNumber, attempt.PipelineId);
+                spec.Job.Metadata.Name, id.AttemptNumber, id.StepName, id.RunNumber, id.PipelineId);
             return false;
         }
 
         var created = await control.SubmitAsync(spec, ct);
         logger.LogInformation("{Action} K8s Job '{JobName}' for step '{StepName}' (run #{RunNumber}, attempt {AttemptNumber}, version {VersionNumber}, image {Image}, pipeline '{PipelineId}')",
-            created ? "Created" : "Found existing", spec.Job.Metadata.Name, attempt.StepName, attempt.RunNumber, attempt.Number,
-            launch.Version.Number, launch.Step.Image, attempt.PipelineId);
+            created ? "Created" : "Found existing", spec.Job.Metadata.Name, id.StepName, id.RunNumber, id.AttemptNumber,
+            launch.VersionNumber, launch.Step.Image, id.PipelineId);
         return true;
     }
 
-    private async Task WatchAsync(Attempt attempt, string logKey, CancellationToken ct)
+    private async Task WatchAsync(IHarnessAttempt attempt, CancellationToken ct)
     {
-        var jobName = attempt.KubernetesJobName;
-        var urlSecret = HarnessStorageKeys.UrlSecretName(attempt);
+        var id = attempt.Identity;
+        var jobName = id.JobName;
+        var urlSecret = id.UrlSecretName;
 
-        var wait = await control.WaitAsync(jobName, PollInterval, () => IsAbandoned(attempt.Id), timeout: null, ct);
+        var wait = await control.WaitAsync(jobName, PollInterval, attempt.IsAbandoned, timeout: null, ct);
 
         switch (wait)
         {
             case HarnessWait.Aborted:
                 {
                     logger.LogInformation("Attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') was cancelled or made obsolete; deleting K8s Job '{JobName}'",
-                        attempt.Number, attempt.StepName, attempt.RunNumber, attempt.PipelineId, jobName);
+                        id.AttemptNumber, id.StepName, id.RunNumber, id.PipelineId, jobName);
                     var logs = await control.GetLogsAsync(jobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
                     // A deleted attempt's run is gone: a log now would recreate its objects.
-                    if (attempts.TryGet(attempt.Id, out _))
-                        await PutLogAsync(logKey, logs.Combined(HarnessJobBuilder.StepContainerName) + "controller: attempt cancelled or obsolete; K8s Job deleted\n", ct);
+                    if (attempt.Finished() is not null)
+                        await PutLogAsync(id.LogKey, logs.Combined(HarnessJobBuilder.StepContainerName) + "controller: attempt cancelled or obsolete; K8s Job deleted\n", ct);
                     await control.DeleteJobAsync(jobName);
                     await control.DeleteSecretAsync(urlSecret);
-                    await storage.DeleteAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), ct);
+                    await storage.DeleteAsync(id.ResultArchiveKey, ct);
                     return;
                 }
 
             case HarnessWait.Missing:
-                if (!IsAbandoned(attempt.Id))
+                if (!attempt.IsAbandoned())
                     Fail(attempt, $"K8s Job '{jobName}' disappeared while the attempt was running", AttemptFailureKind.JobLost);
                 await control.DeleteSecretAsync(urlSecret);
                 return;
 
-            case HarnessWait.Finished finished when attempt.InPreflight:
-                await FinishPreflightAsync(attempt, logKey, finished, ct);
+            case HarnessWait.Finished finished when id.InPreflight:
+                await FinishPreflightAsync(attempt, finished, ct);
                 await control.DeleteSecretAsync(urlSecret);
                 return;
 
             case HarnessWait.Finished finished:
-                await FinishAsync(attempt, logKey, finished, ct);
+                await FinishAsync(attempt, finished, ct);
                 // Until the verdict is saved, a restarted server has only the archive to reach it again.
                 if ((await durability.SavedAsync(ct)).TryPickProblems(out var unsaved))
-                    logger.LogProblems(LogLevel.Warning, unsaved, "Keeping the result archive of attempt '{AttemptId}': its status is not saved", attempt.Id);
+                    logger.LogProblems(LogLevel.Warning, unsaved, "Keeping the result archive of attempt '{JobName}': its status is not saved", jobName);
                 else
-                    await storage.DeleteAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), ct);
+                    await storage.DeleteAsync(id.ResultArchiveKey, ct);
                 await control.DeleteSecretAsync(urlSecret);
                 return;
 
@@ -184,54 +190,53 @@ public class KubernetesJobExecutor(
         }
     }
 
-    private async Task FinishAsync(Attempt attempt, string logKey, HarnessWait.Finished finished, CancellationToken ct)
+    private async Task FinishAsync(IHarnessAttempt attempt, HarnessWait.Finished finished, CancellationToken ct)
     {
-        var logs = await control.GetLogsAsync(attempt.KubernetesJobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
+        var id = attempt.Identity;
+        var logs = await control.GetLogsAsync(id.JobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
         var logText = logs.Combined(HarnessJobBuilder.StepContainerName);
         if (finished.DeletedStuck)
             logText += $"controller: {HarnessExitCodes.Classify(finished.State)?.Message}; K8s Job deleted\n";
-        if (attempt.Preflight is { PassedAt: not null })
-            logText = await PreflightLogAsync(logKey, ct) + logText;
-        await PutLogAsync(logKey, logText, ct);
+        if (attempt.PassedPreflight)
+            logText = await PreflightLogAsync(id.LogKey, ct) + logText;
+        await PutLogAsync(id.LogKey, logText, ct);
 
         var state = finished.State;
-        LogIfFailed(attempts.Update(attempt.Id, a => a with
-        {
-            Timings = new AttemptTimings(state.PodCreatedAt, state.Init?.StartedAt, state.Init?.FinishedAt, state.Main?.StartedAt, state.Main?.FinishedAt,
-                finished.ObservedAt),
-        }), attempt.Id);
+        LogIfFailed(attempt.RecordTimings(new AttemptTimings(state.PodCreatedAt, state.Init?.StartedAt, state.Init?.FinishedAt,
+            state.Main?.StartedAt, state.Main?.FinishedAt, finished.ObservedAt)), id);
 
-        var collection = await storage.CollectAsync(attempt, ct);
+        var collection = await storage.CollectAsync(id, ct);
         var outcome = HarnessOutcome.Resolve(finished.State, collection.Archive, collection.FileKeys,
             HarnessSentinels.TryExtractResult(logs.Main));
 
         if (outcome.Links is { } links)
-            LogIfFailed(attempts.Update(attempt.Id, a => a with { Links = AttemptLink.Merge(a.Links, links) }), attempt.Id);
+            LogIfFailed(attempt.AddLinks(links), id);
 
         switch (outcome)
         {
             case HarnessAttemptResult.Succeeded s:
-                if (attempts.MarkSucceeded(attempt.Id, s.OutputJson).TryPickProblems(out var problems))
+                if (attempt.MarkSucceeded(s.OutputJson).TryPickProblems(out var problems))
                     Fail(attempt, "output rejected: " + string.Join("; ", problems.Select(p => p.FormattedMessage)), AttemptFailureKind.Output);
                 break;
             case HarnessAttemptResult.Skipped s:
-                LogIfFailed(attempts.MarkSkipped(attempt.Id, s.Reason), attempt.Id);
+                LogIfFailed(attempt.MarkSkipped(s.Reason), id);
                 break;
             case HarnessAttemptResult.Failed f:
                 Fail(attempt, f.Message, f.Kind);
                 break;
         }
 
-        LogFinished(attempt.Id);
+        LogFinished(attempt);
     }
 
-    private async Task FinishPreflightAsync(Attempt attempt, string logKey, HarnessWait.Finished finished, CancellationToken ct)
+    private async Task FinishPreflightAsync(IHarnessAttempt attempt, HarnessWait.Finished finished, CancellationToken ct)
     {
-        var logs = await control.GetLogsAsync(attempt.KubernetesJobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
+        var id = attempt.Identity;
+        var logs = await control.GetLogsAsync(id.JobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
         var logText = logs.Combined(HarnessJobBuilder.StepContainerName);
         if (finished.DeletedStuck)
             logText += $"controller: {HarnessExitCodes.Classify(finished.State)?.Message}; K8s Job deleted\n";
-        await PutLogAsync(logKey, logText, ct);
+        await PutLogAsync(id.LogKey, logText, ct);
 
         switch (HarnessOutcome.ResolvePreflight(finished.State, HarnessSentinels.TryExtractResult(logs.Main)))
         {
@@ -239,18 +244,18 @@ public class KubernetesJobExecutor(
                 Fail(attempt, f.Message, f.Kind);
                 break;
             case var passed:
-                if (launches.Get(attempt.Id).TryPickProblems(out var problems, out var launch))
+                if (attempt.Launch().TryPickProblems(out var problems, out var launch))
                 {
                     Fail(attempt, "cannot finish the preflight: " + string.Join("; ", problems.Select(p => p.FormattedMessage)), AttemptFailureKind.LaunchFailed);
                     break;
                 }
-                if (attempts.FinishPreflight(attempt.Id, passed.Links, launch.Step.ExternalInputs.Keys.ToList()).TryPickProblems(out var finishProblems, out var after))
+                if (attempt.FinishPreflight(passed.Links, launch.Step.ExternalInputs.Keys.ToList()).TryPickProblems(out var finishProblems, out var status))
                 {
-                    LogIfFailed(Result.Failure(finishProblems), attempt.Id);
+                    LogIfFailed(Result.Failure(finishProblems), id);
                     break;
                 }
                 logger.LogInformation("Preflight of step '{StepName}' (run #{RunNumber}, attempt {AttemptNumber}, pipeline '{PipelineId}') succeeded; the attempt is {Status}",
-                    attempt.StepName, attempt.RunNumber, attempt.Number, attempt.PipelineId, after.Status.Discriminator());
+                    id.StepName, id.RunNumber, id.AttemptNumber, id.PipelineId, status);
                 break;
         }
     }
@@ -269,14 +274,10 @@ public class KubernetesJobExecutor(
         }
     }
 
-    // Obsolete: latest-wins replaced the attempt while its Job was being submitted (MarkInProgress then failed).
-    // Gone: its pipeline or run was deleted.
-    private bool IsAbandoned(Id<Attempt> id) => !attempts.TryGet(id, out var current) || current.Status is Cancelled or Obsolete;
-
     // Wraps the submission phase (input upload, URL Secret, submit/reattach). A failure while the attempt
     // is still Scheduled is a K8s/storage-unavailable stall: count it, surface it in the attempt's log, and
     // fail after MaxSubmissionAttempts instead of retrying forever.
-    private async Task SubmitGuardedAsync(Attempt attempt, string logKey, Func<CancellationToken, Task> submit, CancellationToken ct)
+    private async Task SubmitGuardedAsync(IHarnessAttempt attempt, Func<CancellationToken, Task> submit, CancellationToken ct)
     {
         try
         {
@@ -292,34 +293,35 @@ public class KubernetesJobExecutor(
         {
             // Once InProgress, a failure is an in-flight/poll error, not a submission stall — rethrow so the
             // watcher respawns and reattaches to the running Job (idempotent).
-            if (attempts.TryGet(attempt.Id, out var current) && current.Status is InProgress)
+            if (attempt.IsInProgress())
                 throw;
 
-            await HandleSubmissionFailureAsync(attempt, logKey, ex, ct);
+            await HandleSubmissionFailureAsync(attempt, ex, ct);
         }
     }
 
-    private async Task HandleSubmissionFailureAsync(Attempt attempt, string logKey, Exception ex, CancellationToken ct)
+    private async Task HandleSubmissionFailureAsync(IHarnessAttempt attempt, Exception ex, CancellationToken ct)
     {
-        var submission = ((attempt.Status as Scheduled)?.SubmissionAttempts ?? 0) + 1;
+        var id = attempt.Identity;
+        var submission = attempt.SubmissionAttempts + 1;
 
         if (submission >= MaxSubmissionAttempts)
         {
             var reason = $"K8s submission failed after {submission} attempts: {ex.Message}";
-            await AppendControllerLogAsync(logKey, $"controller: {reason} — giving up", ct);
-            await control.DeleteSecretAsync(HarnessStorageKeys.UrlSecretName(attempt));
+            await AppendControllerLogAsync(id.LogKey, $"controller: {reason} — giving up", ct);
+            await control.DeleteSecretAsync(id.UrlSecretName);
             Fail(attempt, reason, AttemptFailureKind.LaunchFailed);
-            logger.LogError(ex, "Giving up on attempt '{AttemptId}' of step '{StepName}' (pipeline '{PipelineId}') after {Submissions} failed submissions",
-                attempt.Id, attempt.StepName, attempt.PipelineId, submission);
+            logger.LogError(ex, "Giving up on attempt {AttemptNumber} of step '{StepName}' (pipeline '{PipelineId}') after {Submissions} failed submissions",
+                id.AttemptNumber, id.StepName, id.PipelineId, submission);
             return;
         }
 
-        await AppendControllerLogAsync(logKey,
+        await AppendControllerLogAsync(id.LogKey,
             $"controller: failed to submit K8s Job — {ex.Message}; retry {submission}/{MaxSubmissionAttempts - 1}", ct);
-        logger.LogWarning(ex, "Submission {Submission} of {Max} failed for attempt '{AttemptId}' of step '{StepName}' (pipeline '{PipelineId}'); retrying",
-            submission, MaxSubmissionAttempts, attempt.Id, attempt.StepName, attempt.PipelineId);
+        logger.LogWarning(ex, "Submission {Submission} of {Max} failed for attempt {AttemptNumber} of step '{StepName}' (pipeline '{PipelineId}'); retrying",
+            submission, MaxSubmissionAttempts, id.AttemptNumber, id.StepName, id.PipelineId);
 
-        LogIfFailed(attempts.RecordSubmissionFailure(attempt.Id), attempt.Id);
+        LogIfFailed(attempt.RecordSubmissionFailure(), id);
 
         try
         {
@@ -356,32 +358,28 @@ public class KubernetesJobExecutor(
         }
     }
 
-    private void Fail(Attempt attempt, string reason, AttemptFailureKind kind)
+    private void Fail(IHarnessAttempt attempt, string reason, AttemptFailureKind kind)
     {
-        LogIfFailed(attempts.MarkFailed(attempt.Id, reason, kind), attempt.Id);
+        var id = attempt.Identity;
+        LogIfFailed(attempt.MarkFailed(reason, kind), id);
         logger.LogWarning("Attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') failed: {Reason}",
-            attempt.Number, attempt.StepName, attempt.RunNumber, attempt.PipelineId, reason);
+            id.AttemptNumber, id.StepName, id.RunNumber, id.PipelineId, reason);
     }
 
-    private void LogFinished(Id<Attempt> attemptId)
+    private void LogFinished(IHarnessAttempt attempt)
     {
-        if (!attempts.TryGet(attemptId, out var after))
+        if (attempt.Finished() is not { } finished)
             return;
 
-        var elapsed = after.FinishedAt() - after.StartedAt();
+        var id = attempt.Identity;
         logger.LogInformation("Attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') finished {Status} in {ElapsedMs}ms",
-            after.Number, after.StepName, after.RunNumber, after.PipelineId, after.Status.Discriminator(), (long?)elapsed?.TotalMilliseconds);
+            id.AttemptNumber, id.StepName, id.RunNumber, id.PipelineId, finished.Status, (long?)finished.Elapsed?.TotalMilliseconds);
     }
 
-    private void LogIfFailed(Result result, Id<Attempt> attemptId)
+    private void LogIfFailed(Result result, HarnessAttemptIdentity id)
     {
         if (result.TryPickProblems(out var problems))
-            logger.LogProblems(LogLevel.Warning, problems, "Could not update status of attempt '{AttemptId}' (it may have been deleted)", attemptId);
-    }
-
-    private void LogIfFailed<T>(Result<T> result, Id<Attempt> attemptId)
-    {
-        if (result.TryPickProblems(out var problems))
-            logger.LogProblems(LogLevel.Warning, problems, "Could not update status of attempt '{AttemptId}' (it may have been deleted)", attemptId);
+            logger.LogProblems(LogLevel.Warning, problems, "Could not update status of attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}'; it may have been deleted)",
+                id.AttemptNumber, id.StepName, id.RunNumber, id.PipelineId);
     }
 }

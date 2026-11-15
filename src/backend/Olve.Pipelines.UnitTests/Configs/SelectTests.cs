@@ -200,7 +200,7 @@ public class SelectTests
     [Test]
     public async Task StepJob_InACase_GetsItsConditions_AsOlveCases()
     {
-        var request = new HarnessJobRequest("olve-aaaaaaaabbbbccccddddeeeeeeeeeeee", Harness.HarnessJobBuilderTests.AttemptId, Harness.HarnessJobBuilderTests.PipelineId, Harness.HarnessJobBuilderTests.RunId,
+        var request = new HarnessJobRequest("olve-aaaaaaaabbbbccccddddeeeeeeeeeeee", Harness.HarnessJobBuilderTests.AttemptId, Harness.HarnessJobBuilderTests.PipelineId, Harness.HarnessJobBuilderTests.RunId.Value.Value.ToString("D"),
             1, "count", 1, "2026.10.24.1", "alpine:3.22", 300, [], "olve-pipeline-x",
             new HarnessUrls("http://garage/step", null, "http://garage/result", new Dictionary<string, string>()))
         { Cases = ["target.kind=ssh"] };

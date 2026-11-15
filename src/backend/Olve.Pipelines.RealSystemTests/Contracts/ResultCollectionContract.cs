@@ -61,7 +61,7 @@ public abstract class ResultCollectionContract : ContractSuite
                 ("files/empty.txt", ""))),
         });
 
-        var collection = await Collector(s.Client).CollectAsync(attempt);
+        var collection = await Collector(s.Client).CollectAsync(HarnessAttemptIdentity.Of(attempt));
 
         await Assert.That(collection.Archive!.Value).Succeeded();
         var files = StorageLayout.AttemptFilesPrefix(attempt);
@@ -77,7 +77,7 @@ public abstract class ResultCollectionContract : ContractSuite
         Rule();
         await using var s = await SubjectAsync();
 
-        var collection = await Collector(s.Client).CollectAsync(NewAttempt());
+        var collection = await Collector(s.Client).CollectAsync(HarnessAttemptIdentity.Of(NewAttempt()));
 
         await Assert.That(collection.Archive).IsNull();
         await Assert.That(collection.FileKeys).IsEmpty();

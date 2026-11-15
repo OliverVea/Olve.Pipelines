@@ -31,12 +31,13 @@ public sealed record HarnessUrls(
 /// <param name="VersionStamp">The run's derived version (<c>OLVE_VERSION_STAMP</c>).</param>
 /// <param name="Role">The <c>olve-role</c> label: <c>step</c> for attempts, <see cref="HarnessJobBuilder.FailureHandlerRole"/> for failure handlers.</param>
 /// <param name="AttemptId">The attempt (names its URL Secret); null for failure handlers, which pass <paramref name="UrlSecretNameOverride"/>.</param>
+/// <param name="RunId">The run's id as the pod sees it (<c>OLVE_RUN_ID</c>).</param>
 /// <param name="UrlSecretNameOverride">The URL Secret's name; null = the attempt's (<see cref="HarnessStorageKeys.UrlSecretName"/>).</param>
 public sealed record HarnessJobRequest(
     string JobName,
     Id<Attempt>? AttemptId,
     Id<Pipeline> PipelineId,
-    Id<Run> RunId,
+    string RunId,
     int RunNumber,
     string StepName,
     int AttemptNumber,
@@ -60,17 +61,23 @@ public sealed record HarnessJobRequest(
     public string Mode { get; init; } = HarnessJobBuilder.RunMode;
 
     /// <summary>
-    /// Builds the request from an attempt; the step fields come from the pinned manifest. A cell's Job runs its
-    /// matrix step (<see cref="StepName"/>, also the <c>olve-step</c> label) with <see cref="Cell"/>. An attempt in
+    /// Builds the request from an attempt's identity; the step fields come from the pinned manifest. A cell's Job runs
+    /// its matrix step (<see cref="StepName"/>, also the <c>olve-step</c> label) with <see cref="Cell"/>. An attempt in
     /// preflight runs <c>preflight</c> in a Job and URL Secret of its own.
     /// </summary>
     public static HarnessJobRequest ForAttempt(
+        HarnessAttemptIdentity attempt, string versionStamp, string stepImage, long? timeoutSeconds,
+        IReadOnlyList<string> secrets, HarnessUrls urls, bool clusterAccess = false, MatrixCell? cell = null)
+        => new(attempt.JobName, AttemptId: null, attempt.PipelineId, attempt.RunId, attempt.RunNumber,
+            cell?.Step ?? attempt.StepName, attempt.AttemptNumber, versionStamp, stepImage, timeoutSeconds, secrets,
+            PipelineSecrets.Name(attempt.PipelineId), urls, UrlSecretNameOverride: attempt.UrlSecretName, ClusterAccess: clusterAccess)
+        { Cell = cell?.Json, Mode = attempt.InPreflight ? HarnessJobBuilder.PreflightMode : HarnessJobBuilder.RunMode };
+
+    /// <inheritdoc cref="ForAttempt(HarnessAttemptIdentity, string, string, long?, IReadOnlyList{string}, HarnessUrls, bool, MatrixCell?)"/>
+    public static HarnessJobRequest ForAttempt(
         Attempt attempt, string versionStamp, string stepImage, long? timeoutSeconds,
         IReadOnlyList<string> secrets, HarnessUrls urls, bool clusterAccess = false, MatrixCell? cell = null)
-        => new(attempt.KubernetesJobName, attempt.Id, attempt.PipelineId, attempt.RunId, attempt.RunNumber,
-            cell?.Step ?? attempt.StepName, attempt.Number, versionStamp, stepImage, timeoutSeconds, secrets,
-            PipelineSecrets.Name(attempt.PipelineId), urls, UrlSecretNameOverride: HarnessStorageKeys.UrlSecretName(attempt), ClusterAccess: clusterAccess)
-        { Cell = cell?.Json, Mode = attempt.InPreflight ? HarnessJobBuilder.PreflightMode : HarnessJobBuilder.RunMode };
+        => ForAttempt(HarnessAttemptIdentity.Of(attempt), versionStamp, stepImage, timeoutSeconds, secrets, urls, clusterAccess, cell);
 }
 
 /// <summary>A <c>map-trigger</c> Job: the version's binary maps one event to pipeline input.</summary>
@@ -177,7 +184,7 @@ public static partial class HarnessJobBuilder
             new("OLVE_DIR", "/olve"),
             new("TMPDIR", "/olve/tmp"),
             new("OLVE_PIPELINE", request.PipelineId.Value.Value.ToString("D", CultureInfo.InvariantCulture)),
-            new("OLVE_RUN_ID", request.RunId.Value.Value.ToString("D", CultureInfo.InvariantCulture)),
+            new("OLVE_RUN_ID", request.RunId),
             new("OLVE_RUN", request.RunNumber.ToString(CultureInfo.InvariantCulture)),
             new("OLVE_ATTEMPT", request.AttemptNumber.ToString(CultureInfo.InvariantCulture)),
             new("OLVE_VERSION_STAMP", request.VersionStamp),

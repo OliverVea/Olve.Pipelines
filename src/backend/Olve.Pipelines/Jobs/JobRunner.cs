@@ -35,7 +35,15 @@ public class JobRunner(
         }
     }
 
-    internal void DispatchTick()
+    internal void DispatchTick() =>
+        JobDispatch.Run(CdCandidates(), () => registry.ActiveCount < MaxConcurrentJobs);
+
+    /// <summary>
+    /// CD's attempts that want a watcher: Scheduled ones, and InProgress ones whose watcher is gone (after a restart
+    /// they reattach to their Job). A Scheduled attempt waits while another attempt of its (pipeline, step) is in
+    /// flight, and a matrix cell while its step has <c>maxParallel</c> cells in flight.
+    /// </summary>
+    private List<JobCandidate> CdCandidates()
     {
         var attempts = GetActiveAttempts();
         var busyKeys = CollectInProgressKeys(attempts);
@@ -44,44 +52,46 @@ public class JobRunner(
             .GroupBy(MatrixParallelism.GroupOf)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        foreach (var attempt in attempts)
+        return attempts
+            .Where(a => a.Status is not Waiting && !registry.IsRunning(a.Id))
+            .Select(a => new JobCandidate(JobPriority.Deploy, a.CreatedAt, () => TryStart(a, busyKeys, cellsInFlight)))
+            .ToList();
+    }
+
+    private bool TryStart(Attempt attempt, HashSet<StepKey> busyKeys, Dictionary<(Id<Run> Run, string Step), int> cellsInFlight)
+    {
+        // The busy-key gate holds a Scheduled attempt behind an in-flight attempt for the same
+        // (pipeline, step). It must NOT apply to an InProgress attempt: after a restart its watcher is
+        // gone but it still owns its key (CollectInProgressKeys added it), so gating it here would
+        // make it block itself forever and never reattach to its K8s Job — wedging the pipeline.
+        if (attempt.Status is Scheduled && IsBusy(attempt, busyKeys))
         {
-            if (attempt.Status is Waiting) continue;
-            if (registry.IsRunning(attempt.Id)) continue;
-            if (registry.ActiveCount >= MaxConcurrentJobs) return;
-
-            // The busy-key gate holds a Scheduled attempt behind an in-flight attempt for the same
-            // (pipeline, step). It must NOT apply to an InProgress attempt: after a restart its watcher is
-            // gone but it still owns its key (CollectInProgressKeys added it), so gating it here would
-            // make it block itself forever and never reattach to its K8s Job — wedging the pipeline.
-            if (attempt.Status is Scheduled && IsBusy(attempt, busyKeys))
-            {
-                logger.LogDebug(
-                    "Holding Scheduled attempt '{AttemptId}' of step '{StepName}' — another attempt is already InProgress for the same (pipeline, step) key",
-                    attempt.Id, attempt.StepName);
-                continue;
-            }
-
-            using var scope = sp.CreateScope();
-            if (attempt.Status is Scheduled && MatrixCells.TryParseName(attempt.StepName, out _)
-                && scope.ServiceProvider.GetRequiredService<MatrixParallelism>().LimitOf(attempt) is { } limit)
-            {
-                var group = MatrixParallelism.GroupOf(attempt);
-                var running = cellsInFlight.GetValueOrDefault(group);
-                if (running >= limit)
-                {
-                    logger.LogDebug("Holding Scheduled attempt '{AttemptId}' of cell '{StepName}': {Running} of its step's cells are in progress (maxParallel {MaxParallel})",
-                        attempt.Id, attempt.StepName, running, limit);
-                    continue;
-                }
-                cellsInFlight[group] = running + 1;
-            }
-
-            ReserveKey(attempt, busyKeys);
-
-            var executor = scope.ServiceProvider.GetRequiredService<IJobExecutor>();
-            executor.EnsureRunning(attempt.Id);
+            logger.LogDebug(
+                "Holding Scheduled attempt '{AttemptId}' of step '{StepName}' — another attempt is already InProgress for the same (pipeline, step) key",
+                attempt.Id, attempt.StepName);
+            return false;
         }
+
+        using var scope = sp.CreateScope();
+        if (attempt.Status is Scheduled && MatrixCells.TryParseName(attempt.StepName, out _)
+            && scope.ServiceProvider.GetRequiredService<MatrixParallelism>().LimitOf(attempt) is { } limit)
+        {
+            var group = MatrixParallelism.GroupOf(attempt);
+            var running = cellsInFlight.GetValueOrDefault(group);
+            if (running >= limit)
+            {
+                logger.LogDebug("Holding Scheduled attempt '{AttemptId}' of cell '{StepName}': {Running} of its step's cells are in progress (maxParallel {MaxParallel})",
+                    attempt.Id, attempt.StepName, running, limit);
+                return false;
+            }
+            cellsInFlight[group] = running + 1;
+        }
+
+        ReserveKey(attempt, busyKeys);
+
+        var executor = scope.ServiceProvider.GetRequiredService<IJobExecutor>();
+        executor.EnsureRunning(attempt.Id);
+        return true;
     }
 
     private List<Attempt> GetActiveAttempts()

@@ -6,17 +6,19 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 /// <summary>Live logs of a running step attempt, read from its harness pod (step container, else olve-init).</summary>
 public sealed class HarnessAttemptLiveLogs(HarnessJobControl control, ILogger<HarnessAttemptLiveLogs> logger) : IAttemptLiveLogs
 {
-    public async Task<string?> TryGetAsync(Attempt attempt, CancellationToken ct)
+    public Task<string?> TryGetAsync(Attempt attempt, CancellationToken ct) => TryGetAsync(HarnessAttemptIdentity.Of(attempt), ct);
+
+    public async Task<string?> TryGetAsync(HarnessAttemptIdentity attempt, CancellationToken ct)
     {
         HarnessLogs logs;
         try
         {
-            logs = await control.GetLogsAsync(attempt.KubernetesJobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
+            logs = await control.GetLogsAsync(attempt.JobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
             logger.LogWarning(e, "Could not read live logs of K8s Job {JobName} (step '{StepName}', run #{RunNumber})",
-                attempt.KubernetesJobName, attempt.StepName, attempt.RunNumber);
+                attempt.JobName, attempt.StepName, attempt.RunNumber);
             return null;
         }
 

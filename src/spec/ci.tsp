@@ -15,10 +15,33 @@ enum PullState {
   closed,
 }
 
-/** `pull`: one pull request merged onto `main`. `queue`: a merge-queue batch, its pull requests merged onto `main` in queue order. */
+/** `pull`: one pull request merged onto `main`. `queue`: a merge-queue batch, its pull requests merged onto `main` in queue order. `close`: removes a pull request's preview once it closed or merged, with the definition of the run that deployed it; it reports no `olve/ci`. */
 enum CiRunKind {
   pull,
   queue,
+  close,
+}
+
+/** `failing`: its close run failed and is tried again. */
+enum PreviewState {
+  deploying,
+  live,
+  removing,
+  removed,
+  failing,
+}
+
+/** A pull request's preview: the live instance its CI runs deploy, removed when it closes or merges. */
+model Preview {
+  state: PreviewState;
+
+  /** The preview's link, from the step that deployed it; null until a step links it. */
+  url: string | null;
+
+  /** The CI run that last deployed it. */
+  deployedBy: int32;
+
+  deployedAt: utcDateTime;
 }
 
 /** Why the service cancelled a CI run: the pull request closed or merged, or left the queue. */
@@ -203,6 +226,10 @@ model Pull {
 
   latestRun: CiRunSummary | null;
   queue: QueueEntry | null;
+
+  /** Null when the pull request never had one. */
+  preview: Preview | null;
+
   updatedAt: utcDateTime;
 }
 
@@ -214,7 +241,7 @@ model PullList {
   total: int32;
 }
 
-/** A pull request and every CI run that tested it, newest first (queue runs included). */
+/** A pull request and every CI run of it, newest first (queue and close runs included). */
 model PullDetail {
   ...Pull;
   runs: CiRunSummary[];

@@ -36,7 +36,11 @@ public sealed record Manifest(
 }
 
 /// <summary>CI: its input model, the secrets its steps may declare, and its stages. A step name in both the pipeline and CI is one step.</summary>
-public sealed record ManifestCi(string? Description, string Input, IReadOnlyList<string> Secrets, IReadOnlyList<ManifestStage> Stages);
+public sealed record ManifestCi(string? Description, string Input, IReadOnlyList<string> Secrets, IReadOnlyList<ManifestStage> Stages)
+{
+    /// <summary>The stage a close run runs once the pull request closes or merges, to remove its preview (null = none).</summary>
+    public StepsStage? OnClose { get; init; }
+}
 
 /// <summary>Per-pipeline retention: each set field replaces the instance's <c>Retention:*</c> value of the same meaning.</summary>
 public sealed record ManifestRetention(long? KeepLatestRuns, long? MinRunAgeDays, long? BuildGraceDays);

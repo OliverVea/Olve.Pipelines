@@ -99,8 +99,8 @@ public class RetentionService(
             policies)
         {
             CiJobs = (sp.GetService<EntityStore<CiAttempt>>()?.List() ?? []).ToDictionary(a => a.KubernetesJobName, a => a.Status.IsActive(), StringComparer.Ordinal),
-            CiVersions = (sp.GetService<EntityStore<CiRun>>()?.List() ?? []).Where(r => r.Status is RunStatus.Running).Select(r => r.VersionId).ToHashSet(),
-            CiBinaries = (sp.GetService<EntityStore<CiRun>>()?.List() ?? []).Where(r => r is { Status: RunStatus.Running, OwnDefinition: true })
+            CiVersions = CiRunsInUse(sp).Select(r => r.VersionId).ToHashSet(),
+            CiBinaries = CiRunsInUse(sp).Where(r => r.OwnDefinition)
                 .Select(r => StorageLayout.BuildBinaryKey(r.PipelineId, r.TestedSha)).ToHashSet(StringComparer.Ordinal),
         };
 
@@ -115,6 +115,14 @@ public class RetentionService(
     }
 
     /// <summary>The run whose <c>pl</c> binaries <c>/download</c> serves — the same query the endpoint uses.</summary>
+    /// <summary>CI runs whose binary must stay: running ones, and those that deployed a preview not yet removed (its teardown uses it).</summary>
+    private static IEnumerable<CiRun> CiRunsInUse(IServiceProvider sp)
+    {
+        var runs = sp.GetService<EntityStore<CiRun>>()?.List() ?? [];
+        var deployers = (sp.GetService<EntityStore<Preview>>()?.List() ?? []).Where(p => p.State is not PreviewState.Removed).Select(p => p.DeployedBy).ToHashSet();
+        return runs.Where(r => r.Status is RunStatus.Running || deployers.Contains(r.Id));
+    }
+
     private static IReadOnlySet<Id<Run>> PinnedRuns(IServiceProvider sp) =>
         sp.GetService<CliReleaseQuery>() is { } cli && cli.TryGetLatest(out var attempt)
             ? new HashSet<Id<Run>> { attempt.RunId }

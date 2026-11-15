@@ -13,7 +13,7 @@ public class CiReuseService(CiRunService runs, CiAttemptService attempts, CiPlan
     {
         if (codeHash is null)
             return null;
-        foreach (var other in runs.ListByPipeline(run.PipelineId).Where(r => r.Tree == run.Tree && r.Id != run.Id).OrderByDescending(r => r.Number))
+        foreach (var other in runs.ListByPipeline(run.PipelineId).Where(r => r.Tree == run.Tree && r.Id != run.Id && !r.IsClose).OrderByDescending(r => r.Number))
         {
             if (plans.Get(other).TryPickProblems(out _, out var plan) || plan.Manifest.CodeHash != codeHash)
                 continue;

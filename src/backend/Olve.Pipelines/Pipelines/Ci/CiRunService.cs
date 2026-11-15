@@ -83,7 +83,7 @@ public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeP
                 Config: request.Config,
                 Problems: request.Problems,
                 OwnDefinition: request.OwnDefinition,
-                Building: request.OwnDefinition && !failed,
+                Building: request.OwnDefinition && !failed && request.Kind != CiRunKind.Close,
                 Kind: request.Kind,
                 Batch: request.Batch,
                 Outdated: request.Outdated);
@@ -104,9 +104,13 @@ public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeP
 
     public IReadOnlyList<CiRun> ListByPipeline(Id<Pipeline> pipelineId) => Resolve(_byPipeline.GetForKey(pipelineId));
 
-    /// <summary>A pull request's runs, oldest first.</summary>
+    /// <summary>A pull request's runs that test it, oldest first: close runs are left out.</summary>
     public IReadOnlyList<CiRun> ListByPull(Id<Pipeline> pipelineId, int pull) =>
-        [.. Resolve(_byPull.GetForKey((pipelineId, pull))).OrderBy(r => r.Number)];
+        [.. Resolve(_byPull.GetForKey((pipelineId, pull))).Where(r => !r.IsClose).OrderBy(r => r.Number)];
+
+    /// <summary>A pull request's close runs, oldest first.</summary>
+    public IReadOnlyList<CiRun> ListCloseRuns(Id<Pipeline> pipelineId, int pull) =>
+        [.. Resolve(_byPull.GetForKey((pipelineId, pull))).Where(r => r.IsClose).OrderBy(r => r.Number)];
 
     /// <summary>Running → a terminal status (no-op when already terminal).</summary>
     public Result<CiRun> Complete(Id<CiRun> id, RunStatus status, CiCancelReason? reason = null, int? supersededBy = null)

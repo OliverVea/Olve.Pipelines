@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Retention;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
@@ -41,7 +42,8 @@ public class RetentionServiceTests
     /// <param name="inventory">The cluster listing; <see cref="Setup"/>'s pipeline id labels its Jobs.</param>
     private static (RetentionService Service, Setup Setup) Build(
         bool dryRun, Action<TestRunDomain, Run>? beforeApply = null,
-        Func<Id<Pipeline>, DateTimeOffset, IKubernetesInventory>? inventory = null, IKubernetesClient? kubernetes = null)
+        Func<Id<Pipeline>, DateTimeOffset, IKubernetesInventory>? inventory = null, IKubernetesClient? kubernetes = null,
+        Action<IServiceCollection, PipelineVersion, FakeObjects, DateTimeOffset>? configure = null)
     {
         var d = new TestRunDomain().WireEvents();
         var pipeline = d.CreatePipeline();
@@ -86,6 +88,7 @@ public class RetentionServiceTests
             services.AddSingleton(kubernetes!);
         }
 
+        configure?.Invoke(services, version, objects, at);
         var service = new RetentionService(options, new StorageOptions("b"), services.BuildServiceProvider(), d.Time,
             NullLogger<RetentionService>.Instance);
         return (service, new Setup(d, objects, old, recent, version));
@@ -104,6 +107,35 @@ public class RetentionServiceTests
         await Assert.That(s.D.Runs.TryGet(s.Old.Id, out _)).IsFalse();
         await Assert.That(s.D.Runs.TryGet(s.Recent.Id, out _)).IsTrue();
         await Assert.That(s.Objects.Deleted).IsEquivalentTo(new[] { $"runs/{s.Old.PipelineId.Value.Value:N}/{s.Old.Number}/build/1/output.json" });
+    }
+
+    // Catches: retention deleting the binary of a finished CI run whose preview is still up, so its teardown can't run.
+    [Test]
+    [Arguments(PreviewState.Live, false)]
+    [Arguments(PreviewState.Failing, false)]
+    [Arguments(PreviewState.Removed, true)]
+    public async Task The_build_of_a_CI_run_that_deployed_a_preview_stays_until_the_preview_is_removed(PreviewState state, bool deleted)
+    {
+        var tested = new string('a', 40);
+        string? key = null;
+        var (service, setup) = Build(dryRun: false, configure: (services, version, objects, now) =>
+        {
+            var at = now.AddDays(-400);
+            var run = new CiRun(new Olve.Pipelines.Jobs.IdProvider().Create<CiRun>(), version.PipelineId, 1, 7, "t", "b", false, tested, tested, "tree", tested, version.Id, version.Number, "{}",
+                RunStatus.Succeeded, at, OwnDefinition: true);
+            var runs = new EntityStore<CiRun>();
+            runs.Set(run);
+            var previews = new EntityStore<Preview>();
+            previews.Set(new Preview(new Olve.Pipelines.Jobs.IdProvider().Create<Preview>(), version.PipelineId, 7, state, run.Id, 1, at));
+            services.AddSingleton(runs);
+            services.AddSingleton(previews);
+            key = StorageLayout.BuildBinaryKey(version.PipelineId, tested);
+            objects.Objects.Add(new StoredObject(key, at, 4));
+        });
+
+        await service.SweepAsync(CancellationToken.None);
+
+        await Assert.That(setup.Objects.Deleted.Contains(key!)).IsEqualTo(deleted);
     }
 
     [Test]

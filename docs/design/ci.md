@@ -5,7 +5,8 @@ for a PR that changes the definition, on a build of its own, report `olve/ci`, a
 succeeded on an identical tree; the merge queue tests batches of up to 5, lands them and reports
 `olve/merge-queue`; pipeline health counts pull requests. The UI shows the CI tab, CI runs and the
 queue, and `pl ci` and `pl wait ci` cover CI runs and the queue (`pl ci merge|dequeue|queue`,
-`pl wait ci --queue`). The CI scheduler doesn't apply a matrix step's `cascadeFailure`, and CI
+`pl wait ci --queue`). Close runs remove pull requests' previews and report `olve/preview`
+([Preview environments](preview-environments.md)); the SDK can't declare `reuse` or `onClose` yet. The CI scheduler doesn't apply a matrix step's `cascadeFailure`, and CI
 stages can't branch on config (`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has
@@ -135,6 +136,9 @@ The service reports commit statuses from CI run state, with the binding's token:
   queue run #n"), success ("Passed in queue run #n", set and delivered right before the merge, since
   branch protection requires it), or failure ("Removed: test failed", or why else it left). A token
   that can't write branches or merge (Contents: write) shows as a warning on the binding too.
+- `olve/preview` on the head a preview was deployed from: pending ("Deploying the preview",
+  "Removing the preview"), success ("Preview is live" linking it, "Preview removed"), or error
+  ("Deploy failed, see olve/ci"); never failure. It is not a gate.
 
 ## Definition
 
@@ -215,8 +219,9 @@ changes that never went through CI, such as pushes straight to `main`.
 - **PullRequest** (pipeline, number): title, head branch, head commit, draft, state (open, merged,
   closed), mergeable, last push time. Kept current from the webhook. `stale` is a query (the latest
   run's `main` against `main`'s head), not stored.
-- **CiRun**: numbered per pipeline in CI's own sequence. Kind `pull` (one PR) or `queue` (an ordered
-  list of PRs). Records the PR heads, the `main` commit, the tested commit and its tree, and the
+- **CiRun**: numbered per pipeline in CI's own sequence. Kind `pull` (one PR), `queue` (an ordered
+  list of PRs) or `close` (removes a PR's preview with the definition and commit of the run that
+  deployed it; left out of every rule about a PR's latest run). Records the PR heads, the `main` commit, the tested commit and its tree, and the
   binary it ran (`main`'s or a CI build). Statuses: Scheduled, Running, Succeeded, Failed,
   Cancelled (with the reason: closed, merged, dequeued), Superseded (by a run).
 - **CiAttempt**: one step or matrix cell of a CI run; one Job, built through `AttemptLaunchSpec`.
@@ -226,11 +231,13 @@ changes that never went through CI, such as pushes straight to `main`.
   failed step. A push to a queued PR removes it. Finished entries are listed for a day.
 - **CiBuild** (pipeline, tested commit): the build Job and the binary key of a PR or batch whose
   tree touches the cursor's paths.
+- **Preview** (pipeline, PR): the run that last deployed it, the deploy time, its link and state
+  (deploying, live, removing, removed, failing), the latest close run and its failures in a row.
 
-Persistence follows CD's: `ci-state.json` (PRs, queue, sequences) and `ci/<p>/<run>/run.json` (a
+Persistence follows CD's: `ci-state.json` (PRs, queue, sequences, previews) and `ci/<p>/<run>/run.json` (a
 run and its attempts), with step outputs, files and logs under `ci/<p>/<run>/<step>/<attempt>/`.
 Retention keeps every run of an open PR and the latest 20 of a closed one, and drops the rest after
-183 days.
+183 days. A binary stays while a preview it deployed isn't removed, so its teardown can run.
 
 ## API
 
@@ -267,7 +274,7 @@ CI uses the binding's credentials secret. A fine-grained token on the repo needs
 | Metadata | read | everything |
 | Contents | read and write | fetch and compare commits; build and delete `olve-queue/<run>`; merge PRs |
 | Pull requests | read | PR state, mergeable, `refs/pull/<n>/merge` |
-| Commit statuses | read and write | `olve/ci`, `olve/merge-queue` |
+| Commit statuses | read and write | `olve/ci`, `olve/merge-queue`, `olve/preview` |
 | Webhooks | read and write | the binding hook, with the `pull_request` event added |
 | Workflows | write | only if PRs change `.github/workflows/`: pushing the batch branch |
 

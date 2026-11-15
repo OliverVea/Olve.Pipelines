@@ -393,6 +393,14 @@ public class ManifestIssueTests
         ["ci reused step reads the pull request"] = Row(C.CiReusedReadsPull, "ci.stages[0].steps[0].input.sha", "CI step 'checkout' reads input.pull, but is reused across pull requests of the same tree; declare it reuse: false", r => { WithCi(r); CiStep(r, "checkout")["input"]!["sha"] = Ref("input.pull"); }),
         ["ci reused step reads the whole input"] = Row(C.CiReusedReadsPull, "ci.stages[0].steps[0].input.sha", "CI step 'checkout' reads the whole CI input, the pull request number included, but is reused across pull requests of the same tree; declare it reuse: false", r => { WithCi(r); CiStep(r, "checkout")["input"]!["sha"] = Ref("input"); }),
         ["ci reused step reads a never-reused step"] = Row(C.CiReusedReadsPull, "ci.stages[1].steps[0].input.source", "CI step 'build' reads the output of 'checkout', which is never reused, but is reused across pull requests of the same tree; declare it reuse: false", r => { WithCi(r); CiStep(r, "checkout")["reuse"] = false; }),
+        ["ci onClose of when blocks"] = Row(C.WrongType, "ci.onClose", "onClose must be one stage of steps", r => { WithCi(r); r["ci"]!["onClose"] = new JsonObject { ["when"] = new JsonObject(), ["stages"] = new JsonArray() }; }),
+        ["ci onClose step reads a CI step"] = Row(C.RefUnavailable, "ci.onClose.steps[0].input.source", "step 'build' input 'source': 'checkout' is not available at this stage (onClose sees only the CI input)", r =>
+        {
+            WithCi(r);
+            r["ci"]!["onClose"] = new JsonObject { ["steps"] = new JsonArray(CiStep(r, "build").DeepClone()) };
+            r["ci"]!["stages"]!.AsArray().RemoveAt(1);
+        }
+        ),
         ["ci step asks for cluster access"] = Row(C.CiClusterAccess, "ci.stages[0].steps[0].clusterAccess", "CI step 'checkout' asks for cluster access; a pull request's code never gets it", r => { WithCi(r); CiStep(r, "checkout")["clusterAccess"] = true; }),
         ["ci when field unknown"] = Row(C.WhenFieldUnknown, "ci.stages[2].when.nope", "'nope' is not a field of the CI input DeployRequest", r =>
         {

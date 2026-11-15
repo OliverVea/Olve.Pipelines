@@ -15,6 +15,8 @@ public class CiEventRegistration(
     EntityStore<CiQueueEntry> queueStore,
     CiQueueEvents queueEvents,
     AttachmentStore<Pipeline, Versions.PipelineActivation> activations,
+    EntityStore<Preview> previewStore,
+    PreviewEvents previewEvents,
     IServiceProvider sp) : IRunOnStartup
 {
     public Result Run()
@@ -28,6 +30,9 @@ public class CiEventRegistration(
         queueStore.OnAdded.Subscribe(queueEvents.OnAdded.Invoke);
         queueStore.OnUpdated.Subscribe(queueEvents.OnUpdated.Invoke);
         queueStore.OnDeleted.Subscribe(queueEvents.OnDeleted.Invoke);
+        previewStore.OnAdded.Subscribe(previewEvents.OnAdded.Invoke);
+        previewStore.OnUpdated.Subscribe(previewEvents.OnUpdated.Invoke);
+        previewStore.OnDeleted.Subscribe(previewEvents.OnDeleted.Invoke);
 
         pullEvents.OnAdded.Subscribe(e => Trigger().Observe(null, e.Entity));
         pullEvents.OnUpdated.Subscribe(e => Trigger().Observe(e.Before, e.After));
@@ -35,6 +40,12 @@ public class CiEventRegistration(
         pullEvents.OnAdded.Subscribe(e => Queue().Observe(null, e.Entity));
         pullEvents.OnUpdated.Subscribe(e => Queue().Observe(e.Before, e.After));
         pullEvents.OnDeleted.Subscribe(e => Queue().Forget(e.Entity));
+        pullEvents.OnUpdated.Subscribe(e =>
+        {
+            if (e.Before.State == PullRequestState.Open && e.After.State != PullRequestState.Open)
+                Previews().PullClosed(e.After.PipelineId, e.After.Number);
+        });
+        pullEvents.OnDeleted.Subscribe(e => Previews().PullClosed(e.Entity.PipelineId, e.Entity.Number));
 
         runEvents.OnAdded.Subscribe(e => Statuses().Report(e.Entity));
         runEvents.OnUpdated.Subscribe(e =>
@@ -43,13 +54,18 @@ public class CiEventRegistration(
                 Statuses().Report(e.After);
             if (e.After.IsQueue && e.Before.Status != e.After.Status)
                 sp.GetRequiredService<CiQueueProcessor>().Nudge();
+            if (!e.Before.Status.IsTerminal() && e.After.Status.IsTerminal())
+                Previews().RunEnded(e.After);
         });
 
         attemptEvents.OnAdded.Subscribe(e =>
         {
             sp.GetRequiredService<JobDispatchSignal>().Nudge();
             if (e.Entity.Status.IsTerminal())
+            {
                 Statuses().Report(e.Entity.RunId);
+                Previews().AttemptEnded(e.Entity);
+            }
         });
         attemptEvents.OnUpdated.Subscribe(e =>
         {
@@ -58,8 +74,12 @@ public class CiEventRegistration(
                 sp.GetRequiredService<JobDispatchSignal>().Nudge();
                 sp.GetRequiredService<CiScheduler>().Advance(e.After.RunId);
                 Statuses().Report(e.After.RunId);
+                Previews().AttemptEnded(e.After);
             }
         });
+
+        previewEvents.OnAdded.Subscribe(e => sp.GetRequiredService<PreviewStatusReporter>().Report(e.Entity));
+        previewEvents.OnUpdated.Subscribe(e => sp.GetRequiredService<PreviewStatusReporter>().Report(e.After));
 
         pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<CiRunCleanupService>().HandlePipelineDeleted(e.Id));
         activations.OnSet.Subscribe(id => Trigger().ChecksChanged(id));
@@ -72,14 +92,18 @@ public class CiEventRegistration(
     private CiQueueActions Queue() => sp.GetRequiredService<CiQueueActions>();
 
     private CiStatusReporter Statuses() => sp.GetRequiredService<CiStatusReporter>();
+
+    private PreviewLifecycle Previews() => sp.GetRequiredService<PreviewLifecycle>();
 }
 
 /// <summary>Deletes a deleted pipeline's CI runs, attempts and merge queue. Transient.</summary>
-public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts, CiBuildService builds, CiQueueService queue)
+public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts, CiBuildService builds, CiQueueService queue, PreviewService previews)
 {
     public void HandlePipelineDeleted(Id<Pipeline> pipelineId)
     {
         queue.DeletePipeline(pipelineId);
+        foreach (var preview in previews.List().Where(p => p.PipelineId == pipelineId))
+            previews.Delete(preview);
         foreach (var build in builds.List().Where(b => b.PipelineId == pipelineId))
             builds.Forget(pipelineId, build.CommitSha);
         foreach (var run in runs.ListByPipeline(pipelineId))
@@ -103,7 +127,8 @@ public class CiStartup(
     CiScheduler scheduler,
     CiDefinitionService definitions,
     CiStatusReporter statuses,
-    CiTriggerService trigger) : IRunOnStartup
+    CiTriggerService trigger,
+    PreviewLifecycle previews) : IRunOnStartup
 {
     public Result Run()
     {
@@ -113,6 +138,7 @@ public class CiStartup(
         definitions.ResumeBuilding();
         statuses.ReportLatest(pulls.List().Where(p => p.State == PullRequestState.Open));
         trigger.Resume(pulls.List());
+        previews.Resume();
         return Result.Success();
     }
 }

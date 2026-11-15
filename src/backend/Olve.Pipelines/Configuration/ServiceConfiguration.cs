@@ -104,6 +104,15 @@ public static class ServiceConfiguration
         services.AddSingleton<CiTriggerService>();
         services.AddHostedService(sp => sp.GetRequiredService<CiTriggerService>());
         services.AddSingleton<IRunOnStartup, CiEventRegistration>();
+        // Previews: what pull requests' CI runs deploy, removed by close runs.
+        services.AddSingleton<EntityStore<Preview>>();
+        services.AddSingleton<PreviewEvents>();
+        services.AddSingleton<PreviewService>();
+        services.AddTransient<PreviewGate>();
+        services.AddTransient<PreviewLifecycle>();
+        services.AddTransient<PreviewStatusReporter>();
+        services.AddTransient<PreviewWarnings>();
+        services.AddHostedService<PreviewRetryLoop>();
         services.AddSingleton<EntityStore<CiQueueEntry>>();
         services.AddSingleton<CiQueueEvents>();
         services.AddSingleton<CiQueueService>();

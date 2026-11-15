@@ -12,6 +12,7 @@ import {
   ciTone,
   pullRun,
   pullStatus,
+  previewCell,
   pullTags,
   pullsCell,
   queuePill,
@@ -51,6 +52,7 @@ const pull = (over: Partial<Pull> = {}): Pull => ({
   stale: false,
   latestRun: run(),
   queue: null,
+  preview: null,
   updatedAt: '2026-11-15T10:00:00Z',
   ...over,
 });
@@ -252,5 +254,56 @@ describe('the stage graph of a CI run', () => {
       { os: 'linux', arch: 'arm64' },
       { os: 'windows', arch: 'x64' },
     ]);
+  });
+});
+
+describe('a pull request preview', () => {
+  const preview = (state: string, links: { url: string; label?: string | null }[] = []) =>
+    pull({
+      preview: {
+        state: state as any,
+        links,
+        deployedBy: 57,
+        deployedAt: '2026-11-15T10:00:00Z',
+      },
+    });
+  test.each([
+    ['none', pull(), null],
+    ['deploying', preview('deploying'), { tone: 'run', label: 'deploying', links: [] }],
+    [
+      'live with one link: its host',
+      preview('live', [{ url: 'https://pr-58.trains-preview.ovea.pro/' }]),
+      {
+        tone: 'ok',
+        label: null,
+        links: [
+          {
+            href: 'https://pr-58.trains-preview.ovea.pro/',
+            text: 'pr-58.trains-preview.ovea.pro',
+          },
+        ],
+      },
+    ],
+    [
+      'live with several: by label, else host',
+      preview('live', [
+        { url: 'https://web.x', label: 'web' },
+        { url: 'https://api.x', label: null },
+      ]),
+      {
+        tone: 'ok',
+        label: null,
+        links: [
+          { href: 'https://web.x', text: 'web' },
+          { href: 'https://api.x', text: 'api.x' },
+        ],
+      },
+    ],
+    ['live without links', preview('live'), { tone: 'ok', label: 'live', links: [] }],
+    ['removing', preview('removing'), { tone: 'run', label: 'removing', links: [] }],
+    ['failing', preview('failing'), { tone: 'fail', label: 'failing', links: [] }],
+    ['removed', preview('removed'), { tone: 'off', label: 'removed', links: [] }],
+  ] as const)('%s', (_, p, cell) => {
+    expect(previewCell(p)).toEqual(cell);
   });
 });

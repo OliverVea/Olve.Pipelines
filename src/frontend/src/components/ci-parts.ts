@@ -44,6 +44,20 @@ export const ciStyles = css`
     color: var(--color-text-muted);
     font-size: 0.8rem;
   }
+  .preview {
+    white-space: nowrap;
+  }
+  .preview .st {
+    margin-right: 0.35rem;
+  }
+  .preview .sep {
+    color: var(--color-text-muted);
+    margin: 0 0.4rem;
+  }
+  .preview a {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
   @media (max-width: 640px) {
     .hide-phone {
       display: none;

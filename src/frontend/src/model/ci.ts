@@ -4,6 +4,7 @@ import type {
   CiRun,
   CiRunSummary,
   CiStepState,
+  Preview,
   Pull,
   QueueEntry,
   RunStatus,
@@ -53,6 +54,46 @@ export function stripOf(steps: readonly CiStepState[]): CiStepState[][] {
     stages.set(s.stage, list);
   }
   return [...stages.entries()].sort(([a], [b]) => a - b).map(([, list]) => list);
+}
+
+/** A pull request's preview in its row: a dot, and its links when live or its state otherwise. */
+export interface PreviewCell {
+  tone: Tone;
+  label: string | null;
+  links: { href: string; text: string }[];
+}
+
+const PREVIEW_TONES: Record<Preview['state'], Tone> = {
+  deploying: 'run',
+  live: 'ok',
+  removing: 'run',
+  removed: 'off',
+  failing: 'fail',
+};
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+};
+
+/** A live preview links its host, or its links by label when it has several; null when it never had one. */
+export function previewCell(p: Pull): PreviewCell | null {
+  const preview = p.preview;
+  if (!preview) return null;
+  const tone = PREVIEW_TONES[preview.state];
+  if (preview.state !== 'live' || preview.links.length === 0)
+    return { tone, label: preview.state, links: [] };
+  const [only] = preview.links;
+  if (preview.links.length === 1 && only)
+    return { tone, label: null, links: [{ href: only.url, text: hostOf(only.url) }] };
+  return {
+    tone,
+    label: null,
+    links: preview.links.map((l) => ({ href: l.url, text: l.label || hostOf(l.url) })),
+  };
 }
 
 /** The tag after an open pull request's row: its place in the queue. */

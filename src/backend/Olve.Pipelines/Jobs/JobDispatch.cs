@@ -22,8 +22,9 @@ public enum JobPriority
 /// <summary>
 /// An attempt that wants its watcher started. <see cref="TryStart"/> applies its own kind's rules (CD's one attempt
 /// per step, a matrix step's <c>maxParallel</c>) and starts the watcher; false when those rules hold it back.
+/// <see cref="KindSlotFree"/> is its kind's own limit within the shared slots (CI's <c>Jobs:MaxConcurrentCi</c>).
 /// </summary>
-public sealed record JobCandidate(JobPriority Priority, DateTimeOffset CreatedAt, Func<bool> TryStart);
+public sealed record JobCandidate(JobPriority Priority, DateTimeOffset CreatedAt, Func<bool> TryStart, Func<bool>? KindSlotFree = null);
 
 /// <summary>Hands out the Job slots, which every kind of attempt shares (<c>Jobs:MaxConcurrent</c>).</summary>
 public static class JobDispatch
@@ -36,6 +37,7 @@ public static class JobDispatch
         foreach (var candidate in candidates.OrderBy(c => c.Priority).ThenBy(c => c.CreatedAt))
         {
             if (!slotFree()) break;
+            if (candidate.KindSlotFree is { } kindSlotFree && !kindSlotFree()) continue;
             if (candidate.TryStart()) started++;
         }
         return started;

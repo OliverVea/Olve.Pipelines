@@ -112,6 +112,9 @@ picks Scheduled attempts in this order:
 4. Reruns of ready PRs because the checks changed.
 5. PR runs of draft PRs.
 
+Within that budget CI has a cap of its own, `Jobs:MaxConcurrentCi` (3): CI step Jobs beyond it wait,
+while deploys still start. CI's build Jobs aren't counted.
+
 ## Reporting to GitHub
 
 The service reports commit statuses from CI run state, with the binding's token:

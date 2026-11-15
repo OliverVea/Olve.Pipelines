@@ -8,7 +8,11 @@ public readonly record struct JobWatchKey(string Value)
 {
     public static JobWatchKey Of(Id<Attempt> id) => new($"attempt/{id.Value.Value:N}");
 
-    public static JobWatchKey Of(Id<Pipelines.Ci.CiAttempt> id) => new($"ci-attempt/{id.Value.Value:N}");
+    public static JobWatchKey Of(Id<Pipelines.Ci.CiAttempt> id) => new($"{CiPrefix}{id.Value.Value:N}");
+
+    private const string CiPrefix = "ci-attempt/";
+
+    public bool IsCi => Value.StartsWith(CiPrefix, StringComparison.Ordinal);
 
     public override string ToString() => Value;
 }
@@ -20,6 +24,9 @@ public class JobWatcherRegistry(ILogger<JobWatcherRegistry> logger) : IHostedLif
     private readonly ConcurrentDictionary<JobWatchKey, Task> _watchers = new();
 
     public int ActiveCount => _watchers.Count;
+
+    /// <summary>Watchers of CI attempts.</summary>
+    public int CiActiveCount => _watchers.Keys.Count(k => k.IsCi);
 
     public bool IsRunning(Id<Attempt> id) => IsRunning(JobWatchKey.Of(id));
 

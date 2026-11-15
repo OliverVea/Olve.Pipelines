@@ -18,9 +18,15 @@ public class JobRunner(
     /// <summary>Step Jobs running at once, across all pipelines (<c>Jobs:MaxConcurrent</c>).</summary>
     public int MaxConcurrentJobs { get; init; } = DefaultMaxConcurrentJobs;
 
+    public const int DefaultMaxConcurrentCiJobs = 3;
+
+    /// <summary>CI step Jobs running at once, across all pipelines, within <see cref="MaxConcurrentJobs"/> (<c>Jobs:MaxConcurrentCi</c>).</summary>
+    public int MaxConcurrentCiJobs { get; init; } = DefaultMaxConcurrentCiJobs;
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        logger.LogInformation("Job runner started: at most {MaxConcurrentJobs} step Jobs at once", MaxConcurrentJobs);
+        logger.LogInformation("Job runner started: at most {MaxConcurrentJobs} step Jobs at once, {MaxConcurrentCiJobs} of them CI's",
+            MaxConcurrentJobs, MaxConcurrentCiJobs);
         while (!ct.IsCancellationRequested)
         {
             try
@@ -57,7 +63,7 @@ public class JobRunner(
                 using var start = sp.CreateScope();
                 start.ServiceProvider.GetRequiredService<IJobExecutor>().EnsureRunning(a.Id);
                 return true;
-            }))
+            }, () => registry.CiActiveCount < MaxConcurrentCiJobs))
             .ToList();
     }
 

@@ -239,6 +239,7 @@ public static class ServiceConfiguration
             sp, sp.GetRequiredService<JobWatcherRegistry>(), sp.GetRequiredService<JobDispatchSignal>(), sp.GetRequiredService<ILogger<JobRunner>>())
         {
             MaxConcurrentJobs = Math.Max(1, sp.GetRequiredService<IConfiguration>().GetValue<int?>("Jobs:MaxConcurrent") ?? JobRunner.DefaultMaxConcurrentJobs),
+            MaxConcurrentCiJobs = Math.Max(1, sp.GetRequiredService<IConfiguration>().GetValue<int?>("Jobs:MaxConcurrentCi") ?? JobRunner.DefaultMaxConcurrentCiJobs),
         });
         services.AddTransient<JobQueueService>();
         services.AddTransient<MatrixParallelism>();

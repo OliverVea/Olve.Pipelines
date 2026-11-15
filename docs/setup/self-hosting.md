@@ -70,6 +70,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Harness:BuildCpuRequest` / `BuildMemoryRequest` / `BuildMemoryLimit` | `500m` / `512Mi` / `3Gi` | Build/describe Job resources |
 | `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used for the repo tarball when the binding names no credentials key |
 | `Jobs:MaxConcurrent` | `4` | Step Jobs running at once across all pipelines; the rest wait in Scheduled |
+| `Jobs:MaxConcurrentCi` | `3` | CI step Jobs running at once across all pipelines, within `Jobs:MaxConcurrent`; deploys count only against `Jobs:MaxConcurrent`. CI's build Jobs (`olve-ci-build-…`) aren't counted. Set it as `Jobs__MaxConcurrentCi` |
 | `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
 | `Ci:Authors` | — | GitHub logins whose pull requests get CI, on every binding; a pull request by anyone else is ignored like one from a fork. Empty = no pull request gets CI. The chart sets it from `ci.authors` |
 | `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes). Changing it repoints the registered hooks |

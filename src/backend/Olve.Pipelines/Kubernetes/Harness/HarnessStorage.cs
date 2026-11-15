@@ -26,7 +26,7 @@ public interface IHarnessStorage
     Task DeleteAsync(string key, CancellationToken ct = default);
 
     /// <summary>See <see cref="HarnessResultCollector.CollectAsync"/>.</summary>
-    Task<HarnessCollection> CollectAsync(Attempt attempt, CancellationToken ct = default);
+    Task<HarnessCollection> CollectAsync(HarnessAttemptIdentity attempt, CancellationToken ct = default);
 }
 
 public sealed class S3HarnessStorage(
@@ -92,6 +92,6 @@ public sealed class S3HarnessStorage(
         }
     }
 
-    public Task<HarnessCollection> CollectAsync(Attempt attempt, CancellationToken ct = default)
+    public Task<HarnessCollection> CollectAsync(HarnessAttemptIdentity attempt, CancellationToken ct = default)
         => collector.CollectAsync(attempt, ct);
 }

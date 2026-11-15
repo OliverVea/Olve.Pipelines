@@ -57,6 +57,23 @@ public class LeftoverJobCleanupServiceTests
         await Assert.That(leftovers.Select(j => j.Name)).IsEquivalentTo([ended.KubernetesJobName, orphan]);
     }
 
+    // Catches: a Job owned by an attempt of another kind than CD's deleted at startup as an orphan.
+    [Test]
+    public async Task AJobAnyKindOfAttemptOwns_IsJudgedByThatAttempt()
+    {
+        var pipeline = new IdProvider().Create<Pipeline>();
+        var live = Hex();
+        var ended = Hex();
+
+        var leftovers = LeftoverJobCleanupService.Leftovers(
+            [Job(live, pipeline, Before), Job(ended, pipeline, Before)],
+            new HashSet<Id<Pipeline>> { pipeline },
+            new Dictionary<string, bool> { [live] = true, [ended] = false },
+            ProcessStart);
+
+        await Assert.That(leftovers.Select(j => j.Name)).IsEquivalentTo([ended]);
+    }
+
     [Test]
     public async Task DeletesTheJobAndItsUrlSecret()
     {

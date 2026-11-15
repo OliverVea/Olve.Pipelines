@@ -45,7 +45,7 @@ public class HarnessResultCollectorTests
         s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)] = Archive(
             ("output.json", """{"output":{},"status":"succeeded"}"""), ("files/big", new string('x', 1000)));
 
-        var collection = await collector.CollectAsync(Attempt);
+        var collection = await collector.CollectAsync(HarnessAttemptIdentity.Of(Attempt));
 
         var size = s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)].Length;
         await collection.Archive!.Value.Problems.IsSingle<ResultProblem>($"Invalid result archive: result.tar.gz is {size} bytes; the limit is 16");
@@ -59,7 +59,7 @@ public class HarnessResultCollectorTests
         s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)] = Archive(
             ("output.json", """{"error":{"kind":"handler","message":"boom"},"status":"failed"}"""), ("files/log.txt", "partial"));
 
-        var collection = await collector.CollectAsync(Attempt);
+        var collection = await collector.CollectAsync(HarnessAttemptIdentity.Of(Attempt));
 
         await Assert.That(collection.Archive!.Value).Succeeded();
         await Assert.That(collection.FileKeys).Count().IsEqualTo(1);
@@ -74,9 +74,9 @@ public class HarnessResultCollectorTests
         s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)] = Archive(
             ("output.json", """{"output":{"lines":3},"status":"succeeded"}"""), ("files/log.txt", "text"));
 
-        var first = await collector.CollectAsync(Attempt);
+        var first = await collector.CollectAsync(HarnessAttemptIdentity.Of(Attempt));
         var stored = s3.Objects.ToDictionary(o => o.Key, o => o.Value);
-        var second = await collector.CollectAsync(Attempt);
+        var second = await collector.CollectAsync(HarnessAttemptIdentity.Of(Attempt));
 
         await Assert.That(second.FileKeys).IsEquivalentTo(first.FileKeys);
         await Assert.That(second.Archive!.Value).Succeeded();

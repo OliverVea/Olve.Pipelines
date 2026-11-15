@@ -159,7 +159,7 @@ internal sealed class FakeStorage : IHarnessStorage
         return Task.CompletedTask;
     }
 
-    public Task<HarnessCollection> CollectAsync(Attempt attempt, CancellationToken ct = default) => Task.FromResult(Collection);
+    public Task<HarnessCollection> CollectAsync(HarnessAttemptIdentity attempt, CancellationToken ct = default) => Task.FromResult(Collection);
 }
 
 internal sealed class StubS3CredentialsProvider : ICredentialsProvider<S3Credentials>

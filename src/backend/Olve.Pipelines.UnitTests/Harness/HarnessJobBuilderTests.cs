@@ -28,7 +28,7 @@ public class HarnessJobBuilderTests
         JobName: "olve-aaaaaaaabbbbccccddddeeeeeeeeeeee",
         AttemptId: AttemptId,
         PipelineId: PipelineId,
-        RunId: RunId,
+        RunId: RunId.Value.Value.ToString("D"),
         RunNumber: 412,
         StepName: "deploy-beta",
         AttemptNumber: 2,

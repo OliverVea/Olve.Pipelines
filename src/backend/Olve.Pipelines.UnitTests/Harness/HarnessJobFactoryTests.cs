@@ -36,7 +36,7 @@ public class HarnessJobFactoryTests
     {
         var input = JsonDocument.Parse(Files).RootElement;
 
-        var spec = TestRunDomain.Pick(await Factory().CreateStepJobAsync(Attempt, "versions/p/builds/x/step.tar.gz", "2026.11.01.7", Step(), input,
+        var spec = TestRunDomain.Pick(await Factory().CreateStepJobAsync(HarnessAttemptIdentity.Of(Attempt), "versions/p/builds/x/step.tar.gz", "2026.11.01.7", Step(), input,
             ["target.kind=ssh"], new Dictionary<string, string> { ["decision"] = "https://p.example/cb" }));
 
         var urls = spec.UrlSecretData;
@@ -48,10 +48,45 @@ public class HarnessJobFactoryTests
         await Assert.That(spec.Job.Spec.Template.Spec.Containers[0].Env!.Single(e => e.Name == HarnessJobBuilder.CasesKey).Value).IsEqualTo("""["target.kind=ssh"]""");
     }
 
+    // Catches: a CD attempt's Job, URL Secret, labels or keys renamed. A restarted server reattaches to its Jobs by
+    // name, so a rename strands every attempt in flight across a self-deploy.
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ACdAttemptsJob_KeepsItsNamesLabelsAndKeys(bool inPreflight)
+    {
+        var attempt = inPreflight ? Attempt with { Preflight = new AttemptPreflight() } : Attempt;
+        var hex = attempt.Id.Value.Value.ToString("N");
+        var pipelineHex = HarnessJobBuilderTests.PipelineId.Value.Value.ToString("N");
+        var job = inPreflight ? $"olve-{hex}-preflight" : $"olve-{hex}";
+        var prefix = $"runs/{pipelineHex}/7/hello/2";
+
+        var identity = HarnessAttemptIdentity.Of(attempt);
+        var spec = TestRunDomain.Pick(await Factory().CreateStepJobAsync(identity, "versions/p/builds/x/step.tar.gz", "2026.11.01.7", Step(), input: null));
+
+        await Assert.That(spec.Job.Metadata.Name).IsEqualTo(job);
+        await Assert.That(spec.UrlSecretName).IsEqualTo("olve-urls-" + job["olve-".Length..]);
+        await Assert.That(spec.Job.Metadata.Labels).IsEquivalentTo(new Dictionary<string, string>
+        {
+            ["app"] = "olve-pipelines",
+            ["job-name"] = job,
+            ["olve-role"] = "step",
+            ["olve-pipeline"] = pipelineHex,
+            ["olve-run"] = "7",
+            ["olve-step"] = "hello",
+            ["olve-attempt"] = "2",
+        });
+        await Assert.That(spec.Job.Spec.Template.Spec.Containers[0].Env!.Single(e => e.Name == "OLVE_RUN_ID").Value)
+            .IsEqualTo(HarnessJobBuilderTests.RunId.Value.Value.ToString("D"));
+        await Assert.That(new[] { identity.InputKey, identity.ResultArchiveKey, identity.LogKey, identity.OutputKey, identity.FilesPrefix })
+            .IsEquivalentTo(new[] { $"{prefix}/input.json", $"{prefix}/result.tar.gz", $"{prefix}/log", $"{prefix}/output.json", $"{prefix}/files" },
+                TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task AStepWithoutInput_HasNoInputOrFileUrls_NorCases()
     {
-        var spec = TestRunDomain.Pick(await Factory().CreateStepJobAsync(Attempt, "versions/p/builds/x/step.tar.gz", "2026.11.01.7", Step(), input: null));
+        var spec = TestRunDomain.Pick(await Factory().CreateStepJobAsync(HarnessAttemptIdentity.Of(Attempt), "versions/p/builds/x/step.tar.gz", "2026.11.01.7", Step(), input: null));
 
         await Assert.That(spec.UrlSecretData.Keys).IsEquivalentTo([HarnessJobBuilder.StepUrlKey, HarnessJobBuilder.ResultUrlKey]);
         await Assert.That(spec.Job.Spec.Template.Spec.Containers[0].Env!.Select(e => e.Name)).DoesNotContain(HarnessJobBuilder.CasesKey);
@@ -64,7 +99,7 @@ public class HarnessJobFactoryTests
         var input = JsonDocument.Parse(Files).RootElement;
         const string Expiry = "X-Amz-Expires=1320&"; // 600 s timeout + 120 s startup + 600 s grace
 
-        var urls = TestRunDomain.Pick(await Factory().CreateStepJobAsync(Attempt, "k", "s", Step(), input)).UrlSecretData;
+        var urls = TestRunDomain.Pick(await Factory().CreateStepJobAsync(HarnessAttemptIdentity.Of(Attempt), "k", "s", Step(), input)).UrlSecretData;
 
         await Assert.That(urls[HarnessJobBuilder.ResultUrlKey]).Contains(Expiry);
         await Assert.That(urls[HarnessJobBuilder.FileUrlsKey]).Contains(Expiry);

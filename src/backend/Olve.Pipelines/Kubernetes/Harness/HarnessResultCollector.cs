@@ -25,10 +25,10 @@ public sealed class HarnessResultCollector(
     HarnessOptions options,
     ILogger<HarnessResultCollector> logger)
 {
-    public async Task<HarnessCollection> CollectAsync(Attempt attempt, CancellationToken ct = default)
+    public async Task<HarnessCollection> CollectAsync(HarnessAttemptIdentity attempt, CancellationToken ct = default)
     {
-        var archiveKey = HarnessStorageKeys.AttemptResultArchiveKey(attempt);
-        var filesPrefix = StorageLayout.AttemptFilesPrefix(attempt);
+        var archiveKey = attempt.ResultArchiveKey;
+        var filesPrefix = attempt.FilesPrefix;
         var limits = options.ResultLimits;
         var fileKeys = new List<string>();
 
@@ -73,7 +73,7 @@ public sealed class HarnessResultCollector(
             {
                 logger.LogProblems(LogLevel.Warning, problems,
                     "Result archive of step '{StepName}' (run #{RunNumber}, attempt {AttemptNumber}, pipeline '{PipelineId}') is invalid",
-                    attempt.StepName, attempt.RunNumber, attempt.Number, attempt.PipelineId);
+                    attempt.StepName, attempt.RunNumber, attempt.AttemptNumber, attempt.PipelineId);
                 return new HarnessCollection(contents, fileKeys);
             }
 
@@ -82,14 +82,14 @@ public sealed class HarnessResultCollector(
                 await s3.PutObjectAsync(new PutObjectRequest
                 {
                     BucketName = storageOptions.Bucket,
-                    Key = StorageLayout.AttemptOutputKey(attempt),
+                    Key = attempt.OutputKey,
                     InputStream = new MemoryStream(Encoding.UTF8.GetBytes(output)),
                     ContentType = "application/json",
                 }, ct);
             }
 
             logger.LogInformation("Collected result of step '{StepName}' (run #{RunNumber}, attempt {AttemptNumber}, pipeline '{PipelineId}'): {Status}, {FileCount} files",
-                attempt.StepName, attempt.RunNumber, attempt.Number, attempt.PipelineId, parsed.Envelope.GetType().Name, fileKeys.Count);
+                attempt.StepName, attempt.RunNumber, attempt.AttemptNumber, attempt.PipelineId, parsed.Envelope.GetType().Name, fileKeys.Count);
             return new HarnessCollection(contents, fileKeys);
         }
         finally

@@ -28,13 +28,17 @@ public class LeftoverJobCleanupService(
 
     public static IReadOnlyList<ClusterJob> Leftovers(
         IEnumerable<ClusterJob> jobs, IReadOnlySet<Id<Pipeline>> pipelines, IEnumerable<Attempt> attempts, DateTimeOffset processStart)
+        => Leftovers(jobs, pipelines, attempts.ToDictionary(a => a.KubernetesJobName, a => a.Status.IsActive(), StringComparer.Ordinal), processStart);
+
+    /// <param name="owned">Each Job name an attempt of this instance owns, of any kind, and whether that attempt is still active.</param>
+    public static IReadOnlyList<ClusterJob> Leftovers(
+        IEnumerable<ClusterJob> jobs, IReadOnlySet<Id<Pipeline>> pipelines, IReadOnlyDictionary<string, bool> owned, DateTimeOffset processStart)
     {
         var mine = pipelines.Select(p => p.Value.Value.ToString("N")).ToHashSet(StringComparer.Ordinal);
-        var byJob = attempts.ToDictionary(a => a.KubernetesJobName, StringComparer.Ordinal);
         return jobs.Where(job => !job.Finished
                                  && job.Labels.GetValueOrDefault("olve-role") == "step"
                                  && job.Labels.GetValueOrDefault("olve-pipeline") is { } pipeline && mine.Contains(pipeline)
-                                 && (byJob.TryGetValue(job.Name, out var attempt) ? !attempt.Status.IsActive() : job.Created < processStart))
+                                 && (owned.TryGetValue(job.Name, out var active) ? !active : job.Created < processStart))
             .ToList();
     }
 

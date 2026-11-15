@@ -66,8 +66,10 @@ its own runs, scheduling and tab in the UI. What they share is the SDK and the e
 
 ## Merge queue
 
-- A PR enters the queue when merge is asked for: `pl ci merge <pipeline> <pr>`, the UI, or GitHub
-  auto-merge being enabled on it.
+- A PR enters the queue when merge is asked for: `POST …/ci/queue`, or GitHub auto-merge. A PR
+  with auto-merge on enters when it is turned on, and again on each new head and when it leaves
+  draft or reopens, so a fix pushed after a failure goes back in; one removed at the same head stays
+  out.
 - The queue tests its head entry rebased onto the current `main`, the way the repo merges. On
   success the service merges it through the GitHub API (rebase), naming the head commit it tested.
 - **The service merges, not GitHub.** Branch protection on `main` requires `olve/merge-queue`, not
@@ -231,7 +233,7 @@ number:
 - `POST runs/{number}/cancel`. `POST pulls/{number}/runs` runs the PR again; with reuse, only steps
   that didn't succeed on this tree run.
 - `GET queue`: entries in order with their state and run, plus the day's finished ones.
-- `POST queue` `{pull}` (`pl ci merge`) enqueues; refused for a draft, a PR not based on `main`, a
+- `POST queue` `{pull}` enqueues; refused for a draft, a PR not based on `main`, a
   conflicting PR and a fork. `DELETE queue/{pull}` dequeues.
 - The pipeline summary gains the counts the homepage tags and the overview's "Pull requests" cell
   show (open, failing, running, queued).

@@ -119,6 +119,8 @@ way. When a batch fails, a single pull request leaves the queue with `olve/merge
 naming the failed step ("Removed: test failed"); a larger batch is split in halves, until the one that
 breaks it is found. A push to a queued pull request, closing it, retargeting it, turning it back into a
 draft or turning off the auto-merge that queued it takes it out too, and cancels a run testing it.
+While auto-merge is on, a new head (a fix pushed after a failure, or the push that took it out),
+leaving draft or reopening puts the pull request back in; one removed at the same head stays out.
 
 So that only the queue merges into the branch, require the status check **`olve/merge-queue`** (not
 `olve/ci`) in the branch's protection. With auto-merge turned on, GitHub then waits for the queue,

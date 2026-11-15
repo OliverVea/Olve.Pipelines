@@ -26,6 +26,9 @@ public sealed record HarnessOptions
     /// </summary>
     public string? StepServiceAccount { get; init; }
 
+    /// <summary><c>Kubernetes:HelperNodes</c>: nodes step and build pods prefer; null = no preference.</summary>
+    public HelperNodes? HelperNodes { get; init; }
+
     /// <summary>A step without <c>timeoutSeconds</c> gets this.</summary>
     public long DefaultStepTimeoutSeconds { get; init; } = 3600;
 
@@ -89,6 +92,31 @@ public sealed record HarnessOptions
     /// <summary>Expiry for URLs a step uses late (result PUT, file GETs): the whole deadline plus grace.</summary>
     public TimeSpan LateUrlExpiry(long? stepTimeoutSeconds)
         => TimeSpan.FromSeconds(DeadlineSeconds(stepTimeoutSeconds) + UrlExpiryGraceSeconds);
+}
+
+/// <summary>
+/// Nodes that take step and build work off the main node: labelled and tainted <c>Label</c> (<c>key=value</c>,
+/// taint effect <c>NoSchedule</c>). Pods tolerate the taint and prefer those nodes with <see cref="Weight"/>, so
+/// they still schedule elsewhere while no helper node is up.
+/// </summary>
+public sealed record HelperNodes(string Key, string Value, int Weight = 100)
+{
+    public const string TaintEffect = "NoSchedule";
+
+    /// <summary>Parses <c>key=value</c>; null when absent or malformed.</summary>
+    public static HelperNodes? Parse(string? label, int? weight)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return null;
+        var parts = label.Trim().Split('=', 2);
+        if (parts.Length != 2 || parts[0].Length == 0 || parts[1].Length == 0)
+            throw new InvalidOperationException($"Kubernetes:HelperNodes:Label '{label}' must be key=value.");
+        return new HelperNodes(parts[0], parts[1], weight is > 0 and <= 100 ? weight.Value : 100);
+    }
+
+    public K8sToleration[] Tolerations => [new(Key, "Equal", Value, TaintEffect)];
+
+    public K8sAffinity Affinity =>
+        new(new K8sNodeAffinity([new K8sPreferredSchedulingTerm(Weight, new K8sNodeSelectorTerm([new K8sNodeSelectorRequirement(Key, "In", [Value])]))]));
 }
 
 /// <summary>Size caps for result collection. Step outputs are untrusted.</summary>

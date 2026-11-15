@@ -131,6 +131,8 @@ config:
   # Unset: Storage__Endpoint/Bucket are the bundled Garage's, Kubernetes__Namespace (where step Jobs
   # run) is the release namespace. Kubernetes__RuntimeClassName runs step pods under e.g. gVisor;
   # Webhooks__PublicBaseUrl (the public origin GitHub posts to) turns on webhook registration.
+  # Kubernetes__HelperNodes__Label (e.g. olve.pro/role=helper) makes step and build pods prefer
+  # helper nodes (docs/setup/self-hosting.md, Helper nodes).
   # The controller's ServiceAccount reaches the cluster API.
   Kubernetes__AuthMode: "InCluster"
 

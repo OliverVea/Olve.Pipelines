@@ -58,6 +58,8 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Kubernetes:Namespace` | — (the chart: the release namespace) | Runner namespace for step Jobs and pipeline Secrets |
 | `Kubernetes:AuthMode` | — | `InCluster`: the pod's ServiceAccount reaches the cluster API (the chart sets it and grants a Role in the runner namespace). Unset = no Kubernetes |
 | `Kubernetes:RuntimeClassName` | — | RuntimeClass for step pods (`gvisor`); empty = runc |
+| `Kubernetes:HelperNodes:Label` | — | `key=value` of helper nodes that step and build pods prefer (see [Helper nodes](#helper-nodes)); empty = no preference |
+| `Kubernetes:HelperNodes:Weight` | `100` | Weight of that preference (1–100) |
 | `Kubernetes:StepServiceAccount` | — | ServiceAccount (in the runner namespace) whose token steps that declare `clusterAccess` get (`steps.helmDeploy` in-cluster); empty = no step pod gets a token. CI steps can't declare `clusterAccess` |
 | `Harness:HarnessBaseImage` | `ghcr.io/olivervea/olve-pipelines-harness-base:src-…` (`HarnessImage.cs`) | Step-pod init image (pinned, never `latest`). The chart sets it from `harness.image`, which the deploy fills from the `publish-harness` step |
 | `Harness:BunImage` | `oven/bun:1.4.3-slim` | Build/describe Job image (glibc, never alpine) |
@@ -111,6 +113,22 @@ Dex has one public client, `olve-pipelines`, for the web UI and `pl`. It accepts
 A login lasts `dex.tokenLifetime` (default `168h`). Renewing a token re-checks the user with
 GitHub, which stops accepting the token Dex keeps for that within about a day, so in practice this
 is how often people log in again.
+
+## Helper nodes
+
+A second machine can take step and build work off the node the apps run on. Join it to the cluster,
+then label and taint it with the same `key=value`, and set `Kubernetes:HelperNodes:Label` to it:
+
+```bash
+kubectl label node <node> olve.pro/role=helper
+kubectl taint node <node> olve.pro/role=helper:NoSchedule
+```
+
+The taint keeps everything else off the node. Step pods (attempts, preflights, failure handlers) and
+build Jobs (reconcile's and CI's) tolerate it and prefer helper nodes; while none is up they run on any
+node as before. A helper node needs what step pods need on any node: the runtime class
+(`Kubernetes:RuntimeClassName`) and the step network policy. A step running on a helper node that goes
+away fails as an infrastructure failure; rerun it.
 
 ## Health and restarts
 

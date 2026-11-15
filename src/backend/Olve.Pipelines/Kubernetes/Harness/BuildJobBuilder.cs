@@ -192,7 +192,9 @@ public static partial class BuildJobBuilder
                         RuntimeClassName: options.RuntimeClassName,
                         SecurityContext: HarnessSecurity.Pod,
                         AutomountServiceAccountToken: false,
-                        EnableServiceLinks: false)),
+                        EnableServiceLinks: false,
+                        Tolerations: options.HelperNodes?.Tolerations,
+                        Affinity: options.HelperNodes?.Affinity)),
                 BackoffLimit: 0,
                 TtlSecondsAfterFinished: options.TtlSecondsAfterFinished,
                 ActiveDeadlineSeconds: options.BuildTimeoutSeconds));

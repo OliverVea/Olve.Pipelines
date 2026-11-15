@@ -255,7 +255,9 @@ public static partial class HarnessJobBuilder
                         SecurityContext: HarnessSecurity.Pod,
                         AutomountServiceAccountToken: serviceAccount is not null,
                         EnableServiceLinks: false,
-                        ServiceAccountName: serviceAccount)),
+                        ServiceAccountName: serviceAccount,
+                        Tolerations: options.HelperNodes?.Tolerations,
+                        Affinity: options.HelperNodes?.Affinity)),
                 BackoffLimit: 0,
                 TtlSecondsAfterFinished: options.TtlSecondsAfterFinished,
                 ActiveDeadlineSeconds: options.DeadlineSeconds(request.TimeoutSeconds)));

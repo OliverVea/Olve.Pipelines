@@ -22,6 +22,9 @@ config:
   Jobs__NodeReserve__Cpu: "4"
   # Step pods prefer fortress (a k3s agent in WSL, tainted olve.pro/role=helper) and fall back to bulwark-m2.
   Kubernetes__HelperNodes__Label: "olve.pro/role=helper"
+  # Builds and tests are parallel (dotnet, bun) and use about 2.5 cores each; at 1 the dispatcher oversubscribed
+  # fortress and timing-sensitive tests timed out.
+  Harness__StepCpuRequest: "2500m"
   # Deletes for real; the thresholds are the defaults (183 days and the latest 20), and the deployer
   # sets its own in .pipelines/pipeline.ts.
   Retention__DryRun: "false"

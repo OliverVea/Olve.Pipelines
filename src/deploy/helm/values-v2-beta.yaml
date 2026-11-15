@@ -22,6 +22,10 @@ config:
   Retention__DryRun: "false"
   Retention__MinRunAgeDays: "14"
   Retention__KeepLatestRuns: "3"
+  # Beta shares the cluster with prod and doesn't use the helper node: a small ceiling, and prod's reserve.
+  Jobs__MaxConcurrent: "4"
+  Jobs__NodeReserve__Memory: "12Gi"
+  Jobs__NodeReserve__Cpu: "4"
 
 # Reuses the beta credentials Secret by reference — each Garage keeps its own metadata, so
 # sharing the access key is harmless.

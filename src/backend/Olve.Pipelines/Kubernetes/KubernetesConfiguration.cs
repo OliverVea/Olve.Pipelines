@@ -64,6 +64,12 @@ public static class KubernetesConfiguration
         builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
         builder.Services.AddSingleton<IHarnessKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
         builder.Services.AddSingleton<IKubernetesInventory>(sp => sp.GetRequiredService<KubernetesClient>());
+        builder.Services.AddSingleton<IKubernetesCapacity>(sp => sp.GetRequiredService<KubernetesClient>());
+        builder.Services.AddSingleton(sp => new ClusterCapacityTracker(
+            sp.GetRequiredService<IKubernetesCapacity>(),
+            CapacityOptionsFrom(builder.Configuration, sp.GetRequiredService<HarnessOptions>()),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<ClusterCapacityTracker>>()));
 
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
         builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
@@ -71,6 +77,12 @@ public static class KubernetesConfiguration
         builder.Services.AddHostedService<LeftoverJobCleanupService>();
         builder.Services.AddSingleton<IFailureHandlerLauncher, HarnessFailureHandlerLauncher>();
     }
+
+    /// <summary><c>Jobs:NodeReserve:Cpu</c>/<c>Memory</c> (default 1 and 4Gi) and <c>Jobs:CiCapacityShare</c> (default 0.6).</summary>
+    internal static CapacityOptions CapacityOptionsFrom(IConfiguration configuration, HarnessOptions harness) => new(
+        ResourceAmount.Parse(configuration["Jobs:NodeReserve:Cpu"] ?? "1", configuration["Jobs:NodeReserve:Memory"] ?? "4Gi"),
+        Math.Clamp(configuration.GetValue<double?>("Jobs:CiCapacityShare") ?? 0.6, 0, 1),
+        harness.HelperNodes is { } h ? (h.Key, h.Value) : null);
 }
 
 /// <summary>The runner namespace: where step Jobs, build Jobs and pipeline secrets live.</summary>

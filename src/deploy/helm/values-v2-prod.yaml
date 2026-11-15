@@ -15,8 +15,11 @@ config:
   Distribution__CliPipeline: "Olve.Pipelines v2"
   # The pl release is built before beta; prod serves it once the run reaches promote.
   Distribution__CliPromotedBy: "promote"
-  # Stage 2 of the self-deploy runs seven steps; 4 queued three of them.
-  Jobs__MaxConcurrent: "8"
+  # Steps start when their request fits; 24 is the ceiling. bulwark-m2's apps request ~12Gi and the host
+  # itself (Docker for the real-system tests, sessions) needs room, so step pods leave 12Gi and 4 cores there.
+  Jobs__MaxConcurrent: "24"
+  Jobs__NodeReserve__Memory: "12Gi"
+  Jobs__NodeReserve__Cpu: "4"
   # Step pods prefer fortress (a k3s agent in WSL, tainted olve.pro/role=helper) and fall back to bulwark-m2.
   Kubernetes__HelperNodes__Label: "olve.pro/role=helper"
   # Deletes for real; the thresholds are the defaults (183 days and the latest 20), and the deployer

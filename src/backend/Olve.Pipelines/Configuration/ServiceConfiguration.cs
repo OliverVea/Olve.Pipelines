@@ -249,6 +249,9 @@ public static class ServiceConfiguration
         {
             MaxConcurrentJobs = Math.Max(1, sp.GetRequiredService<IConfiguration>().GetValue<int?>("Jobs:MaxConcurrent") ?? JobRunner.DefaultMaxConcurrentJobs),
             MaxConcurrentCiJobs = Math.Max(1, sp.GetRequiredService<IConfiguration>().GetValue<int?>("Jobs:MaxConcurrentCi") ?? JobRunner.DefaultMaxConcurrentCiJobs),
+            StepRequest = sp.GetService<HarnessOptions>() is { } harness
+                ? ResourceAmount.Parse(harness.StepCpuRequest, harness.StepMemoryRequest)
+                : ResourceAmount.Zero,
         });
         services.AddTransient<JobQueueService>();
         services.AddTransient<MatrixParallelism>();

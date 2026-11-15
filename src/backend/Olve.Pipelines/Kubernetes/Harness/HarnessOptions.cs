@@ -50,9 +50,11 @@ public sealed record HarnessOptions
     /// <summary><c>sizeLimit</c> of the step pod's <c>olve</c> emptyDir (binary ~91 MB + work + files).</summary>
     public string ScratchSizeLimit { get; init; } = "1Gi";
 
-    /// <summary>Optional step container resources; null leaves them unset.</summary>
-    public string? StepCpuRequest { get; init; }
-    public string? StepMemoryRequest { get; init; }
+    /// <summary>What a step container requests; dispatch starts a step only where this fits. Also preflights and failure handlers.</summary>
+    public string StepCpuRequest { get; init; } = "1";
+    public string StepMemoryRequest { get; init; } = "1536Mi";
+
+    /// <summary>Optional step memory limit; null leaves it unset.</summary>
     public string? StepMemoryLimit { get; init; }
 
     /// <summary>Build/describe Job deadline.</summary>
@@ -61,8 +63,8 @@ public sealed record HarnessOptions
     /// <summary><c>sizeLimit</c> of the build Job's <c>work</c> emptyDir (repo + node_modules + binary twice).</summary>
     public string BuildScratchSizeLimit { get; init; } = "4Gi";
 
-    public string BuildCpuRequest { get; init; } = "500m";
-    public string BuildMemoryRequest { get; init; } = "512Mi";
+    public string BuildCpuRequest { get; init; } = "2";
+    public string BuildMemoryRequest { get; init; } = "2560Mi";
     public string BuildMemoryLimit { get; init; } = "3Gi";
 
     /// <summary>Key in the pipeline Secret holding the GitHub token used to fetch the repo tarball (optional).</summary>

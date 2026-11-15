@@ -345,17 +345,9 @@ public static partial class HarnessJobBuilder
         return new HarnessJobSpec(job, urlSecretName, secretData);
     }
 
-    private static K8sResourceRequirements? StepResources(HarnessOptions options)
-    {
-        var requests = new Dictionary<string, string>();
-        var limits = new Dictionary<string, string>();
-        if (options.StepCpuRequest is { } cpu) requests["cpu"] = cpu;
-        if (options.StepMemoryRequest is { } mem) requests["memory"] = mem;
-        if (options.StepMemoryLimit is { } limit) limits["memory"] = limit;
-        return requests.Count == 0 && limits.Count == 0
-            ? null
-            : new K8sResourceRequirements(requests.Count > 0 ? requests : null, limits.Count > 0 ? limits : null);
-    }
+    private static K8sResourceRequirements StepResources(HarnessOptions options) => new(
+        Requests: new() { ["cpu"] = options.StepCpuRequest, ["memory"] = options.StepMemoryRequest },
+        Limits: options.StepMemoryLimit is { } limit ? new() { ["memory"] = limit } : null);
 }
 
 /// <summary>

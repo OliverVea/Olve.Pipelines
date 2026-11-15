@@ -112,13 +112,15 @@ public sealed class CiSchedulingLock
 /// <summary>
 /// Drives a CI run through its stages, like <see cref="StageScheduler"/> does a CD run: the stage barrier, <c>when</c>
 /// on the CI input (excluded steps get no attempt), skip propagation and <c>retries</c>. None of CD's rules across runs
-/// apply: no busy key per step, no latest-wins, no superseding of overtaken runs, no blocked steps. Transient.
+/// apply: no busy key per step, no latest-wins, no superseding of overtaken runs, no blocked steps. A step that
+/// already succeeded on the same tree with the same code is reused instead of run (<see cref="CiReuseService"/>). Transient.
 /// </summary>
 public class CiScheduler(
     CiRunService runs,
     CiAttemptService attempts,
     CiPlanCache plans,
     CiSchedulingLock schedulingLock,
+    CiReuseService reuse,
     ILogger<CiScheduler> logger)
 {
     public void Advance(Id<CiRun> runId) => schedulingLock.Advance(runId, () => AdvanceOnce(runId));
@@ -171,7 +173,7 @@ public class CiScheduler(
                 if (IsSettled(latest, decision) && !RetryDue(run, unit, decision))
                     continue;
 
-                Act(run, unit, decision);
+                Act(run, unit, decision, plan.Manifest.CodeHash);
                 if (Latest(run.Id, unit.Name) is { } created && created.Status.IsActive())
                     waiting = true;
             }
@@ -220,11 +222,13 @@ public class CiScheduler(
         return true;
     }
 
-    private void Act(CiRun run, PlanUnit unit, StepDecision decision)
+    private void Act(CiRun run, PlanUnit unit, StepDecision decision, string? codeHash)
     {
         var result = decision switch
         {
             StepDecision.Skip skip => attempts.RecordSkipped(run.Id, unit.Name, skip.Reason),
+            StepDecision.Schedule schedule when reuse.FindOrigin(run, codeHash, unit.Name) is { } origin =>
+                attempts.RecordReused(run.Id, unit.Name, schedule.Hash, schedule.Json, origin),
             StepDecision.Schedule schedule => attempts.Schedule(run.Id, unit.Name, schedule.Hash, schedule.Json),
             StepDecision.Fail fail => attempts.RecordFailed(run.Id, unit.Name, fail.Reason, fail.Hash),
             _ => Result.Failure<CiAttempt>(new ResultProblem("Unknown decision.")),
@@ -237,8 +241,12 @@ public class CiScheduler(
             return;
         }
 
-        logger.LogInformation("CI run #{RunNumber}: step '{StepName}' attempt {AttemptNumber} is {Status}",
-            run.Number, unit.Name, attempt.Number, attempt.Status.Discriminator());
+        if (attempt.ReusedFrom is { } from)
+            logger.LogInformation("CI run #{RunNumber}: step '{StepName}' attempt {AttemptNumber} reuses CI run #{OriginRun}/{OriginStep}@{OriginAttempt}",
+                run.Number, unit.Name, attempt.Number, from.Run, from.Step, from.Attempt);
+        else
+            logger.LogInformation("CI run #{RunNumber}: step '{StepName}' attempt {AttemptNumber} is {Status}",
+                run.Number, unit.Name, attempt.Number, attempt.Status.Discriminator());
     }
 
     private void Complete(CiRun run, RunStatus status)

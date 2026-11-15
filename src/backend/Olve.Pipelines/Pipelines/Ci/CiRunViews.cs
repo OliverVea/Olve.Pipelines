@@ -127,8 +127,11 @@ public class CiRunViewService(
         Input = a.Input,
         Timings = a.Timings is null ? null : RunViews.ToApi(a.Timings),
         Links = RunViews.ToApi(a.Links),
-        ReusedFrom = null,
+        ReusedFrom = ToApi(a.ReusedFrom),
     };
+
+    public static Contract.CiAttemptRef? ToApi(CiReuse? reuse) =>
+        reuse is null ? null : new Contract.CiAttemptRef { Run = reuse.Run, Step = reuse.Step, Attempt = reuse.Attempt };
 
     /// <summary>The branch head the binding last read: what "stale" compares a run's base against.</summary>
     private string? BranchHead(Id<Pipeline> pipelineId) =>
@@ -204,7 +207,7 @@ public class CiRunViewService(
             FinishedAt = Latest?.FinishedAt(),
             Phases = Latest is null ? null : Phases(Latest),
             Links = RunViews.ToApi((Succeeded ?? Latest)?.Links),
-            ReusedFrom = null,
+            ReusedFrom = ToApi(Latest?.ReusedFrom),
             Cells = null,
         };
 
@@ -221,14 +224,14 @@ public class CiRunViewService(
             FinishedAt = Latest?.FinishedAt(),
             Phases = Latest is null ? null : Phases(Latest),
             Links = RunViews.ToApi((Succeeded ?? Latest)?.Links),
-            ReusedFrom = null,
+            ReusedFrom = ToApi(Latest?.ReusedFrom),
         };
     }
 
     /// <summary>Where a CI attempt's time went (no preflight, no input wait).</summary>
     private static Contract.AttemptPhases? Phases(CiAttempt attempt)
     {
-        if (attempt.StartedAt() is not { } started)
+        if (attempt.ReusedFrom is not null || attempt.StartedAt() is not { } started)
             return null;
         var t = attempt.Timings;
         return StepViews.ToApi(new AttemptPhases(

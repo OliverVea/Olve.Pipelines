@@ -34,7 +34,12 @@ public class CiEventRegistration(
                 Statuses().Report(e.After);
         });
 
-        attemptEvents.OnAdded.Subscribe(_ => sp.GetRequiredService<JobDispatchSignal>().Nudge());
+        attemptEvents.OnAdded.Subscribe(e =>
+        {
+            sp.GetRequiredService<JobDispatchSignal>().Nudge();
+            if (e.Entity.Status.IsTerminal())
+                Statuses().Report(e.Entity.RunId);
+        });
         attemptEvents.OnUpdated.Subscribe(e =>
         {
             if (e.Before.Status.IsActive() && e.After.Status.IsTerminal())

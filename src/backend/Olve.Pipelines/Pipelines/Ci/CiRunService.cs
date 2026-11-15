@@ -146,6 +146,19 @@ public class CiAttemptService(EntityStore<CiAttempt> store, EntityStore<CiRun> r
     public Result<CiAttempt> RecordSkipped(Id<CiRun> runId, string stepName, string reason) =>
         Create(runId, stepName, now => new Skipped(reason, null, now));
 
+    /// <summary>Records a step as succeeded with <paramref name="origin"/>'s output: no Job runs.</summary>
+    public Result<CiAttempt> RecordReused(Id<CiRun> runId, string stepName, string inputHash, string input, CiAttempt origin) =>
+        Create(runId, stepName, now => new Succeeded(now, now), inputHash, input, a => a with
+        {
+            Output = origin.Output,
+            Links = origin.Links,
+            ReusedFrom = new CiReuse(origin.Id, origin.RunNumber, origin.StepName, origin.Number),
+        });
+
+    /// <summary>The attempt that ran for <paramref name="attempt"/>: itself, or the one it reuses (null when that is gone).</summary>
+    public CiAttempt? Origin(CiAttempt attempt) =>
+        attempt.ReusedFrom is { } reuse ? (store.TryGet(reuse.AttemptId, out var origin) ? origin : null) : attempt;
+
     public Result<CiAttempt> RecordFailed(Id<CiRun> runId, string stepName, string reason, string? inputHash = null) =>
         Create(runId, stepName, now => new Failed(now, now, reason, AttemptFailureKind.NotRun), inputHash);
 
@@ -221,7 +234,8 @@ public class CiAttemptService(EntityStore<CiAttempt> store, EntityStore<CiRun> r
 
     public DeletionResult Delete(Id<CiAttempt> id) => store.Delete(id);
 
-    private Result<CiAttempt> Create(Id<CiRun> runId, string stepName, Func<DateTimeOffset, AttemptStatus> status, string? inputHash = null, string? input = null)
+    private Result<CiAttempt> Create(Id<CiRun> runId, string stepName, Func<DateTimeOffset, AttemptStatus> status, string? inputHash = null, string? input = null,
+        Func<CiAttempt, CiAttempt>? complete = null)
     {
         if (!runs.TryGet(runId, out var run))
             return new NotFoundProblem("CI run '{0}' not found.", runId);
@@ -232,6 +246,8 @@ public class CiAttemptService(EntityStore<CiAttempt> store, EntityStore<CiRun> r
             var number = ListForStep(runId, stepName).Select(a => a.Number).DefaultIfEmpty(0).Max() + 1;
             var attempt = new CiAttempt(idProvider.Create<CiAttempt>(), run.PipelineId, run.Id, run.Number, stepName, number, status(now), now,
                 inputHash, Input: input);
+            if (complete is not null)
+                attempt = complete(attempt);
             store.Set(attempt);
             return attempt;
         }

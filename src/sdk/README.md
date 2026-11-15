@@ -299,6 +299,7 @@ export default pipeline({ … });
 - **Input.** `checks()` has no name, input model or triggers. Its input is `CiInput` `{ repo, sha }`: the repository and the commit tested. `.stage` and `.when` work as on a pipeline; `.when` matches `CiInput` fields.
 - **Secrets.** `secrets` lists the pipeline secrets CI steps may declare; a CI step declaring any other is a describe problem, and so is a listed secret no step declares.
 - **Shared steps.** A step in both the pipeline and CI is one step: it must declare the same things (its mappings aside) and carry the same implementation, so stage the same value in both. CI steps can't have external inputs.
+- **Reuse.** A CI step that already succeeded on the same tree with the same `codeHash` isn't run again; the service reuses its output and files. So in CI no step output may depend on which commit with that tree it ran on: `gitHubSource`'s `sha` and `ctx.run.version` are those of the run that ran it.
 
 ### Testing handlers
 

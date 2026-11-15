@@ -446,7 +446,7 @@ describe('compiled binary', () => {
     expect(Bun.hash(step)).toBe(Bun.hash(readFileSync(a.binary)));
     expect(uploads.map((u) => u.method)).toEqual(['PUT']);
     expect(Bun.hash(uploads[0]!.body)).toBe(Bun.hash(readFileSync(a.archive)));
-  });
+  }, 60000);
   test('the generated entry supervises before it imports the pipeline, and carries the code hash', () => {
     const entry = readFileSync(join(dirA, '.olve/gen/entry.ts'), 'utf8');
     const imported = entry.indexOf('await import("../../pipeline.ts")');

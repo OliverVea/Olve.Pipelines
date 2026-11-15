@@ -112,8 +112,10 @@ The service reports commit statuses from CI run state, with the binding's token:
   config cursor's paths (the binding path and its local dependencies), that commit gets a build Job
   of its own. Otherwise the run uses the binary of the `main` it is tested on. A change to CI is
   tested on itself, and most PRs need no build.
-- "Touches" compares the tested tree with the `main` it is tested on, over the cursor's paths. A
-  queue batch is built once, from its batch commit, if any PR in it touches them.
+- "Touches" compares the tested tree with the commit the reused binary was built from (the active
+  version's), over the cursor's paths. When the active version lags `main` (a failed reconcile, a
+  pending config), a PR is then built on its own rather than run on a binary that doesn't match its
+  definition. A queue batch is built once, from its batch commit, if it touches them.
 - A CI build is a binary and a manifest, nothing more: it never creates a `PipelineVersion`, never
   switches and never changes CD's activation. Its manifest goes through the same
   `ManifestValidator`; a PR whose definition fails describe or validation gets a failed run that

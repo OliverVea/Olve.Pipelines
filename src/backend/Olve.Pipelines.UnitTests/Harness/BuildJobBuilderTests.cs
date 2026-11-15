@@ -59,7 +59,7 @@ public class BuildJobBuilderTests
                         "volumeMounts": [{ "name": "work", "mountPath": "/work" }],
                         "securityContext": { "allowPrivilegeEscalation": false },
                         "imagePullPolicy": "IfNotPresent",
-                        "resources": { "requests": { "cpu": "500m", "memory": "512Mi" }, "limits": { "memory": "3Gi" } }
+                        "resources": { "requests": { "cpu": "2", "memory": "2560Mi" }, "limits": { "memory": "3Gi" } }
                       }
                     ],
                     "volumes": [{ "name": "work", "emptyDir": { "sizeLimit": "4Gi" } }],

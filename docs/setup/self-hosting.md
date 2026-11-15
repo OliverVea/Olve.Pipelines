@@ -67,12 +67,15 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Harness:DefaultStepTimeoutSeconds` / `MaxStepTimeoutSeconds` / `StartupGraceSeconds` | `3600` / `21600` / `120` | Step Job `activeDeadlineSeconds` = min(timeout, max) + grace |
 | `Harness:UrlExpiryGraceSeconds` | `600` | Added to the deadline for step pre-signed URLs |
 | `Harness:ScratchSizeLimit` | `1Gi` | `sizeLimit` of the step pod's `/olve` emptyDir |
-| `Harness:StepCpuRequest` / `StepMemoryRequest` / `StepMemoryLimit` | — | Optional step container resources |
+| `Harness:StepCpuRequest` / `StepMemoryRequest` | `1` / `1536Mi` | What a step container requests (also preflights and failure handlers); a step starts only where this fits |
+| `Harness:StepMemoryLimit` | — | Optional step memory limit |
 | `Harness:BuildTimeoutSeconds` / `BuildScratchSizeLimit` | `900` / `4Gi` | Build/describe Job deadline and scratch size |
-| `Harness:BuildCpuRequest` / `BuildMemoryRequest` / `BuildMemoryLimit` | `500m` / `512Mi` / `3Gi` | Build/describe Job resources |
+| `Harness:BuildCpuRequest` / `BuildMemoryRequest` / `BuildMemoryLimit` | `2` / `2560Mi` / `3Gi` | Build/describe Job resources |
 | `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used for the repo tarball when the binding names no credentials key |
-| `Jobs:MaxConcurrent` | `4` | Step Jobs running at once across all pipelines; the rest wait in Scheduled |
-| `Jobs:MaxConcurrentCi` | `3` | CI step Jobs running at once across all pipelines, within `Jobs:MaxConcurrent`; deploys count only against `Jobs:MaxConcurrent`. CI's build Jobs (`olve-ci-build-…`) aren't counted. Set it as `Jobs__MaxConcurrentCi` |
+| `Jobs:MaxConcurrent` | `24` | Ceiling on step Jobs running at once across all pipelines. Below it, a step starts when its pod's request fits on a node it may use: Ready, schedulable, with no taint steps don't tolerate (helper nodes are tolerated). The rest wait in Scheduled. While the cluster can't be read (nodes and pods, listed through the chart's read-only ClusterRole), at most 8 run |
+| `Jobs:MaxConcurrentCi` | `12` | Ceiling on CI step Jobs running at once, within `Jobs:MaxConcurrent` (3 while the cluster can't be read). Set it as `Jobs__MaxConcurrentCi` |
+| `Jobs:NodeReserve:Cpu` / `Memory` | `1` / `4Gi` | Kept free on every node that isn't a helper, beyond what its pods request, for the apps and the host; steps never use it |
+| `Jobs:CiCapacityShare` | `0.6` | Share of the usable capacity (CPU and memory, after the reserve) CI's pods may request at once, so a deploy always finds room. CI's build Jobs don't wait for room, but their requests count |
 | `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
 | `Ci:Authors` | — | GitHub logins whose pull requests get CI, on every binding; a pull request by anyone else is ignored like one from a fork. Empty = no pull request gets CI. The chart sets it from `ci.authors` |
 | `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes). Changing it repoints the registered hooks |

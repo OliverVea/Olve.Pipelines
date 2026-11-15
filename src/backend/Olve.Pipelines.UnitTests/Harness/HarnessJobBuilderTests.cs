@@ -91,7 +91,8 @@ public class HarnessJobBuilderTests
                       { "name": "OLVE_SECRETS", "value": "KUBECONFIG,SSH_KEY" }
                     ],
                     "volumeMounts": [{ "name": "olve", "mountPath": "/olve" }],
-                    "securityContext": { "allowPrivilegeEscalation": false }
+                    "securityContext": { "allowPrivilegeEscalation": false },
+                    "resources": { "requests": { "cpu": "1", "memory": "1536Mi" } }
                   }
                 ],
                 "initContainers": [
@@ -198,10 +199,8 @@ public class HarnessJobBuilderTests
 
     [Test]
     [Arguments("100m", "256Mi", "1Gi")]
-    [Arguments("100m", null, null)]
-    [Arguments(null, "256Mi", null)]
-    [Arguments(null, null, "1Gi")]
-    public async Task StepJob_CarriesTheConfiguredResources(string? cpu, string? memory, string? limit)
+    [Arguments("2", "4Gi", null)]
+    public async Task StepJob_CarriesTheConfiguredResources(string cpu, string memory, string? limit)
     {
         var options = Options with { StepCpuRequest = cpu, StepMemoryRequest = memory, StepMemoryLimit = limit };
 
@@ -210,6 +209,17 @@ public class HarnessJobBuilderTests
         await Assert.That(resources.Requests?.GetValueOrDefault("cpu")).IsEqualTo(cpu);
         await Assert.That(resources.Requests?.GetValueOrDefault("memory")).IsEqualTo(memory);
         await Assert.That(resources.Limits?.GetValueOrDefault("memory")).IsEqualTo(limit);
+    }
+
+    // Dispatch fits step pods by these requests, so a step pod always carries them.
+    [Test]
+    public async Task StepJob_RequestsOneCpuAndOneAndAHalfGibByDefault()
+    {
+        var resources = TestRunDomain.Pick(HarnessJobBuilder.Build(Request(), new HarnessOptions())).Job.Spec.Template.Spec.Containers[0].Resources!;
+
+        await Assert.That(resources.Requests!["cpu"]).IsEqualTo("1");
+        await Assert.That(resources.Requests!["memory"]).IsEqualTo("1536Mi");
+        await Assert.That(resources.Limits).IsNull();
     }
 
     // Catches: TTL 0 deleting a map-trigger Job before its log is read, failing every automatic trigger,

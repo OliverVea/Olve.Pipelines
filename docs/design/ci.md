@@ -102,8 +102,8 @@ its own runs, scheduling and tab in the UI. What they share is the SDK and the e
 
 ## Priority
 
-`Jobs:MaxConcurrent` stays one budget across CI and CD. Priority is decided per Job, not per run: a
-run holds no slot between its steps. When `build` finishes, `test` joins the queue like any other
+CI and CD share the cluster's room for step pods: a step starts when its pod's request fits on a node
+it may use. Priority is decided per Job, not per run: a run holds no room between its steps. When `build` finishes, `test` joins the queue like any other
 Scheduled attempt, and a more important attempt that arrived meanwhile goes first. The dispatcher
 picks Scheduled attempts in this order:
 
@@ -113,8 +113,9 @@ picks Scheduled attempts in this order:
 4. Reruns of ready PRs because the checks changed.
 5. PR runs of draft PRs.
 
-Within that budget CI has a cap of its own, `Jobs:MaxConcurrentCi` (3): CI step Jobs beyond it wait,
-while deploys still start. CI's build Jobs aren't counted.
+CI's pods may request at most a share of the usable capacity (`Jobs:CiCapacityShare`, 0.6), so a
+deploy always finds room; CI steps beyond it wait while deploys still start. `Jobs:MaxConcurrentCi`
+caps CI step Jobs as a ceiling. CI's build Jobs don't wait for room, but their requests count.
 
 ## Reporting to GitHub
 

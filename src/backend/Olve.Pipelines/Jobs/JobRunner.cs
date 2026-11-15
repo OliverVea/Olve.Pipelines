@@ -13,24 +13,35 @@ public class JobRunner(
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 
-    public const int DefaultMaxConcurrentJobs = 4;
+    public const int DefaultMaxConcurrentJobs = 24;
 
-    /// <summary>Step Jobs running at once, across all pipelines (<c>Jobs:MaxConcurrent</c>).</summary>
+    /// <summary>
+    /// The ceiling on step Jobs running at once, across all pipelines (<c>Jobs:MaxConcurrent</c>); what fits on the
+    /// cluster decides below it.
+    /// </summary>
     public int MaxConcurrentJobs { get; init; } = DefaultMaxConcurrentJobs;
 
-    public const int DefaultMaxConcurrentCiJobs = 3;
+    public const int DefaultMaxConcurrentCiJobs = 12;
 
-    /// <summary>CI step Jobs running at once, across all pipelines, within <see cref="MaxConcurrentJobs"/> (<c>Jobs:MaxConcurrentCi</c>).</summary>
+    /// <summary>The ceiling on CI step Jobs running at once, within <see cref="MaxConcurrentJobs"/> (<c>Jobs:MaxConcurrentCi</c>).</summary>
     public int MaxConcurrentCiJobs { get; init; } = DefaultMaxConcurrentCiJobs;
+
+    /// <summary>The counts dispatch uses while the cluster's capacity can't be read.</summary>
+    public const int FallbackMaxConcurrentJobs = 8, FallbackMaxConcurrentCiJobs = 3;
+
+    /// <summary>What a step pod requests (<c>Harness:StepCpuRequest</c>, <c>Harness:StepMemoryRequest</c>).</summary>
+    public ResourceAmount StepRequest { get; init; } = ResourceAmount.Zero;
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        logger.LogInformation("Job runner started: at most {MaxConcurrentJobs} step Jobs at once, {MaxConcurrentCiJobs} of them CI's",
+        logger.LogInformation("Job runner started: step Jobs start when they fit, at most {MaxConcurrentJobs} at once, {MaxConcurrentCiJobs} of them CI's",
             MaxConcurrentJobs, MaxConcurrentCiJobs);
+        var capacity = sp.GetService<ClusterCapacityTracker>();
         while (!ct.IsCancellationRequested)
         {
             try
             {
+                if (capacity is not null) await capacity.RefreshAsync(ct);
                 DispatchTick();
             }
             catch (Exception ex)
@@ -42,14 +53,24 @@ public class JobRunner(
         }
     }
 
-    internal void DispatchTick() =>
-        JobDispatch.Run([.. CdCandidates(), .. CiCandidates()], () => registry.ActiveCount < MaxConcurrentJobs);
+    internal void DispatchTick()
+    {
+        var tracker = sp.GetService<ClusterCapacityTracker>();
+        var plan = tracker?.Plan();
+        var unreadable = tracker is not null && plan is null;
+        var max = unreadable ? Math.Min(MaxConcurrentJobs, FallbackMaxConcurrentJobs) : MaxConcurrentJobs;
+        var maxCi = unreadable ? Math.Min(MaxConcurrentCiJobs, FallbackMaxConcurrentCiJobs) : MaxConcurrentCiJobs;
+        JobDispatch.Run([.. CdCandidates(), .. CiCandidates(maxCi)], () => registry.ActiveCount < max, plan);
+    }
+
+    /// <summary>A Scheduled attempt creates a pod; an InProgress one reattaches to the pod it has.</summary>
+    private ResourceAmount? RequestOf(AttemptStatus status) => status is Scheduled ? StepRequest : null;
 
     /// <summary>
     /// CI's attempts that want a watcher (Scheduled, or InProgress after a restart). None of CD's per-step rules
     /// apply; a queue run's attempts go first, a draft pull request's after a ready one's.
     /// </summary>
-    private List<JobCandidate> CiCandidates()
+    private List<JobCandidate> CiCandidates(int maxCi)
     {
         using var scope = sp.CreateScope();
         if (scope.ServiceProvider.GetService<CiAttemptService>() is not { } attempts)
@@ -63,7 +84,7 @@ public class JobRunner(
                 using var start = sp.CreateScope();
                 start.ServiceProvider.GetRequiredService<IJobExecutor>().EnsureRunning(a.Id);
                 return true;
-            }, () => registry.CiActiveCount < MaxConcurrentCiJobs))
+            }, () => registry.CiActiveCount < maxCi, RequestOf(a.Status), Ci: true))
             .ToList();
     }
 
@@ -91,7 +112,7 @@ public class JobRunner(
 
         return attempts
             .Where(a => a.Status is not Waiting && !registry.IsRunning(a.Id))
-            .Select(a => new JobCandidate(JobPriority.Deploy, a.CreatedAt, () => TryStart(a, busyKeys, cellsInFlight)))
+            .Select(a => new JobCandidate(JobPriority.Deploy, a.CreatedAt, () => TryStart(a, busyKeys, cellsInFlight), Request: RequestOf(a.Status)))
             .ToList();
     }
 

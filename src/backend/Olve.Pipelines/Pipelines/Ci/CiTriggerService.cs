@@ -42,6 +42,16 @@ public class CiTriggerService(IServiceProvider sp, CiRunService runs, TimeProvid
         _toAnnounce[key] = after.HeadSha;
     }
 
+    /// <summary>
+    /// At startup: the pending starts were in memory, so each open pull request whose head has no run is observed
+    /// again, as if just pushed. Its run starts after the debounce, and it gets "Waiting to start" again.
+    /// </summary>
+    public void Resume(IEnumerable<PullRequest> pulls)
+    {
+        foreach (var pull in pulls.Where(p => p.State == PullRequestState.Open))
+            Observe(null, pull);
+    }
+
     /// <summary>A pull request is no longer tracked: it left the binding's branch.</summary>
     public void Forget(PullRequest pull)
     {

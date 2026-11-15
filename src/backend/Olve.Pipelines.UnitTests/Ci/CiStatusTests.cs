@@ -114,6 +114,14 @@ public class CiStatusTests
             Cancel(s, s.Run(7));
             await SendAsync(s);
         },
+        ["a restart before its run started"] = async s =>
+        {
+            s.Push(7, A);
+            await AnnounceAsync(s);
+            s.Restart();
+            await AnnounceAsync(s);
+            await StartAsync(s);
+        },
         ["closed while running"] = async s =>
         {
             s.Push(7, A);
@@ -132,6 +140,7 @@ public class CiStatusTests
         yield return () => ("the head's run cancelled", ["a pending: 0 of 3 steps done", "a error: Cancelled"]);
         yield return () => ("an older head's run cancelled", ["a pending: 0 of 3 steps done"]);
         yield return () => ("closed while running", ["a pending: 0 of 3 steps done"]);
+        yield return () => ("a restart before its run started", ["a pending: Waiting to start", "a pending: 0 of 3 steps done"]);
     }
 
     [Test]

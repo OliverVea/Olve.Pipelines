@@ -92,8 +92,8 @@ public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts, C
 }
 
 /// <summary>
-/// At startup, after persistence loaded: drops CI runs of pipelines that are gone, advances running ones and resumes the
-/// builds running runs wait for.
+/// At startup, after persistence loaded: drops CI runs of pipelines that are gone, advances running ones, resumes the
+/// builds running runs wait for, and starts the runs open pull requests were still waiting for.
 /// </summary>
 public class CiStartup(
     EntityStore<Pipeline> pipelines,
@@ -102,7 +102,8 @@ public class CiStartup(
     CiRunCleanupService cleanup,
     CiScheduler scheduler,
     CiDefinitionService definitions,
-    CiStatusReporter statuses) : IRunOnStartup
+    CiStatusReporter statuses,
+    CiTriggerService trigger) : IRunOnStartup
 {
     public Result Run()
     {
@@ -111,6 +112,7 @@ public class CiStartup(
         scheduler.AdvanceRunning();
         definitions.ResumeBuilding();
         statuses.ReportLatest(pulls.List().Where(p => p.State == PullRequestState.Open));
+        trigger.Resume(pulls.List());
         return Result.Success();
     }
 }

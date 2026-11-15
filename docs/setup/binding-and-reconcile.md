@@ -52,6 +52,16 @@ closed. The `pull_request` deliveries keep them current, and the service reads t
 GitHub at startup, when a binding is created or its branch changes, and when its hook is registered,
 so a delivery it missed is caught up. Reading them needs no more access than the binding already has.
 
+When the pipeline's active version declares CI (`export const ci = checks(…)` next to the pipeline),
+an open pull request gets a CI run once its head has been still for 60 seconds: a burst of pushes
+makes one run, for the last of them. The run tests GitHub's merge commit of the pull request onto the
+branch, with the active version's CI definition and binary, and a new push supersedes the running
+run. A pull request that GitHub can't merge gets no run and shows as a conflict; one that changes the
+pipeline's definition gets a failed run that says so, since a pull request's own definition isn't
+built yet. Closing or merging a pull request cancels its running run. CI runs are numbered per
+pipeline on their own, and `GET /api/pipelines/{id}/ci/runs/{number}` shows one, its steps and their
+logs, files and outputs; `POST …/ci/pulls/{pull}/runs` runs a pull request again.
+
 Either way, a branch-head change fires the pipeline's **`onPush`** trigger. `onPoll` triggers are
 separate: they are declared in `pipeline.ts` and poll their own URL.
 

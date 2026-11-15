@@ -27,6 +27,12 @@ public class PullRequestCatchUpTests
             Read.Add(number);
             return Task.FromResult(Result.Success(Single.GetValueOrDefault(number)));
         }
+
+        public Task<Result<GitHubGitCommit>> GetCommitAsync(PipelineConfigBinding binding, string sha, CancellationToken ct = default)
+            => throw new NotSupportedException();
+
+        public Task<Result<IReadOnlyList<string>>> ChangedFilesAsync(PipelineConfigBinding binding, string @base, string head, CancellationToken ct = default)
+            => throw new NotSupportedException();
     }
 
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider

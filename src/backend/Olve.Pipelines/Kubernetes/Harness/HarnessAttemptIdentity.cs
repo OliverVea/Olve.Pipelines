@@ -1,5 +1,6 @@
 using System.Globalization;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.Kubernetes.Harness;
@@ -26,6 +27,14 @@ public sealed record HarnessAttemptIdentity(
     int AttemptNumber,
     bool InPreflight)
 {
+    /// <summary>The Job's <c>olve-role</c> label: <c>step</c> for CD attempts, <c>ci-step</c> for CI's.</summary>
+    public string Role { get; init; } = HarnessJobBuilder.StepRole;
+
+    /// <summary>The storage key of the object a file ref in this attempt's input points at.</summary>
+    public Func<HarnessFileRef, string>? FileObjectKeyOverride { get; init; }
+
+    public string FileObjectKey(HarnessFileRef fileRef) => FileObjectKeyOverride?.Invoke(fileRef) ?? HarnessStorageKeys.FileObjectKey(PipelineId, fileRef);
+
     public string InputKey => $"{Prefix}/input.json";
 
     public string ResultArchiveKey => $"{Prefix}/result.tar.gz";
@@ -47,4 +56,21 @@ public sealed record HarnessAttemptIdentity(
         attempt.StepName,
         attempt.Number,
         attempt.InPreflight);
+
+    /// <summary>A CI attempt's identity: <c>olve-ci-&lt;id&gt;</c> under <c>ci/</c>; its input's file refs point at the same CI run.</summary>
+    public static HarnessAttemptIdentity Of(CiAttempt attempt) => new(
+        attempt.KubernetesJobName,
+        attempt.UrlSecretName,
+        StorageLayout.CiAttemptPrefix(attempt.PipelineId, attempt.RunNumber, attempt.StepName, attempt.Number),
+        attempt.PipelineId,
+        attempt.RunId.Value.Value.ToString("D", CultureInfo.InvariantCulture),
+        attempt.RunNumber,
+        attempt.StepName,
+        attempt.Number,
+        InPreflight: false)
+    {
+        Role = HarnessJobBuilder.CiStepRole,
+        FileObjectKeyOverride = fileRef =>
+            $"{StorageLayout.CiAttemptPrefix(attempt.PipelineId, fileRef.Run, fileRef.Step, fileRef.Attempt)}/files/{fileRef.ObjectPath}",
+    };
 }

@@ -70,7 +70,7 @@ public sealed record HarnessJobRequest(
         IReadOnlyList<string> secrets, HarnessUrls urls, bool clusterAccess = false, MatrixCell? cell = null)
         => new(attempt.JobName, AttemptId: null, attempt.PipelineId, attempt.RunId, attempt.RunNumber,
             cell?.Step ?? attempt.StepName, attempt.AttemptNumber, versionStamp, stepImage, timeoutSeconds, secrets,
-            PipelineSecrets.Name(attempt.PipelineId), urls, UrlSecretNameOverride: attempt.UrlSecretName, ClusterAccess: clusterAccess)
+            PipelineSecrets.Name(attempt.PipelineId), urls, Role: attempt.Role, UrlSecretNameOverride: attempt.UrlSecretName, ClusterAccess: clusterAccess)
         { Cell = cell?.Json, Mode = attempt.InPreflight ? HarnessJobBuilder.PreflightMode : HarnessJobBuilder.RunMode };
 
     /// <inheritdoc cref="ForAttempt(HarnessAttemptIdentity, string, string, long?, IReadOnlyList{string}, HarnessUrls, bool, MatrixCell?)"/>
@@ -111,6 +111,9 @@ public static partial class HarnessJobBuilder
 
     /// <summary><c>olve-role</c> of step attempt Jobs.</summary>
     public const string StepRole = "step";
+
+    /// <summary>The <c>olve-role</c> of a CI attempt's Job.</summary>
+    public const string CiStepRole = "ci-step";
 
     /// <summary><c>olve-role</c> of v2 failure-handler Jobs (v1's bare handler Jobs use <c>failure-handler</c>).</summary>
     public const string FailureHandlerRole = "on-failure";

@@ -15,7 +15,7 @@ namespace Olve.Pipelines.UnitTests.Recordings;
 public class RecordedGitHubPullRequestTests
 {
     private static readonly IReadOnlyList<Recorder.Recordings.Recording> Exchanges =
-        new[] { "pulls-open", "pull", "pull-unknown" }.Select(n => RecordingReplay.Get("github", n)).ToList();
+        new[] { "pulls-open", "pull", "pull-unknown", "git-commit", "compare-files" }.Select(n => RecordingReplay.Get("github", n)).ToList();
 
     private static LoopbackHttpServer GitHub() => LoopbackHttpServer.Start(head =>
         RecordingReplay.Respond(RecordingReplay.Match(Exchanges, head) ?? throw new InvalidOperationException($"nothing recorded for {head}")));
@@ -59,6 +59,34 @@ public class RecordedGitHubPullRequestTests
         await Assert.That(pull.Base.Ref).IsEqualTo("main");
         await Assert.That(pull.FromFork).IsFalse();
         await Assert.That(pull.MergedAt is not null).IsEqualTo(recorded["merged_at"] is not null);
+        await Assert.That(pull.MergeCommitSha).IsEqualTo(recorded["merge_commit_sha"]!.GetValue<string>());
+    }
+
+    [Test]
+    public async Task A_merge_commit_reads_as_its_tree_and_parents()
+    {
+        await using var server = GitHub();
+        var recorded = RecordingReplay.Get("github", "git-commit").Response.Body!;
+
+        var result = await Source(server).GetCommitAsync(Binding(), recorded["sha"]!.GetValue<string>());
+
+        await Assert.That(result).Succeeded();
+        var commit = TestRunDomain.Pick(result);
+        await Assert.That(commit.Tree.Sha).IsEqualTo(recorded["tree"]!["sha"]!.GetValue<string>());
+        await Assert.That(commit.Parents.Select(p => p.Sha)).IsEquivalentTo(recorded["parents"]!.AsArray().Select(p => p!["sha"]!.GetValue<string>()));
+    }
+
+    [Test]
+    public async Task A_comparison_reads_as_the_paths_it_changes()
+    {
+        await using var server = GitHub();
+        var exchange = RecordingReplay.Get("github", "compare-files");
+        var range = exchange.Request.Url.Split("/compare/")[1].Split("...");
+
+        var result = await Source(server).ChangedFilesAsync(Binding(), range[0], range[1]);
+
+        await Assert.That(result).Succeeded();
+        await Assert.That(TestRunDomain.Pick(result)).IsEquivalentTo(exchange.Response.Body!["files"]!.AsArray().Select(f => f!["filename"]!.GetValue<string>()));
     }
 
     [Test]

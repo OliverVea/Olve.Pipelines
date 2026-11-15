@@ -16,7 +16,7 @@ public class CiPersistenceServiceTests
     {
         var pulls = new EntityStore<PullRequest>([]);
         var readiness = new PersistenceReadiness();
-        return (new CiPersistenceService(pulls, new StorageOptions("bucket"), readiness, NullLogger<CiPersistenceService>.Instance, store), pulls, readiness);
+        return (new CiPersistenceService(pulls, new EntityStore<CiRun>([]), new EntityStore<CiAttempt>([]), new StorageOptions("bucket"), readiness, NullLogger<CiPersistenceService>.Instance, store), pulls, readiness);
     }
 
     [Test]

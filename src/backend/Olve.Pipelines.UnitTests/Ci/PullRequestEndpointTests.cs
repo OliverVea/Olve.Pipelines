@@ -31,7 +31,7 @@ public class PullRequestEndpointTests
 
     private static async Task<Contract.PullList> List(ServiceProvider provider, Id<Pipeline> id, string? state = null, int? offset = null, int? limit = null)
     {
-        var response = await new ListPullsHandler(provider.GetRequiredService<PipelineService>(), provider.GetRequiredService<PullRequestService>())
+        var response = await new ListPullsHandler(provider.GetRequiredService<PipelineService>(), provider.GetRequiredService<PullRequestService>(), provider.GetRequiredService<CiRunViewService>())
             .HandleAsync(new Contract.CiPullsListRequest(id.Value.Value, state, offset, limit), default);
         return ((Contract.CiPullsListResponse.Ok)response).Body;
     }
@@ -76,7 +76,7 @@ public class PullRequestEndpointTests
         var (provider, id) = Build();
         await using var _ = provider;
 
-        var response = await new GetPullHandler(provider.GetRequiredService<PipelineService>(), provider.GetRequiredService<PullRequestService>())
+        var response = await new GetPullHandler(provider.GetRequiredService<PipelineService>(), provider.GetRequiredService<PullRequestService>(), provider.GetRequiredService<CiRunViewService>())
             .HandleAsync(new Contract.CiPullsGetRequest(id.Value.Value, 41), default);
 
         await Assert.That(((Contract.CiPullsGetResponse.NotFound)response).Body.Detail).IsEqualTo($"Pull request #41 not found in pipeline '{id}'.");

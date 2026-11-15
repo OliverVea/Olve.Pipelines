@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.Jobs;
@@ -51,5 +52,35 @@ public abstract class JobExecutorBase(
         });
     }
 
+    protected IServiceScopeFactory ScopeFactory => scopeFactory;
+
+    public void EnsureRunning(Id<CiAttempt> id)
+    {
+        registry.EnsureRunning(JobWatchKey.Of(id), async () =>
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var attempts = scope.ServiceProvider.GetRequiredService<CiAttemptService>();
+            if (!attempts.TryGet(id, out var attempt) || !attempt.Status.IsActive())
+                return;
+            if (scope.ServiceProvider.GetRequiredService<IJobExecutor>() is not JobExecutorBase executor)
+                throw new InvalidOperationException("The resolved executor is not a JobExecutorBase.");
+
+            try
+            {
+                await executor.RunCiToCompletionAsync(attempt, lifetime.ApplicationStopping);
+            }
+            catch (OperationCanceledException) when (lifetime.ApplicationStopping.IsCancellationRequested)
+            {
+                logger.LogInformation("Watcher for CI attempt '{AttemptId}' cancelled during shutdown; it reattaches on the next start", id);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unhandled exception in watcher for CI attempt '{AttemptId}'", id);
+            }
+        });
+    }
+
     protected internal abstract Task RunToCompletionAsync(Attempt attempt, CancellationToken ct);
+
+    protected internal abstract Task RunCiToCompletionAsync(CiAttempt attempt, CancellationToken ct);
 }

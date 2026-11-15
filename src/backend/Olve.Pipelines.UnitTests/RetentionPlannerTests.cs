@@ -397,6 +397,31 @@ public class RetentionPlannerTests
         await Assert.That(plan.Jobs.Select(j => j.Name)).IsEquivalentTo(new[] { jobs[1].Name, "olve-fh-x" });
     }
 
+    // Catches: retention deleting a running CI attempt's Job or URL Secret, or the binary a running CI run uses.
+    [Test]
+    public async Task CiJobsSecretsAndBinaries_FollowTheirCiAttemptsAndRuns()
+    {
+        string Ci() => $"olve-ci-{Guid.NewGuid():N}";
+        var (live, ended, waiting) = (Ci(), Ci(), Ci());
+        var ciVersion = new PipelineVersion(Id.New<PipelineVersion>(), P, 3, "{}", "sha256:x", "c", $"versions/{Hex(P)}/builds/c/step.tar.gz",
+            new Dictionary<string, int>(), new Dictionary<string, int>(), Now.AddDays(-400));
+        var inputs = Inputs(
+            versions: [ciVersion],
+            objects: [Obj(ciVersion.BinaryKey, ageDays: 400)],
+            jobs: [Job(live, "ci-step", P, finished: false, 5), Job(ended, "ci-step", P, finished: false, 5)],
+            secrets: [new ClusterSecret($"{waiting}-urls", Now.AddHours(-5)), new ClusterSecret($"{ended}-urls", Now.AddHours(-5))]) with
+        {
+            CiJobs = new Dictionary<string, bool> { [live] = true, [ended] = false, [waiting] = true },
+            CiVersions = new HashSet<Id<PipelineVersion>> { ciVersion.Id },
+        };
+
+        var plan = RetentionPlanner.Plan(inputs, Options);
+
+        await Assert.That(plan.Jobs.Select(j => j.Name)).IsEquivalentTo([ended]);
+        await Assert.That(plan.Secrets.Select(x => x.Name)).IsEmpty();
+        await Assert.That(plan.Objects).IsEmpty();
+    }
+
     [Test]
     public async Task UnavailableListings_SkipTheirPart()
     {

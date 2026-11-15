@@ -32,6 +32,24 @@ public class NoOpJobExecutorPendingStore
 
     public int PendingCount => _pending.Count;
 
+    private readonly ConcurrentDictionary<Id<Pipelines.Ci.CiAttempt>, TaskCompletionSource<NoOpJobResult>> _ci = new();
+
+    public TaskCompletionSource<NoOpJobResult> Register(Id<Pipelines.Ci.CiAttempt> attemptId)
+    {
+        var tcs = new TaskCompletionSource<NoOpJobResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _ci[attemptId] = tcs;
+        return tcs;
+    }
+
+    public bool HasPendingJob(Id<Pipelines.Ci.CiAttempt> attemptId) => _ci.ContainsKey(attemptId);
+
+    public void Finish(Id<Pipelines.Ci.CiAttempt> attemptId, NoOpJobResult result)
+    {
+        if (!_ci.TryRemove(attemptId, out var tcs))
+            throw new InvalidOperationException($"No pending execution for CI attempt '{attemptId}'.");
+        tcs.TrySetResult(result);
+    }
+
     private TaskCompletionSource Registered(Id<Attempt> jobId)
         => _registered.GetOrAdd(jobId, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
 }

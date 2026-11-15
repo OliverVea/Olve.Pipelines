@@ -1,0 +1,194 @@
+using System.Text.Json.Nodes;
+using Olve.Pipelines.GitHub;
+using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.Shared;
+
+namespace Olve.Pipelines.Pipelines.Ci;
+
+/// <summary>Cancels CI runs and their attempts; the watchers then delete the attempts' Jobs. Transient.</summary>
+public class CiCancellationService(CiRunService runs, CiAttemptService attempts, CiSchedulingLock schedulingLock, ILogger<CiCancellationService> logger)
+{
+    /// <summary>Ends a running run as <paramref name="status"/>, cancelling its scheduled and in-progress attempts.</summary>
+    public Result<CiRun> End(CiRun run, RunStatus status, CiCancelReason? reason = null, int? supersededBy = null) => schedulingLock.Run(() =>
+    {
+        if (!runs.TryGet(run.Id, out var current))
+            return new NotFoundProblem("CI run #{0} not found.", run.Number);
+        if (current.Status.IsTerminal())
+            return new ConflictProblem("CI run #{0} is already {1}.", run.Number, current.Status.ToString().ToLowerInvariant());
+
+        // The run ends first: its attempts' cancellation then finds it ended instead of ending it as plain cancelled.
+        var ended = runs.Complete(run.Id, status, reason, supersededBy);
+        foreach (var attempt in attempts.ListByRun(run.Id).Where(a => a.Status.IsActive()))
+            attempts.Cancel(attempt.Id).DiscardResult();
+        logger.LogInformation("CI run #{RunNumber} of pull request #{Pull} in pipeline '{PipelineId}' ended {Status}{Reason}",
+            run.Number, run.Pull, run.PipelineId, status, reason is { } r ? $" ({r})" : supersededBy is { } n ? $" by #{n}" : "");
+        return ended;
+    });
+
+    /// <summary>Cancels the pull request's running runs (it closed, merged or left the binding's branch).</summary>
+    public void CancelPull(Id<Pipeline> pipelineId, int pull, CiCancelReason reason)
+    {
+        foreach (var run in runs.ListByPull(pipelineId, pull).Where(r => r.Status is RunStatus.Running))
+            End(run, RunStatus.Cancelled, reason).DiscardResult();
+    }
+}
+
+/// <summary>Why no CI run started for a pull request.</summary>
+public enum CiStartSkip
+{
+    /// <summary>The pipeline's active version declares no CI.</summary>
+    NoCi,
+
+    /// <summary>The pull request doesn't merge onto the base branch.</summary>
+    Conflict,
+
+    /// <summary>A newer push replaced the head being started; that push starts its own run.</summary>
+    Moved,
+}
+
+/// <summary>What starting a CI run did: a run, or why none started.</summary>
+public sealed record CiStart(CiRun? Run, CiStartSkip? Skipped)
+{
+    public static CiStart Of(CiRun run) => new(run, null);
+    public static CiStart Skip(CiStartSkip why) => new(null, why);
+}
+
+/// <summary>
+/// Starts CI runs of pull requests. It reads the pull request from GitHub until GitHub has decided whether it merges
+/// (<c>mergeable</c> is null while GitHub computes it), then tests GitHub's merge commit with the CI definition of the
+/// pipeline's active version. A pull request that changes the definition itself gets a failed run: a pull request's
+/// own definition is not built yet. A new run supersedes the pull request's running run. Transient.
+/// </summary>
+public class CiRunStartService(
+    PullRequestService pulls,
+    IPullRequestSource source,
+    PipelineConfigBindingService bindings,
+    PipelineActivationService activations,
+    PipelineVersionService versions,
+    RunPlanCache plans,
+    CiPlanCache ciPlans,
+    ConfigSnapshotService configSnapshots,
+    DeployPollService configSync,
+    CiRunService runs,
+    CiCancellationService cancellation,
+    CiScheduler scheduler,
+    CiSchedulingLock schedulingLock,
+    TimeProvider time,
+    ILogger<CiRunStartService> logger)
+{
+    /// <summary>The waits between reads of a pull request whose mergeability GitHub hasn't decided yet.</summary>
+    internal static readonly TimeSpan[] MergeableBackoff =
+        [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(16), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30)];
+
+    /// <param name="expectedHead">For an automatic start: the head that was debounced; a pull request that moved on since starts nothing.</param>
+    public async Task<Result<CiStart>> StartAsync(Id<Pipeline> pipelineId, int number, string? expectedHead = null, CancellationToken ct = default)
+    {
+        if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var bindingProblems, out var binding))
+            return bindingProblems;
+        if (!pulls.TryGet(pipelineId, number, out var tracked))
+            return new NotFoundProblem("Pull request #{0} not found in pipeline '{1}'.", number, pipelineId);
+        if (tracked.State != PullRequestState.Open)
+            return new ConflictProblem("Pull request #{0} is {1}.", number, tracked.State.ToString().ToLowerInvariant());
+        if (!activations.TryGet(pipelineId, out var activation) || activation is not PipelineActivation.Active active
+            || !versions.TryGet(active.VersionId, out var version))
+            return new ConflictProblem("Pipeline '{0}' has no active version to run CI with.", pipelineId);
+        if (ciPlans.Get(version.Id).TryPickProblems(out _))
+            return CiStart.Skip(CiStartSkip.NoCi);
+
+        if ((await DecidedAsync(binding, number, ct)).TryPickProblems(out var readProblems, out var reported))
+            return readProblems;
+        pulls.Observe(pipelineId, binding.Branch, reported, time.GetUtcNow());
+        if (expectedHead is not null && reported.Head.Sha != expectedHead)
+            return CiStart.Skip(CiStartSkip.Moved);
+        if (reported.Mergeable == false)
+        {
+            logger.LogInformation("Pull request #{Pull} of pipeline '{PipelineId}' doesn't merge onto '{Branch}': no CI run", number, pipelineId, binding.Branch);
+            return CiStart.Skip(CiStartSkip.Conflict);
+        }
+
+        if (reported.MergeCommitSha is not { Length: > 0 } tested)
+            return new UnavailableProblem("GitHub reported no merge commit for pull request #{0}.", number);
+        if ((await source.GetCommitAsync(binding, tested, ct)).TryPickProblems(out var commitProblems, out var commit))
+            return commitProblems;
+        if (commit.Parents.Length == 0)
+            return new UnavailableProblem("Merge commit {0} of pull request #{1} has no parents.", tested, number);
+
+        var problems = new List<string>();
+        if ((await OwnDefinitionAsync(binding, version, tested, ct)).TryPickProblems(out var compareProblems, out var ownDefinition))
+            return compareProblems;
+        if (ownDefinition is not null)
+            problems.Add($"{ownDefinition} CI runs only with the active version's definition so far, so it can't check this pull request.");
+
+        var config = PinConfig(pipelineId, version, problems);
+        var input = new JsonObject { ["repo"] = binding.Repo, ["sha"] = tested }.ToJsonString();
+
+        var run = schedulingLock.Run(() =>
+        {
+            var created = runs.Create(new CiRunRequest(pipelineId, number, reported.Title, reported.Head.Ref, reported.Draft, reported.Head.Sha,
+                tested, commit.Tree.Sha, commit.Parents[0].Sha, version, input, config.Snapshot, config.Config, problems));
+            foreach (var older in runs.ListByPull(pipelineId, number).Where(r => r.Id != created.Id && r.Status is RunStatus.Running))
+                cancellation.End(older, RunStatus.Superseded, supersededBy: created.Number).DiscardResult();
+            scheduler.Advance(created.Id);
+            return created;
+        });
+        logger.LogInformation("Started CI run #{RunNumber} of pull request #{Pull} ({HeadSha} merged as {TestedSha}) in pipeline '{PipelineId}' on version {VersionNumber}",
+            run.Number, number, reported.Head.Sha, tested, pipelineId, version.Number);
+        return CiStart.Of(run);
+    }
+
+    /// <summary>The pull request once GitHub has decided whether it merges, read again with backoff while it hasn't.</summary>
+    private async Task<Result<GitHubPullRequest>> DecidedAsync(PipelineConfigBinding binding, int number, CancellationToken ct)
+    {
+        for (var i = 0; ; i++)
+        {
+            if ((await source.GetAsync(binding, number, ct)).TryPickProblems(out var problems, out var reported))
+                return problems;
+            if (reported is null)
+                return new NotFoundProblem("GitHub has no pull request #{0} in '{1}'.", number, binding.Repo);
+            if (reported.Mergeable is not null || i >= MergeableBackoff.Length)
+                return reported.Mergeable is null
+                    ? new UnavailableProblem("GitHub hasn't decided whether pull request #{0} merges.", number)
+                    : reported;
+            await Task.Delay(MergeableBackoff[i], time, ct);
+        }
+    }
+
+    /// <summary>
+    /// Why the tested commit needs a definition of its own (it changes a watched path against the active version's
+    /// commit, or GitHub's list is cut short so it may), or null.
+    /// </summary>
+    private const int GitHubCompareFileLimit = 300;
+
+    private async Task<Result<string?>> OwnDefinitionAsync(PipelineConfigBinding binding, PipelineVersion version, string tested, CancellationToken ct)
+    {
+        if (version.CommitSha is not { } built)
+            return Result.Success<string?>(null);
+        if ((await source.ChangedFilesAsync(binding, built, tested, ct)).TryPickProblems(out var problems, out var files))
+            return problems;
+        var watched = configSync.WatchedPaths(binding);
+        if (files.FirstOrDefault(f => watched.Any(w => w.Length == 0 || f == w || f.StartsWith(w + "/", StringComparison.Ordinal))) is { } path)
+            return Result.Success<string?>($"This pull request changes the pipeline's definition ('{path}').");
+        return Result.Success<string?>(files.Count >= GitHubCompareFileLimit
+            ? $"This pull request changes more files than GitHub lists ({GitHubCompareFileLimit}), so it may change the pipeline's definition."
+            : null);
+    }
+
+    private (int? Snapshot, string? Config) PinConfig(Id<Pipeline> pipelineId, PipelineVersion version, List<string> problems)
+    {
+        if (plans.Get(version.Id).TryPickProblems(out _, out var plan) || plan.Manifest.Config.Count == 0)
+            return (null, null);
+        configSnapshots.TryGetLatest(pipelineId, out var snapshot);
+        if (ConfigValidation.Effective(plan.Manifest, configSnapshots.Document(snapshot)).TryPickProblems(out var invalid, out var effective))
+        {
+            problems.Add($"Config {(snapshot is null ? "(none saved)" : $"#{snapshot.Number}")} does not satisfy version {version.Number}: " +
+                         string.Join("; ", invalid.Select(p => p.ToDisplayString())) + ".");
+            return (snapshot?.Number, null);
+        }
+
+        return (snapshot?.Number, effective.ToJsonString());
+    }
+}

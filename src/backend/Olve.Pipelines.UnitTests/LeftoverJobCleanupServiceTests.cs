@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Ci;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
@@ -74,6 +75,33 @@ public class LeftoverJobCleanupServiceTests
         await Assert.That(leftovers.Select(j => j.Name)).IsEquivalentTo([ended]);
     }
 
+    // Catches: a restart deleting the Jobs of running CI attempts, or leaving a finished CI attempt's Job behind.
+    [Test]
+    public async Task CiJobs_AreJudgedByTheirCiAttempts()
+    {
+        var pipeline = new IdProvider().Create<Pipeline>();
+        string Ci() => $"{CiAttempt.JobPrefix}{Guid.NewGuid():N}";
+        var live = Ci();
+        var ended = Ci();
+        var orphan = Ci();
+
+        var leftovers = LeftoverJobCleanupService.Leftovers(
+            [Job(live, pipeline, Before, role: "ci-step"), Job(ended, pipeline, Before, role: "ci-step"), Job(orphan, pipeline, Before, role: "ci-step"),
+                Job(Ci(), pipeline, After, role: "ci-step")],
+            new HashSet<Id<Pipeline>> { pipeline },
+            new Dictionary<string, bool> { [live] = true, [ended] = false },
+            ProcessStart);
+
+        await Assert.That(leftovers.Select(j => j.Name)).IsEquivalentTo([ended, orphan]);
+    }
+
+    [Test]
+    [Arguments("olve-0123", "olve-urls-0123")]
+    [Arguments("olve-0123-preflight", "olve-urls-0123-preflight")]
+    [Arguments("olve-ci-0123", "olve-ci-0123-urls")]
+    public async Task A_jobs_url_secret_follows_its_kind(string job, string secret) =>
+        await Assert.That(LeftoverJobCleanupService.UrlSecretOf(job)).IsEqualTo(secret);
+
     [Test]
     public async Task DeletesTheJobAndItsUrlSecret()
     {
@@ -82,7 +110,7 @@ public class LeftoverJobCleanupServiceTests
         var k8s = new FakeKubernetes();
         var service = new LeftoverJobCleanupService(
             new FakeInventory(Job($"olve-{hex}", s.Pipeline.Id, Before)), k8s, new KubernetesOptions("runners"),
-            s.D.Pipelines, s.D.Attempts, TimeProvider.System, NullLogger<LeftoverJobCleanupService>.Instance);
+            s.D.Pipelines, s.D.Attempts, new EntityStore<CiAttempt>([]), TimeProvider.System, NullLogger<LeftoverJobCleanupService>.Instance);
 
         await service.DeleteLeftoversAsync(CancellationToken.None);
 

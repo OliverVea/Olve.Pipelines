@@ -33,7 +33,7 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
         IReadOnlyDictionary<string, string> fileUrls = new Dictionary<string, string>();
         if (input is { } json)
         {
-            var map = await HarnessFileRefs.BuildUrlMapAsync(attempt.PipelineId, HarnessFileRefs.Find(json), presigner, lateExpiry, ct);
+            var map = await HarnessFileRefs.BuildUrlMapAsync(attempt.FileObjectKey, HarnessFileRefs.Find(json), presigner, lateExpiry, ct);
             if (map.TryPickProblems(out var problems, out var urls))
                 return Result.Failure<HarnessJobSpec>(problems);
             fileUrls = urls;

@@ -28,7 +28,14 @@ public sealed record RetentionInputs(
     IReadOnlyList<ClusterJob>? Jobs,
     IReadOnlyList<ClusterSecret>? Secrets,
     IReadOnlySet<Id<Run>>? PinnedRuns = null,
-    IReadOnlyDictionary<Id<Pipeline>, RetentionPolicy>? Policies = null);
+    IReadOnlyDictionary<Id<Pipeline>, RetentionPolicy>? Policies = null)
+{
+    /// <summary>Each CI attempt's Job name and whether the attempt is still active.</summary>
+    public IReadOnlyDictionary<string, bool> CiJobs { get; init; } = new Dictionary<string, bool>();
+
+    /// <summary>The versions running CI runs use: their binaries stay.</summary>
+    public IReadOnlySet<Id<PipelineVersion>> CiVersions { get; init; } = new HashSet<Id<PipelineVersion>>();
+}
 
 public enum RetentionCategory
 {
@@ -72,9 +79,9 @@ public static class RetentionPlanner
     private const string BinaryFile = "step.tar.gz";
 
     /// <summary>Roles v2 gives its Jobs (v1's bare failure-handler Jobs use <c>failure-handler</c>; its step Jobs have no role).</summary>
-    private static readonly HashSet<string> V2Roles = new(StringComparer.Ordinal) { "step", "map-trigger", "build", "on-failure" };
+    private static readonly HashSet<string> V2Roles = new(StringComparer.Ordinal) { "step", "ci-step", "map-trigger", "build", "on-failure" };
 
-    private static readonly string[] HelperJobPrefixes = ["olve-map-", "olve-fh-", "olve-build-"];
+    private static readonly string[] HelperJobPrefixes = ["olve-map-", "olve-fh-", "olve-build-", "olve-ci-"];
 
     public static RetentionPlan Plan(RetentionInputs inputs, RetentionOptions options)
     {
@@ -92,7 +99,7 @@ public static class RetentionPlanner
         {
             objects.AddRange(RunObjects(listing, expired, retainedRuns, retainedAttempts, inputs.Now, options));
             // A deleted pipeline's binaries can't become a version any more, so they are leftovers.
-            var (builds, keptCount) = Builds(listing, inputs.Versions, retainedRuns, inputs.Activations, inputs.Now,
+            var (builds, keptCount) = Builds(listing, inputs.Versions, retainedRuns, inputs.CiVersions, inputs.Activations, inputs.Now,
                 p => inputs.Pipelines.Contains(p) ? PolicyOf(p).BuildGrace : options.OrphanGrace);
             objects.AddRange(builds);
             buildsKept = keptCount;
@@ -101,9 +108,9 @@ public static class RetentionPlanner
                 .Select(o => new ObjectDeletion(RetentionCategory.TriggerEvent, o.Key, o)));
         }
 
-        var jobs = inputs.Jobs is { } j ? Jobs(j, inputs.Pipelines, retainedAttempts, inputs.Now, options) : [];
+        var jobs = inputs.Jobs is { } j ? Jobs(j, inputs.Pipelines, retainedAttempts, inputs.CiJobs, inputs.Now, options) : [];
         var secrets = inputs.Secrets is { } s && inputs.Jobs is { } allJobs
-            ? Secrets(s, allJobs, retainedAttempts, inputs.Now, options.ClusterGrace)
+            ? Secrets(s, allJobs, retainedAttempts, inputs.CiJobs, inputs.Now, options.ClusterGrace)
             : [];
 
         return new RetentionPlan(expired, kept, objects, buildsKept, secrets, jobs);
@@ -211,10 +218,10 @@ public static class RetentionPlanner
 
     private static (IReadOnlyList<ObjectDeletion> Deletions, int Kept) Builds(
         IReadOnlyList<StoredObject> listing, IReadOnlyList<PipelineVersion> versions, IReadOnlyList<Run> retainedRuns,
-        IReadOnlyDictionary<Id<Pipeline>, PipelineActivation> activations, DateTimeOffset now, Func<Id<Pipeline>, TimeSpan> graceOf)
+        IReadOnlySet<Id<PipelineVersion>> ciVersions, IReadOnlyDictionary<Id<Pipeline>, PipelineActivation> activations, DateTimeOffset now, Func<Id<Pipeline>, TimeSpan> graceOf)
     {
         var byId = versions.ToDictionary(v => v.Id);
-        var inUse = new HashSet<Id<PipelineVersion>>(retainedRuns.Select(r => r.VersionId));
+        var inUse = new HashSet<Id<PipelineVersion>>(retainedRuns.Select(r => r.VersionId).Concat(ciVersions));
         foreach (var activation in activations.Values)
         {
             switch (activation)
@@ -249,7 +256,7 @@ public static class RetentionPlanner
 
     private static IReadOnlyList<ClusterJob> Jobs(
         IReadOnlyList<ClusterJob> jobs, IReadOnlySet<Id<Pipeline>> pipelines, IReadOnlyList<Attempt> retainedAttempts,
-        DateTimeOffset now, RetentionOptions options)
+        IReadOnlyDictionary<string, bool> ciJobs, DateTimeOffset now, RetentionOptions options)
     {
         var mine = pipelines.Select(Hex).ToHashSet(StringComparer.Ordinal);
         var attempts = retainedAttempts.ToDictionary(a => a.KubernetesJobName, StringComparer.Ordinal);
@@ -264,6 +271,7 @@ public static class RetentionPlanner
             var age = now - job.Created;
             var leakedStep = role == "step" && !job.Finished && age > options.ClusterGrace
                              && !(attempts.TryGetValue(job.Name, out var attempt) && attempt.Status.IsActive());
+            leakedStep |= role == "ci-step" && !job.Finished && age > options.ClusterGrace && !ciJobs.GetValueOrDefault(job.Name);
             var stale = job.Finished && job.TtlSecondsAfterFinished is null && age > options.FinishedJobMaxAge;
             if (leakedStep || stale)
                 result.Add(job);
@@ -274,7 +282,7 @@ public static class RetentionPlanner
 
     private static IReadOnlyList<ClusterSecret> Secrets(
         IReadOnlyList<ClusterSecret> secrets, IReadOnlyList<ClusterJob> jobs, IReadOnlyList<Attempt> retainedAttempts,
-        DateTimeOffset now, TimeSpan grace)
+        IReadOnlyDictionary<string, bool> ciJobs, DateTimeOffset now, TimeSpan grace)
     {
         var jobsByName = jobs.ToDictionary(j => j.Name, StringComparer.Ordinal);
         var attempts = retainedAttempts.ToDictionary(a => a.Id.Value.Value.ToString("N"), StringComparer.Ordinal);
@@ -299,6 +307,8 @@ public static class RetentionPlanner
                      && HelperJobPrefixes.Any(p => secret.Name.StartsWith(p, StringComparison.Ordinal)))
             {
                 jobName = secret.Name[..^"-urls".Length];
+                if (ciJobs.GetValueOrDefault(jobName))
+                    continue;
             }
             else
             {

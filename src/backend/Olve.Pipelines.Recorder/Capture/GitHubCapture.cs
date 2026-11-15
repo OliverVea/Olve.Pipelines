@@ -41,10 +41,22 @@ internal static partial class GitHubCapture
         "commits.commit.url", "commits.commit.verification", "commits.committer", "commits.node_id", "commits.parents", "commits.url",
     ];
 
+    /// <summary>A git commit keeps its sha, its tree's sha and its parents' shas: no author, message or signature.</summary>
+    private static readonly string[] GitCommitElisions =
+        ["author", "committer", "html_url", "message", "node_id", "url", "verification", "tree.url", "parents.url", "parents.html_url"];
+
+    /// <summary>A comparison read for its changed files keeps only each file's name: no commits, diffs or links.</summary>
+    private static readonly string[] CompareFilesElisions =
+    [
+        "ahead_by", "base_commit", "behind_by", "commits", "diff_url", "html_url", "merge_base_commit", "patch_url", "permalink_url",
+        "status", "total_commits", "url", "files.additions", "files.blob_url", "files.changes", "files.contents_url", "files.deletions",
+        "files.patch", "files.previous_filename", "files.raw_url", "files.sha", "files.status",
+    ];
+
     /// <summary>All of a pull request the service reads; everything else (bodies, users, links, ids) is dropped.</summary>
     private static readonly string[] PullFields =
     [
-        "number", "title", "state", "draft", "merged_at", "updated_at", "mergeable",
+        "number", "title", "state", "draft", "merged_at", "updated_at", "mergeable", "merge_commit_sha",
         "head.ref", "head.sha", "head.repo.full_name", "base.ref", "base.repo.full_name",
     ];
 
@@ -81,7 +93,12 @@ internal static partial class GitHubCapture
         await GetAsync("pulls-open", $"/repos/{Repo}/pulls?state=open&base={Branch}&per_page=100&page=1", elided: PullElisions);
         var (_, closedText) = await GetAsync("pulls-listed", $"/repos/{Repo}/pulls?state=closed&base={Branch}&per_page=2&page=1", elided: PullElisions);
         var pullNumber = JsonNode.Parse(closedText)![0]!["number"]!.GetValue<int>();
-        await GetAsync("pull", $"/repos/{Repo}/pulls/{pullNumber}", elided: PullElisions);
+        var (_, pullText) = await GetAsync("pull", $"/repos/{Repo}/pulls/{pullNumber}", elided: PullElisions);
+
+        // What a CI run reads of the commit it tests: the merge commit's tree and parents, and the files it changes.
+        var mergeCommit = JsonNode.Parse(pullText)!["merge_commit_sha"]!.GetValue<string>();
+        await GetAsync("git-commit", $"/repos/{Repo}/git/commits/{mergeCommit}", elided: GitCommitElisions);
+        await GetAsync("compare-files", $"/repos/{Repo}/compare/{compareBase}...{headSha}", elided: CompareFilesElisions);
         await GetAsync("pull-unknown", $"/repos/{Repo}/pulls/999999");
 
         var (cursor, cursorText) = await CursorAsync("config-cursor", Path);
@@ -130,7 +147,7 @@ internal static partial class GitHubCapture
     [
         "_links", "active_lock_reason", "additions", "assignee", "assignees", "author_association", "auto_merge", "body",
         "changed_files", "closed_at", "comments", "comments_url", "commits", "commits_url", "created_at", "deletions", "diff_url",
-        "html_url", "id", "issue_url", "labels", "locked", "maintainer_can_modify", "merge_commit_sha", "mergeable_state", "merged",
+        "html_url", "id", "issue_url", "labels", "locked", "maintainer_can_modify", "mergeable_state", "merged",
         "merged_by", "milestone", "node_id", "patch_url", "rebaseable", "requested_reviewers", "requested_teams",
         "review_comment_url", "review_comments", "review_comments_url", "statuses_url", "url", "user",
         "head.label", "head.user", "base.label", "base.user",

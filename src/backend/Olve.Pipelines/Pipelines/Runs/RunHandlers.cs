@@ -330,7 +330,7 @@ public static class RunViews
         _ => throw new UnreachableException(),
     };
 
-    private static Contract.AttemptTimings ToApi(AttemptTimings t) => new()
+    internal static Contract.AttemptTimings ToApi(AttemptTimings t) => new()
     {
         PodCreatedAt = t.PodCreatedAt,
         InitStartedAt = t.InitStartedAt,

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Olve.Pipelines.Kubernetes.Harness;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
@@ -81,6 +82,29 @@ public class HarnessJobFactoryTests
         await Assert.That(new[] { identity.InputKey, identity.ResultArchiveKey, identity.LogKey, identity.OutputKey, identity.FilesPrefix })
             .IsEquivalentTo(new[] { $"{prefix}/input.json", $"{prefix}/result.tar.gz", $"{prefix}/log", $"{prefix}/output.json", $"{prefix}/files" },
                 TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    // Catches: a CI Job CD's cleanup, retention or reattach would misread as its own, or a CI step reading files from runs/.
+    [Test]
+    public async Task ACiAttemptsJob_HasItsOwnNamesRoleAndKeys_AndReadsFilesUnderCi()
+    {
+        var attempt = new CiAttempt(Id.New<CiAttempt>(), HarnessJobBuilderTests.PipelineId, Id.New<CiRun>(), 7, "hello", 2, new AttemptStatus.Scheduled(),
+            DateTimeOffset.UnixEpoch);
+        var hex = attempt.Id.Value.Value.ToString("N");
+        var pipelineHex = HarnessJobBuilderTests.PipelineId.Value.Value.ToString("N");
+        var prefix = $"ci/{pipelineHex}/7/hello/2";
+
+        var identity = HarnessAttemptIdentity.Of(attempt);
+        var spec = TestRunDomain.Pick(await Factory().CreateStepJobAsync(identity, "versions/p/builds/x/step.tar.gz", "ci.7", Step(), JsonDocument.Parse(Files).RootElement));
+
+        await Assert.That(spec.Job.Metadata.Name).IsEqualTo($"olve-ci-{hex}");
+        await Assert.That(spec.UrlSecretName).IsEqualTo($"olve-ci-{hex}-urls");
+        await Assert.That(spec.Job.Metadata.Labels!["olve-role"]).IsEqualTo("ci-step");
+        await Assert.That(new[] { identity.InputKey, identity.ResultArchiveKey, identity.LogKey, identity.OutputKey, identity.FilesPrefix })
+            .IsEquivalentTo(new[] { $"{prefix}/input.json", $"{prefix}/result.tar.gz", $"{prefix}/log", $"{prefix}/output.json", $"{prefix}/files" },
+                TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        foreach (var url in JsonSerializer.Deserialize<Dictionary<string, string>>(spec.UrlSecretData[HarnessJobBuilder.FileUrlsKey])!.Values)
+            await Assert.That(url!).Contains($"/ci/{pipelineHex}/1/build/1/files/");
     }
 
     [Test]

@@ -1,0 +1,277 @@
+using System.Collections.Concurrent;
+using System.Text.Json;
+using Olve.Pipelines.Pipelines.Manifests;
+using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.Shared;
+using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
+
+namespace Olve.Pipelines.Pipelines.Ci;
+
+/// <summary>Each version's CI plan: its manifest's <c>ci</c> stages, flattened like a pipeline's. Singleton (versions are immutable).</summary>
+public class CiPlanCache(RunPlanCache plans, PipelineVersionService versions)
+{
+    public bool BinaryKey(Id<PipelineVersion> versionId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? key)
+    {
+        key = versions.TryGet(versionId, out var version) ? version.BinaryKey : null;
+        return key is not null;
+    }
+
+    private readonly ConcurrentDictionary<Id<PipelineVersion>, Result<RunPlan>> _plans = new();
+
+    public Result<RunPlan> Get(Id<PipelineVersion> versionId) => _plans.GetOrAdd(versionId, id =>
+    {
+        if (plans.Get(id).TryPickProblems(out var problems, out var plan))
+            return problems;
+        if (plan.Manifest.Ci is not { } ci)
+            return new ConflictProblem("The version declares no CI.");
+        if (RunPlan.HasSelect(ci.Stages))
+            return new ConflictProblem("CI stages that branch on config (select) are not supported.");
+        return RunPlan.From(plan.Manifest with { Stages = ci.Stages });
+    });
+}
+
+/// <summary>
+/// The single lock of CI scheduling (runs and attempts of every pipeline). A nested advance of a run that is being
+/// advanced is deferred to the outer loop, as in <see cref="RunSchedulingLock"/>. Singleton.
+/// </summary>
+public sealed class CiSchedulingLock
+{
+    private readonly Lock _lock = new();
+    private readonly HashSet<Id<CiRun>> _advancing = [];
+    private readonly HashSet<Id<CiRun>> _dirty = [];
+    private const int MaxPasses = 64;
+
+    public void Run(Action action)
+    {
+        lock (_lock) action();
+    }
+
+    public T Run<T>(Func<T> action)
+    {
+        lock (_lock) return action();
+    }
+
+    public void Advance(Id<CiRun> runId, Action advance)
+    {
+        lock (_lock)
+        {
+            if (!_advancing.Add(runId))
+            {
+                _dirty.Add(runId);
+                return;
+            }
+
+            try
+            {
+                var passes = 0;
+                do
+                {
+                    _dirty.Remove(runId);
+                    advance();
+                } while (_dirty.Contains(runId) && ++passes < MaxPasses);
+            }
+            finally
+            {
+                _advancing.Remove(runId);
+                _dirty.Remove(runId);
+            }
+        }
+    }
+}
+
+/// <summary>
+/// Drives a CI run through its stages, like <see cref="StageScheduler"/> does a CD run: the stage barrier, <c>when</c>
+/// on the CI input (excluded steps get no attempt), skip propagation and <c>retries</c>. None of CD's rules across runs
+/// apply: no busy key per step, no latest-wins, no superseding of overtaken runs, no blocked steps. Transient.
+/// </summary>
+public class CiScheduler(
+    CiRunService runs,
+    CiAttemptService attempts,
+    CiPlanCache plans,
+    CiSchedulingLock schedulingLock,
+    ILogger<CiScheduler> logger)
+{
+    public void Advance(Id<CiRun> runId) => schedulingLock.Advance(runId, () => AdvanceOnce(runId));
+
+    public void AdvanceRunning() => schedulingLock.Run(() =>
+    {
+        foreach (var run in runs.List().Where(r => r.Status is RunStatus.Running).OrderBy(r => r.Number))
+            Advance(run.Id);
+    });
+
+    private void AdvanceOnce(Id<CiRun> runId)
+    {
+        if (!runs.TryGet(runId, out var run) || run.Status.IsTerminal())
+            return;
+
+        if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
+        {
+            logger.LogProblems(LogLevel.Error, planProblems, "CI run #{RunNumber} of pipeline '{PipelineId}' has no usable plan in version {VersionNumber}; failing it",
+                run.Number, run.PipelineId, run.VersionNumber);
+            Complete(run, RunStatus.Failed);
+            return;
+        }
+
+        if (!StageScheduler.TryParseInput(run.Input, out var input))
+        {
+            Complete(run, RunStatus.Failed);
+            return;
+        }
+
+        var pool = new CiRunPool(run.Id, input, plan, attempts);
+        foreach (var stage in plan.Stages)
+        {
+            var waiting = false;
+            var decisions = new Dictionary<StepDescriptor, StepDecision>(ReferenceEqualityComparer.Instance);
+            StepDecision DecisionFor(StepDescriptor step) =>
+                decisions.TryGetValue(step, out var d) ? d : decisions[step] = StageScheduler.Decide(stage, step, pool);
+
+            foreach (var unit in stage.Units)
+            {
+                var latest = Latest(run.Id, unit.Name);
+                if (latest is not null && latest.Status.IsActive())
+                {
+                    waiting = true;
+                    continue;
+                }
+
+                var decision = DecisionFor(unit.Step);
+                if (decision is StepDecision.Excluded)
+                    continue;
+                if (IsSettled(latest, decision) && !RetryDue(run, unit, decision))
+                    continue;
+
+                Act(run, unit, decision);
+                if (Latest(run.Id, unit.Name) is { } created && created.Status.IsActive())
+                    waiting = true;
+            }
+
+            if (waiting)
+                return;
+
+            var settled = stage.Units.Select(u => Latest(run.Id, u.Name)).OfType<CiAttempt>().ToList();
+            if (settled.FirstOrDefault(a => a.Status is Failed) is { } failed)
+            {
+                logger.LogInformation("CI run #{RunNumber} of pipeline '{PipelineId}' failed at step '{StepName}'", run.Number, run.PipelineId, failed.StepName);
+                Complete(run, RunStatus.Failed);
+                return;
+            }
+
+            if (settled.Any(a => a.Status is Cancelled))
+            {
+                Complete(run, RunStatus.Cancelled);
+                return;
+            }
+        }
+
+        logger.LogInformation("CI run #{RunNumber} of pipeline '{PipelineId}' succeeded", run.Number, run.PipelineId);
+        Complete(run, RunStatus.Succeeded);
+    }
+
+    private static bool IsSettled(CiAttempt? latest, StepDecision decision) => latest?.Status switch
+    {
+        null => false,
+        Failed or Cancelled or Obsolete => true,
+        Skipped skipped when latest.IsSchedulerSkip => decision is StepDecision.Skip s && s.Reason == skipped.Reason,
+        Succeeded or Skipped => decision is StepDecision.Schedule sc && sc.Hash == latest.InputHash,
+        _ => false,
+    };
+
+    /// <summary>A step with <c>retries: n</c> gets 1 + n consecutive tries; scheduler-side failures are never retried.</summary>
+    private bool RetryDue(CiRun run, PlanUnit unit, StepDecision decision)
+    {
+        if (unit.Step.Retries is not > 0 || decision is not StepDecision.Schedule)
+            return false;
+        var failures = attempts.ListForStep(run.Id, unit.Name).Reverse().TakeWhile(a => a.Status is Failed).Count();
+        if (failures == 0 || failures > unit.Step.Retries)
+            return false;
+        logger.LogInformation("Retrying step '{StepName}' in CI run #{RunNumber}: failure {Failures} of {MaxTries} tries",
+            unit.Name, run.Number, failures, unit.Step.Retries + 1);
+        return true;
+    }
+
+    private void Act(CiRun run, PlanUnit unit, StepDecision decision)
+    {
+        var result = decision switch
+        {
+            StepDecision.Skip skip => attempts.RecordSkipped(run.Id, unit.Name, skip.Reason),
+            StepDecision.Schedule schedule => attempts.Schedule(run.Id, unit.Name, schedule.Hash, schedule.Json),
+            StepDecision.Fail fail => attempts.RecordFailed(run.Id, unit.Name, fail.Reason, fail.Hash),
+            _ => Result.Failure<CiAttempt>(new ResultProblem("Unknown decision.")),
+        };
+        if (result.TryPickProblems(out var problems, out var attempt))
+        {
+            logger.LogProblems(LogLevel.Warning, problems, "Could not record step '{StepName}' in CI run #{RunNumber}; failing it", unit.Name, run.Number);
+            if (decision is StepDecision.Schedule s)
+                attempts.RecordFailed(run.Id, unit.Name, string.Join("; ", problems.Select(p => p.FormattedMessage)), s.Hash).DiscardResult();
+            return;
+        }
+
+        logger.LogInformation("CI run #{RunNumber}: step '{StepName}' attempt {AttemptNumber} is {Status}",
+            run.Number, unit.Name, attempt.Number, attempt.Status.Discriminator());
+    }
+
+    private void Complete(CiRun run, RunStatus status)
+    {
+        if (runs.Complete(run.Id, status).TryPickProblems(out var problems))
+            logger.LogProblems(LogLevel.Warning, problems, "Could not complete CI run #{RunNumber}", run.Number);
+    }
+
+    private CiAttempt? Latest(Id<CiRun> runId, string stepName) => attempts.ListForStep(runId, stepName).LastOrDefault();
+}
+
+/// <summary>A CI run's pool read live from the attempt store.</summary>
+internal sealed class CiRunPool(Id<CiRun> runId, JsonElement input, RunPlan plan, CiAttemptService attempts) : IRunPool
+{
+    private readonly Dictionary<Id<CiAttempt>, JsonElement?> _outputs = [];
+
+    public JsonElement Input => input;
+
+    public PoolEntry Get(string stepName)
+    {
+        if (plan.ExcludedReason(stepName, input) is { } excluded)
+            return new PoolEntry.Excluded(excluded);
+        if (plan.TryGetStep(stepName, out _, out var step) && step.Matrix is not null)
+            return Cells(step);
+        if (attempts.ListForStep(runId, stepName).LastOrDefault()?.Status is Skipped skipped)
+            return new PoolEntry.Skipped(skipped.Reason);
+        return attempts.TryGetLatestSucceeded(runId, stepName, out var succeeded)
+            ? new PoolEntry.Produced(Output(succeeded))
+            : new PoolEntry.Missing();
+    }
+
+    private PoolEntry Cells(StepDescriptor step)
+    {
+        var outputs = new List<CellOutput>();
+        var skipped = new List<string>();
+        var units = PlanStage.UnitsOf(step).ToList();
+        foreach (var unit in units)
+        {
+            if (attempts.ListForStep(runId, unit.Name).LastOrDefault()?.Status is Skipped s)
+                skipped.Add(s.Reason);
+            else if (!attempts.TryGetLatestSucceeded(runId, unit.Name, out var succeeded))
+                return new PoolEntry.Missing();
+            else if (Output(succeeded) is { } output)
+                outputs.Add(new CellOutput(unit.Cell!, output));
+        }
+
+        return skipped.Count == units.Count ? new PoolEntry.Skipped(skipped[0]) : new PoolEntry.Cells(outputs);
+    }
+
+    private JsonElement? Output(CiAttempt attempt)
+    {
+        if (_outputs.TryGetValue(attempt.Id, out var cached))
+            return cached;
+        JsonElement? output = null;
+        if (attempt.Output is { } o)
+        {
+            using var document = JsonDocument.Parse(o.Json);
+            output = document.RootElement.Clone();
+        }
+
+        _outputs[attempt.Id] = output;
+        return output;
+    }
+}

@@ -2,6 +2,7 @@ using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Shared.Persistence;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.Jobs;
@@ -54,10 +55,14 @@ public interface IHarnessAttempt
 
     /// <summary>How long the attempt ran and how it ended, once it has; null when it is gone.</summary>
     (string Status, TimeSpan? Elapsed)? Finished();
+
+    /// <summary>Waits until the attempt's state so far is saved (its kind's persistence).</summary>
+    Task<Result> SavedAsync(CancellationToken ct);
 }
 
 /// <summary>A CD attempt (<see cref="Attempt"/>, run under <c>runs/</c>) as <see cref="KubernetesJobExecutor"/> drives it.</summary>
-public sealed class CdHarnessAttempt(Attempt attempt, AttemptService attempts, AttemptLaunchService launches, CallbackInputUrls callbacks)
+public sealed class CdHarnessAttempt(
+    Attempt attempt, AttemptService attempts, AttemptLaunchService launches, CallbackInputUrls callbacks, IStateDurability durability)
     : IHarnessAttempt
 {
     private AttemptLaunchSpec? _launch;
@@ -105,6 +110,8 @@ public sealed class CdHarnessAttempt(Attempt attempt, AttemptService attempts, A
 
     public (string Status, TimeSpan? Elapsed)? Finished() =>
         attempts.TryGet(attempt.Id, out var after) ? (after.Status.Discriminator(), after.FinishedAt() - after.StartedAt()) : null;
+
+    public Task<Result> SavedAsync(CancellationToken ct) => durability.SavedAsync(ct);
 
     private static Result Plain<T>(Result<T> result) => result.TryPickProblems(out var problems) ? Result.Failure(problems) : Result.Success();
 }

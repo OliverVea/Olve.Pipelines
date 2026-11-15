@@ -1,6 +1,9 @@
 # CI
 
-Status: designed, not built.
+Status: partly built. Pull requests get CI runs on the active version's definition and binary
+(a PR that changes the definition gets a failed run saying so); a PR's own builds, statuses to
+GitHub, reuse by identical tree, the merge queue, the UI and `pl ci` are not built. The CI scheduler
+doesn't apply a matrix step's `cascadeFailure`, and CI stages can't branch on config (`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has
 its own runs, scheduling and tab in the UI. What they share is the SDK and the execution layer. The

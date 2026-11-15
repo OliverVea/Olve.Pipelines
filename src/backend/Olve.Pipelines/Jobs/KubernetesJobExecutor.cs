@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Shared.Persistence;
@@ -53,7 +54,15 @@ public class KubernetesJobExecutor(
     internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(3);
 
     protected internal override Task RunToCompletionAsync(Attempt attempt, CancellationToken ct) =>
-        RunAsync(new CdHarnessAttempt(attempt, attempts, launches, callbacks), ct);
+        RunAsync(new CdHarnessAttempt(attempt, attempts, launches, callbacks, durability), ct);
+
+    protected internal override async Task RunCiToCompletionAsync(CiAttempt attempt, CancellationToken ct)
+    {
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+        await RunAsync(new CiHarnessAttempt(attempt, sp.GetRequiredService<CiAttemptService>(), sp.GetRequiredService<CiRunService>(),
+            sp.GetRequiredService<CiPlanCache>(), sp.GetRequiredService<CiPersistenceService>()), ct);
+    }
 
     /// <summary>Drives one attempt of any kind from submission (or reattach) to its verdict.</summary>
     internal async Task RunAsync(IHarnessAttempt attempt, CancellationToken ct)
@@ -122,7 +131,7 @@ public class KubernetesJobExecutor(
         }
 
         // A Job no saved attempt owns would be an orphan after a crash.
-        if ((await durability.SavedAsync(ct)).TryPickProblems(out var unsaved))
+        if ((await attempt.SavedAsync(ct)).TryPickProblems(out var unsaved))
             throw new IOException(unsaved.Single().FormattedMessage);
 
         // The upload, the Secret and the save took time: a newer attempt of the step may have made this one obsolete.
@@ -178,7 +187,7 @@ public class KubernetesJobExecutor(
             case HarnessWait.Finished finished:
                 await FinishAsync(attempt, finished, ct);
                 // Until the verdict is saved, a restarted server has only the archive to reach it again.
-                if ((await durability.SavedAsync(ct)).TryPickProblems(out var unsaved))
+                if ((await attempt.SavedAsync(ct)).TryPickProblems(out var unsaved))
                     logger.LogProblems(LogLevel.Warning, unsaved, "Keeping the result archive of attempt '{JobName}': its status is not saved", jobName);
                 else
                     await storage.DeleteAsync(id.ResultArchiveKey, ct);

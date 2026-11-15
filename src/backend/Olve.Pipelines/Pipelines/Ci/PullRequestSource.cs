@@ -15,6 +15,12 @@ public interface IPullRequestSource
 
     /// <summary>One pull request of the binding's repository; null when GitHub has none by that number.</summary>
     Task<Result<GitHubPullRequest?>> GetAsync(PipelineConfigBinding binding, int number, CancellationToken ct = default);
+
+    /// <summary>A commit's tree and parents.</summary>
+    Task<Result<GitHubGitCommit>> GetCommitAsync(PipelineConfigBinding binding, string sha, CancellationToken ct = default);
+
+    /// <summary>The paths <paramref name="head"/> changes since its merge base with <paramref name="base"/>.</summary>
+    Task<Result<IReadOnlyList<string>>> ChangedFilesAsync(PipelineConfigBinding binding, string @base, string head, CancellationToken ct = default);
 }
 
 public class GitHubPullRequestSource(
@@ -63,4 +69,33 @@ public class GitHubPullRequestSource(
 
         return await response.Content.ReadFromJsonAsync(GitHubPullRequestJsonContext.Default.GitHubPullRequest, ct);
     }
+
+    public async Task<Result<GitHubGitCommit>> GetCommitAsync(PipelineConfigBinding binding, string sha, CancellationToken ct = default)
+    {
+        var token = await BindingTokens.GetAsync(kubernetes, kubernetesOptions, binding, logger, ct);
+        using var client = new HttpClient();
+        using var request = GitHubConfigSource.BuildRequest(HttpMethod.Get, $"{_apiBase}/repos/{binding.Repo}/git/commits/{Uri.EscapeDataString(sha)}", token);
+        using var response = await client.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+            return new ResultProblem("GitHub returned {0} reading commit {1} of '{2}'.", (int)response.StatusCode, Short(sha), binding.Repo);
+
+        var commit = await response.Content.ReadFromJsonAsync(GitHubPullRequestJsonContext.Default.GitHubGitCommit, ct);
+        return commit is null ? new ResultProblem("GitHub returned no commit {0} of '{1}'.", Short(sha), binding.Repo) : commit;
+    }
+
+    public async Task<Result<IReadOnlyList<string>>> ChangedFilesAsync(PipelineConfigBinding binding, string @base, string head, CancellationToken ct = default)
+    {
+        var token = await BindingTokens.GetAsync(kubernetes, kubernetesOptions, binding, logger, ct);
+        using var client = new HttpClient();
+        using var request = GitHubConfigSource.BuildRequest(HttpMethod.Get,
+            $"{_apiBase}/repos/{binding.Repo}/compare/{Uri.EscapeDataString(@base)}...{Uri.EscapeDataString(head)}", token);
+        using var response = await client.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+            return new ResultProblem("GitHub returned {0} comparing {1}...{2} in '{3}'.", (int)response.StatusCode, Short(@base), Short(head), binding.Repo);
+
+        var compared = await response.Content.ReadFromJsonAsync(GitHubPullRequestJsonContext.Default.GitHubComparedFiles, ct);
+        return Result.Success<IReadOnlyList<string>>([.. (compared?.Files ?? []).Select(f => f.Filename)]);
+    }
+
+    private static string Short(string sha) => sha[..Math.Min(7, sha.Length)];
 }

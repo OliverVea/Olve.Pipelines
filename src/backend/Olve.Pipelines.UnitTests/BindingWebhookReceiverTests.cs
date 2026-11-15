@@ -116,7 +116,9 @@ public class BindingWebhookReceiverTests
     {
         var (receiver, svc) = Create();
         var binding = Pick(svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
-        var body = Encoding.UTF8.GetBytes(new JsonObject { ["action"] = action, ["number"] = 52, ["pull_request"] = Ci.PullRequestFixtures.Json() }.ToJsonString());
+        var pull = Ci.PullRequestFixtures.Json();
+        var number = pull["number"]!.GetValue<int>();
+        var body = Encoding.UTF8.GetBytes(new JsonObject { ["action"] = action, ["number"] = number, ["pull_request"] = pull }.ToJsonString());
         var sig = GitHubWebhookSignature.Compute(binding.WebhookSecret!, body);
 
         var decision = receiver.Evaluate(binding.Id, body, sig, "pull_request");
@@ -124,7 +126,7 @@ public class BindingWebhookReceiverTests
         await Assert.That(decision.Action).IsEqualTo(BindingWebhookAction.PullRequest);
         await Assert.That(decision.PipelineId).IsEqualTo(binding.PipelineId);
         await Assert.That(decision.Branch).IsEqualTo("main");
-        await Assert.That(decision.PullRequest!.Number).IsEqualTo(52);
+        await Assert.That(decision.PullRequest!.Number).IsEqualTo(number);
     }
 
     [Test]

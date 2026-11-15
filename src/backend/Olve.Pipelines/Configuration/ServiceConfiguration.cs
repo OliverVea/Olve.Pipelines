@@ -74,7 +74,27 @@ public static class ServiceConfiguration
         services.AddSingleton<PullRequestCatchUpQueue>();
         services.AddSingleton<IRunOnStartup, PullRequestCatchUpRegistration>();
         services.AddHostedService<PullRequestCatchUpService>();
-        services.AddHostedService<CiPersistenceService>();
+        services.AddSingleton<CiPersistenceService>();
+        services.AddHostedService(sp => sp.GetRequiredService<CiPersistenceService>());
+        // CI runs of pull requests: their own runs, attempts and scheduler over the shared harness.
+        services.AddSingleton<EntityStore<CiRun>>();
+        services.AddSingleton<EntityStore<CiAttempt>>();
+        services.AddSingleton<CiRunEvents>();
+        services.AddSingleton<CiAttemptEvents>();
+        services.AddSingleton<CiRunService>();
+        services.AddSingleton<CiAttemptService>();
+        services.AddSingleton<CiPlanCache>();
+        services.AddSingleton<CiSchedulingLock>();
+        services.AddTransient<CiScheduler>();
+        services.AddTransient<CiCancellationService>();
+        services.AddTransient<CiRunStartService>();
+        services.AddTransient<CiRunCleanupService>();
+        services.AddTransient<CiRunViewService>();
+        services.AddTransient<CiAttemptResolver>();
+        services.AddTransient<CiLogService>();
+        services.AddSingleton<CiTriggerService>();
+        services.AddHostedService(sp => sp.GetRequiredService<CiTriggerService>());
+        services.AddSingleton<IRunOnStartup, CiEventRegistration>();
         services.AddTransient<IConfigReconciler, PipelineReconcileService>();
         services.AddTransient<IPushTriggerHandler, PushTriggerHandler>();
         services.AddTransient<RunInputService>();
@@ -195,6 +215,7 @@ public static class ServiceConfiguration
         services.AddTransient<RunSweep>();
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<RunSweep>());
         services.AddSingleton<IRunOnStartup, RunSchedulingStartup>();
+        services.AddSingleton<IRunOnStartup, CiStartup>();
         // /api/events and live log streams (SSE).
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ChangeBroadcaster>();

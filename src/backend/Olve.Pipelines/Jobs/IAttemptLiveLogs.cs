@@ -11,6 +11,9 @@ public interface IAttemptLiveLogs
 {
     /// <summary>The pod's current log, or null when there is none yet (pod not started, init still running).</summary>
     Task<string?> TryGetAsync(Attempt attempt, CancellationToken ct);
+
+    /// <summary>The same for any kind of attempt, by its harness identity.</summary>
+    Task<string?> TryGetAsync(Kubernetes.Harness.HarnessAttemptIdentity attempt, CancellationToken ct) => Task.FromResult<string?>(null);
 }
 
 public sealed class NoAttemptLiveLogs : IAttemptLiveLogs

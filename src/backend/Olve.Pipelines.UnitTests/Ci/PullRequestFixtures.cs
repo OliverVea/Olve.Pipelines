@@ -20,7 +20,8 @@ internal static class PullRequestFixtures
 
     public static GitHubPullRequest Pull(
         int number = 7, string @base = "main", string state = "open", bool merged = false, bool draft = false,
-        string headSha = "aaaaaaa", string? headRepo = Repo, DateTimeOffset? updatedAt = null, bool? mergeable = null, string title = "Add a thing") =>
+        string headSha = "aaaaaaa", string? headRepo = Repo, DateTimeOffset? updatedAt = null, bool? mergeable = null, string title = "Add a thing",
+        string? mergeCommitSha = null) =>
         Parse(Json(p =>
         {
             p["number"] = number;
@@ -30,6 +31,7 @@ internal static class PullRequestFixtures
             p["merged_at"] = merged ? "2026-11-15T10:53:04Z" : null;
             p["updated_at"] = (updatedAt ?? DateTimeOffset.Parse("2026-11-15T10:00:00Z")).ToString("O");
             p["mergeable"] = mergeable;
+            p["merge_commit_sha"] = mergeCommitSha;
             p["head"]!["sha"] = headSha;
             p["head"]!["ref"] = $"feature-{number}";
             p["head"]!["repo"] = headRepo is null ? null : new JsonObject { ["full_name"] = headRepo };

@@ -1,0 +1,107 @@
+{
+  "system": "github",
+  "name": "compare-files",
+  "source": "https://api.github.com (anonymous)",
+  "capturedAt": "2026-11-15",
+  "systemVersion": "2022-11-28",
+  "elided": "ahead_by, base_commit, behind_by, commits, diff_url, html_url, merge_base_commit, patch_url, permalink_url, status, total_commits, url, files.additions, files.blob_url, files.changes, files.contents_url, files.deletions, files.patch, files.previous_filename, files.raw_url, files.sha, files.status",
+  "request": {
+    "method": "GET",
+    "url": "/repos/OliverVea/Olve.Pipelines/compare/460772e59b16722d6c4ed5c58e1f9ac7fa98ba12...443905815a7c4608f2eb4a680295215b76259712",
+    "headers": {
+      "accept": "application/vnd.github+json",
+      "user-agent": "olve-pipelines"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "etag": "W/\"2e05d25d0476c1c143374ffcbca57e21cc57e248be093be4628248cf8b90b0f4\"",
+      "x-github-api-version-selected": "2022-11-28",
+      "x-github-media-type": "github.v3; format=json"
+    },
+    "body": {
+      "files": [
+        {
+          "filename": "CLAUDE.md"
+        },
+        {
+          "filename": "docs/design/ci.md"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines.RealSystemTests/Contracts/ResultCollectionContract.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines.UnitTests/Configs/SelectTests.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines.UnitTests/Harness/HarnessJobBuilderTests.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines.UnitTests/Harness/HarnessJobFactoryTests.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines.UnitTests/Harness/HarnessResultCollectorTests.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines.UnitTests/HarnessFakes.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines.UnitTests/JobDispatchTests.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines.UnitTests/LeftoverJobCleanupServiceTests.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Jobs/HarnessAttempt.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Jobs/JobDispatch.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Jobs/JobRunner.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Jobs/JobWatcherRegistry.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Jobs/KubernetesJobExecutor.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Jobs/LeftoverJobCleanupService.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessAttemptIdentity.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessAttemptLiveLogs.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessJobBuilder.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessJobFactory.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessResultCollector.cs"
+        },
+        {
+          "filename": "src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessStorage.cs"
+        },
+        {
+          "filename": "src/frontend/src/components/pipeline-runs-view.ts"
+        },
+        {
+          "filename": "src/frontend/src/components/run-changes.ts"
+        },
+        {
+          "filename": "src/frontend/src/model/changes.ts"
+        },
+        {
+          "filename": "src/frontend/test/changes.test.ts"
+        }
+      ]
+    }
+  }
+}

@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Kubernetes;
+using Olve.Pipelines.Kubernetes.Harness;
+using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Retention;
 using Olve.Pipelines.Pipelines.Runs;
@@ -12,6 +14,7 @@ namespace Olve.Pipelines.Jobs;
 /// terminal, or, for a pipeline of this instance, whose attempt doesn't exist: an attempt is saved before its
 /// Job is created, so no saved state will ever own it. A Job younger than this process proves nothing, because
 /// the pod being replaced in a rolling update may have just made it. Another instance's Jobs in the namespace stay.
+/// CI attempts' Jobs are judged the same way against the CI attempts.
 /// </summary>
 public class LeftoverJobCleanupService(
     IKubernetesInventory inventory,
@@ -19,6 +22,7 @@ public class LeftoverJobCleanupService(
     KubernetesOptions options,
     EntityStore<Pipeline> pipelines,
     EntityStore<Attempt> attempts,
+    EntityStore<CiAttempt> ciAttempts,
     TimeProvider time,
     ILogger<LeftoverJobCleanupService> logger) : BackgroundService
 {
@@ -36,11 +40,16 @@ public class LeftoverJobCleanupService(
     {
         var mine = pipelines.Select(p => p.Value.Value.ToString("N")).ToHashSet(StringComparer.Ordinal);
         return jobs.Where(job => !job.Finished
-                                 && job.Labels.GetValueOrDefault("olve-role") == "step"
+                                 && job.Labels.GetValueOrDefault("olve-role") is HarnessJobBuilder.StepRole or HarnessJobBuilder.CiStepRole
                                  && job.Labels.GetValueOrDefault("olve-pipeline") is { } pipeline && mine.Contains(pipeline)
                                  && (owned.TryGetValue(job.Name, out var active) ? !active : job.Created < processStart))
             .ToList();
     }
+
+    /// <summary>A CD Job <c>olve-&lt;x&gt;</c> has <c>olve-urls-&lt;x&gt;</c>; a CI Job <c>olve-ci-&lt;x&gt;</c> has <c>olve-ci-&lt;x&gt;-urls</c>.</summary>
+    internal static string UrlSecretOf(string jobName) => jobName.StartsWith(CiAttempt.JobPrefix, StringComparison.Ordinal)
+        ? $"{jobName}-urls"
+        : $"olve-urls-{jobName[JobPrefix.Length..]}";
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
@@ -63,14 +72,17 @@ public class LeftoverJobCleanupService(
     internal async Task DeleteLeftoversAsync(CancellationToken ct)
     {
         var jobs = await inventory.ListJobsAsync(options.Namespace, ct);
-        var leftovers = Leftovers(jobs, pipelines.List().Select(p => p.Id).ToHashSet(), attempts.List(), ProcessStart);
+        var owned = attempts.List().ToDictionary(a => a.KubernetesJobName, a => a.Status.IsActive(), StringComparer.Ordinal);
+        foreach (var ci in ciAttempts.List())
+            owned[ci.KubernetesJobName] = ci.Status.IsActive();
+        var leftovers = Leftovers(jobs, pipelines.List().Select(p => p.Id).ToHashSet(), owned, ProcessStart);
 
         foreach (var job in leftovers)
         {
             logger.LogWarning("Deleting leftover K8s Job '{JobName}' of pipeline '{PipelineId}': its attempt has ended or doesn't exist",
                 job.Name, job.Labels.GetValueOrDefault("olve-pipeline"));
             await kubernetes.DeleteJobAsync(options.Namespace, job.Name, ct);
-            await kubernetes.DeleteSecretAsync(options.Namespace, $"olve-urls-{job.Name[JobPrefix.Length..]}", ct);
+            await kubernetes.DeleteSecretAsync(options.Namespace, UrlSecretOf(job.Name), ct);
         }
     }
 }

@@ -1,6 +1,7 @@
 import type { Command } from '../registry';
 import { attemptCommands } from './attempt';
 import { bindingCommands } from './binding';
+import { ciCommands } from './ci';
 import { configCommands } from './config';
 import { clusterCommands } from './cluster';
 import { devCommands } from './dev';
@@ -22,6 +23,7 @@ export const commands: readonly Command[] = [
   ...runCommands,
   ...stepCommands,
   ...attemptCommands,
+  ...ciCommands,
   watchCommand,
   ...secretCommands,
   ...configCommands,

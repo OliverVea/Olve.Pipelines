@@ -6,6 +6,7 @@ export {
 } from './client';
 export {
   changeEvents,
+  ciLogEvents,
   isNotice,
   logEvents,
   reloadsAll,

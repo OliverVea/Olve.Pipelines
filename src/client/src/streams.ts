@@ -1,4 +1,5 @@
 import {
+  ciRunStepsLogStream,
   eventsStream,
   runStepsLogStream,
   type ChangeEvent,
@@ -43,6 +44,23 @@ export function logEvents(
 ): AsyncGenerator<LogEvent> {
   return readStream(client, signal, (sse) =>
     runStepsLogStream({
+      client,
+      path,
+      query: attempt === undefined ? undefined : { attempt },
+      ...sse,
+    }),
+  );
+}
+
+/** A CI attempt's log as it grows (default: the step's latest attempt), over one connection. */
+export function ciLogEvents(
+  client: Client,
+  signal: AbortSignal,
+  path: { pipelineId: string; number: number; step: string },
+  attempt?: number,
+): AsyncGenerator<LogEvent> {
+  return readStream(client, signal, (sse) =>
+    ciRunStepsLogStream({
       client,
       path,
       query: attempt === undefined ? undefined : { attempt },

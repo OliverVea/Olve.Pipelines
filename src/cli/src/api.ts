@@ -1,6 +1,7 @@
-import { runStepsDownload } from '@olve/api';
+import { ciRunStepsDownload, runStepsDownload } from '@olve/api';
 import type { Client } from '@olve/api/client';
 import { ApiError, createApiClient, serverProblems } from '@olve/client';
+import type { RunKind } from './address';
 import { CliError, describe } from './errors';
 
 export type ApiSettings = {
@@ -75,7 +76,7 @@ function snippet(body: string): string {
   return line.length <= 200 ? line : `${line.slice(0, 199)}…`;
 }
 
-/** A step file's answer with its body unread, so the file streams through. */
+/** A step file's answer (a deploy or CI run's) with its body unread, so the file streams through. */
 export async function downloadStepFile(
   api: Client,
   file: {
@@ -86,9 +87,11 @@ export async function downloadStepFile(
     attempt?: number;
   },
   signal?: AbortSignal,
+  kind: RunKind = 'cd',
 ): Promise<Response> {
   const { attempt, ...path } = file;
-  const result = await runStepsDownload({
+  const download = kind === 'ci' ? ciRunStepsDownload : runStepsDownload;
+  const result = await download({
     client: api,
     path,
     query: attempt === undefined ? undefined : { attempt },

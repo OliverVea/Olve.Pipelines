@@ -76,7 +76,7 @@ function describeWhen(
     const values = (Array.isArray(raw) ? raw : [raw]) as (string | number | boolean)[];
     if (!Object.hasOwn(props, field))
       problems.push(
-        `when: '${field}' is not a field of the pipeline input ${input.name}`,
+        `when: '${field}' is not a field of the ${input.name === 'CiInput' ? 'CI' : 'pipeline'} input ${input.name}`,
       );
     else {
       const literals = literalValues(props[field]);

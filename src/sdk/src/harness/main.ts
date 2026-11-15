@@ -12,6 +12,7 @@ import { cellName, parseCell } from '../core/matrix.ts';
 import { maskEnvelope, maskPatterns } from './mask.ts';
 import type { WebhookEvent } from '../core/webhooks.ts';
 import { pipelineData, type PipelineData, type StageNode } from '../builder/pipeline.ts';
+import { isChecks } from '../builder/checks.ts';
 import { createCtx, formatLog } from '../ctx/index.ts';
 import { DescribeError, describePipeline, manifestText } from '../describe/describe.ts';
 import type { HarnessInfo } from '../util/code-hash.ts';
@@ -38,6 +39,8 @@ import { formatIssues, parseStrict } from './validate.ts';
 export interface HarnessConfig {
   /** Default export of the entry point. */
   pipeline: unknown;
+  /** The entry point's `ci` export (checks({...})), if any. */
+  ci?: unknown;
   /** Hash of the build (from the build; includes the harness identity). */
   codeHash?: string;
   harness: HarnessInfo;
@@ -174,6 +177,7 @@ async function describeMode(
       describePipeline(cfg.pipeline, {
         codeHash: cfg.codeHash,
         harness: cfg.harness,
+        ...(cfg.ci === undefined ? {} : { ci: cfg.ci }),
       }),
     );
     await io.stdout(sentinels ? `${MANIFEST_BEGIN}\n${text}${MANIFEST_END}\n` : text);
@@ -195,7 +199,12 @@ async function runMode(
 ): Promise<number> {
   if (!name) return (io.stderr(USAGE), EXIT.usage);
   const data = pipelineData(cfg.pipeline);
-  const step = findStep(data, name, selectedCases());
+  let step = findStep(data, name, selectedCases());
+  // A step in both is the same step (describe checks it), so CI is searched only for CI-only steps.
+  if (typeof step === 'string' && isChecks(cfg.ci)) {
+    const ciStep = findStep(pipelineData(cfg.ci), name, selectedCases());
+    if (typeof ciStep !== 'string') step = ciStep;
+  }
   if (typeof step === 'string') return (io.stderr(step), EXIT.usage);
   const fn = mode === 'run' ? resolveStepFunction(step) : resolvePreflight(step);
   if (typeof fn === 'string') return (io.stderr(fn), EXIT.configInvalid);

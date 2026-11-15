@@ -17,12 +17,7 @@ import { parseArgs } from 'node:util';
 import { runHarness, type HarnessConfig } from '../harness/main.ts';
 import { EXIT } from '../harness/exit.ts';
 import { codeHash } from '../build/hashes.ts';
-import {
-  harnessInfo,
-  loadPipeline,
-  loadProject,
-  ProjectError,
-} from '../build/project.ts';
+import { harnessInfo, loadEntry, loadProject, ProjectError } from '../build/project.ts';
 
 const USAGE = `usage: olve-dev describe <dir> [--sentinels]
        olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
@@ -34,10 +29,11 @@ export async function devConfig(
   withHashes: boolean,
 ): Promise<HarnessConfig> {
   const project = await loadProject(dir);
-  const pipeline = await loadPipeline(project);
+  const { pipeline, ci } = await loadEntry(project);
   const harness = harnessInfo();
   return {
     pipeline,
+    ...(ci === undefined ? {} : { ci }),
     ...(withHashes ? { codeHash: await codeHash(project, harness) } : {}),
     harness,
   };

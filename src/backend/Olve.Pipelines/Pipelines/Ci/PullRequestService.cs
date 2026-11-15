@@ -66,7 +66,8 @@ public class PullRequestService(EntityStore<PullRequest> store, IdProvider idPro
                     : PullRequestState.Open,
                 reported.Mergeable ?? (samePush ? held!.Mergeable : null),
                 reported.UpdatedAt,
-                samePush ? held!.LastPushAt : seenAt);
+                samePush ? held!.LastPushAt : seenAt,
+                reported.AutoMerge is not null);
             if (pull != held)
                 store.Set(pull);
             return PullRequestChange.Tracked;

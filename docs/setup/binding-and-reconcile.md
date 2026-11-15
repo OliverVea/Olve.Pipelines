@@ -84,6 +84,33 @@ replaces one not yet sent, and a GitHub server error is tried again. This needs 
 have **Commit statuses: write** (a classic token: `repo`). Without it, `pl binding status` shows a
 warning saying so until a status gets through.
 
+### The merge queue
+
+A pull request enters the pipeline's merge queue with `POST /api/pipelines/{id}/ci/queue` (`{pull}`)
+or when GitHub auto-merge is turned on for it; `GET …/ci/queue` lists it, and `DELETE …/ci/queue/{pull}`
+takes one out. A draft, a pull request GitHub can't merge, one from a fork or into another branch, and
+any pull request of a pipeline that declares no CI are refused.
+
+The queue tests the pull requests at its head together, up to 5: it creates a branch
+`olve-queue/<run>` at the binding branch's head, merges each one's head into it in queue order, and
+runs CI on the result as a queue run (it goes before pull requests' runs for Job slots, and stops at
+its first failed step). When it passes, each pull request gets the status `olve/merge-queue` success
+and is merged by rebase at the head that was tested, one after another, and only while the branch is
+at the tree the batch had before it; after each merge the branch must be at the tree the batch tested
+with it. When either doesn't hold (the branch moved outside the queue), landing stops and the rest is
+tested again on the new head; the branch moving while a batch is tested supersedes its run the same
+way. When a batch fails, a single pull request leaves the queue with `olve/merge-queue` failure
+naming the failed step ("Removed: test failed"); a larger batch is split in halves, until the one that
+breaks it is found. A push to a queued pull request, closing it, retargeting it, turning it back into a
+draft or turning off the auto-merge that queued it takes it out too, and cancels a run testing it.
+
+So that only the queue merges into the branch, require the status check **`olve/merge-queue`** (not
+`olve/ci`) in the branch's protection. With auto-merge turned on, GitHub then waits for the queue,
+which sets that status on the head it tested right before it merges. The queue needs the binding's
+token to have **Contents: write** (the batch branch and the merges; a classic token: `repo`), and
+**Workflows: write** too when pull requests change `.github/workflows/`. Without it, `pl binding status`
+shows a warning saying so.
+
 Either way, a branch-head change fires the pipeline's **`onPush`** trigger. `onPoll` triggers are
 separate: they are declared in `pipeline.ts` and poll their own URL.
 

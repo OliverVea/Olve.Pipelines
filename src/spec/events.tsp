@@ -134,6 +134,12 @@ model PullChanged {
   pull: int32;
 }
 
+/** The merge queue changed: an entry was added, started testing, merged or was removed. */
+model CiQueueChanged {
+  type: "ci-queue";
+  @format("uuid") pipelineId: string;
+}
+
 /** A poll trigger saw a new value. */
 model PollChanged {
   type: "poll";
@@ -164,6 +170,7 @@ union ChangeEvent {
   @TypeSpec.Events.contentType("application/json") `ci-run`: CiRunChanged,
   @TypeSpec.Events.contentType("application/json") `ci-attempt`: CiAttemptChanged,
   @TypeSpec.Events.contentType("application/json") pull: PullChanged,
+  @TypeSpec.Events.contentType("application/json") `ci-queue`: CiQueueChanged,
 }
 
 /** Log text to append; with `reset` the text replaces what was shown. */

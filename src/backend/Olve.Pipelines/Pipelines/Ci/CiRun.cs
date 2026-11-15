@@ -21,6 +21,9 @@ namespace Olve.Pipelines.Pipelines.Ci;
 /// <param name="Problems">Why the run failed before any step ran (its definition can't be used); empty otherwise.</param>
 /// <param name="OwnDefinition">The pull request changes the definition, so the run uses the build of its tested commit.</param>
 /// <param name="Building">The run waits for that build; its steps start once it is described and its config pinned.</param>
+/// <param name="Kind">A pull request's run, or a merge-queue run testing <see cref="Batch"/> (then <see cref="Pull"/> is 0
+/// and <see cref="Branch"/> is the batch branch).</param>
+/// <param name="Batch">A queue run's pull requests in queue order, each with the batch commit after merging it.</param>
 public sealed record CiRun(
     Id<CiRun> Id,
     Id<Pipeline> PipelineId,
@@ -45,12 +48,30 @@ public sealed record CiRun(
     string? Config = null,
     IReadOnlyList<string>? Problems = null,
     bool OwnDefinition = false,
-    bool Building = false) : IHasId<Id<CiRun>>
+    bool Building = false,
+    CiRunKind Kind = CiRunKind.Pull,
+    IReadOnlyList<CiBatchPull>? Batch = null) : IHasId<Id<CiRun>>
 {
+    [JsonIgnore]
+    public bool IsQueue => Kind == CiRunKind.Queue;
+
     /// <summary>What a pod sees as <c>OLVE_VERSION_STAMP</c>: <c>ci.&lt;number&gt;</c>.</summary>
     [JsonIgnore]
     public string VersionStamp => $"ci.{Number}";
 }
+
+[JsonConverter(typeof(JsonStringEnumConverter<CiRunKind>))]
+public enum CiRunKind
+{
+    Pull,
+    Queue,
+}
+
+/// <summary>
+/// A pull request in a queue run's batch: the head it was tested at, and the batch branch's commit (and its tree)
+/// once it was merged in. Landing it must leave the base branch at that tree.
+/// </summary>
+public sealed record CiBatchPull(int Number, string Title, string Branch, string HeadSha, string MergedSha, string Tree);
 
 [JsonConverter(typeof(JsonStringEnumConverter<CiCancelReason>))]
 public enum CiCancelReason

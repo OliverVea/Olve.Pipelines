@@ -81,6 +81,17 @@ model PipelineHealth {
 
   /** Secrets expired or expiring within 14 days, soonest first. */
   expiringSecrets: ExpiringSecret[];
+
+  /** Open pull requests and their CI; null when the pipeline declares no CI. */
+  ci?: CiHealth | null;
+}
+
+/** Counts of open pull requests into `main` by their latest CI run, and the merge queue's length. */
+model CiHealth {
+  open: int32;
+  failing: int32;
+  running: int32;
+  queued: int32;
 }
 
 /** A secret whose value expires soon or has expired. */

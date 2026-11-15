@@ -100,6 +100,15 @@ public static class ServiceConfiguration
         services.AddSingleton<CiTriggerService>();
         services.AddHostedService(sp => sp.GetRequiredService<CiTriggerService>());
         services.AddSingleton<IRunOnStartup, CiEventRegistration>();
+        services.AddSingleton<EntityStore<CiQueueEntry>>();
+        services.AddSingleton<CiQueueEvents>();
+        services.AddSingleton<CiQueueService>();
+        services.AddTransient<CiQueueActions>();
+        services.AddTransient<CiHealthService>();
+        services.AddTransient<CiQueueStatuses>();
+        services.TryAddSingleton<ICiQueueGitHub, GitHubCiQueueClient>();
+        services.AddSingleton<CiQueueProcessor>();
+        services.AddHostedService(sp => sp.GetRequiredService<CiQueueProcessor>());
         // olve/ci commit statuses on the pull requests' heads.
         services.AddSingleton(sp =>
         {

@@ -11,11 +11,14 @@ using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Ci;
 
-/// <summary>A commit status as GitHub takes it: <c>pending</c>, <c>success</c> or <c>failure</c>.</summary>
-public sealed record CiCommitStatus(string State, string Description, string? TargetUrl)
+/// <summary>A commit status as GitHub takes it: <c>pending</c>, <c>success</c> or <c>failure</c>, in <see cref="Context"/>.</summary>
+public sealed record CiCommitStatus(string State, string Description, string? TargetUrl, string Context = CiCommitStatus.CiContext)
 {
-    public const string Context = "olve/ci";
+    public const string CiContext = "olve/ci";
+    public const string QueueContext = "olve/merge-queue";
     public const int MaxDescription = 140;
+
+    internal static string Cap(string s) => s.Length <= MaxDescription ? s : s[..(MaxDescription - 1)] + "…";
 }
 
 /// <summary>Where a status links: the CI run page (<c>Links:BaseUrl</c>, else <c>Webhooks:PublicBaseUrl</c>; empty = no link).</summary>
@@ -30,7 +33,7 @@ public class CiStatusPlanner(CiRunViewService views, CiStatusOptions options)
 {
     public CiCommitStatus? For(CiRun run)
     {
-        if (run.Status is RunStatus.Cancelled or RunStatus.Superseded)
+        if (run.IsQueue || run.Status is RunStatus.Cancelled or RunStatus.Superseded)
             return null;
 
         var steps = views.Summarize(run).Steps.Where(s => s.Status is not Contract.RunStepStatus.Excluded).ToList();
@@ -52,9 +55,11 @@ public class CiStatusPlanner(CiRunViewService views, CiStatusOptions options)
         }
     }
 
-    private string? Link(CiRun run) => string.IsNullOrWhiteSpace(options.LinkBaseUrl)
+    private string? Link(CiRun run) => Link(options, run.PipelineId, run.Number);
+
+    internal static string? Link(CiStatusOptions options, Id<Pipeline> pipelineId, int number) => string.IsNullOrWhiteSpace(options.LinkBaseUrl)
         ? null
-        : string.Create(CultureInfo.InvariantCulture, $"{options.LinkBaseUrl.TrimEnd('/')}/pipeline/{run.PipelineId.Value.Value:D}/ci/run/{run.Number}");
+        : string.Create(CultureInfo.InvariantCulture, $"{options.LinkBaseUrl.TrimEnd('/')}/pipeline/{pipelineId.Value.Value:D}/ci/run/{number}");
 
     internal static string Duration(DateTimeOffset from, DateTimeOffset to)
     {
@@ -67,11 +72,11 @@ public class CiStatusPlanner(CiRunViewService views, CiStatusOptions options)
                 : string.Create(CultureInfo.InvariantCulture, $"{t.Seconds}s");
     }
 
-    private static string Cap(string s) => s.Length <= CiCommitStatus.MaxDescription ? s : s[..(CiCommitStatus.MaxDescription - 1)] + "…";
+    private static string Cap(string s) => CiCommitStatus.Cap(s);
 }
 
-/// <summary>The commit a status goes on: one in flight per key, and only the latest state is sent.</summary>
-public readonly record struct CiStatusKey(Id<Pipeline> PipelineId, string Sha);
+/// <summary>The commit and context a status goes on: one in flight per key, and only the latest state is sent.</summary>
+public readonly record struct CiStatusKey(Id<Pipeline> PipelineId, string Sha, string Context = CiCommitStatus.CiContext);
 
 /// <summary>What posting a status came to.</summary>
 public enum CommitStatusOutcome
@@ -100,23 +105,35 @@ public interface ICommitStatusClient
 /// </summary>
 public class CiStatusWarnings
 {
-    private readonly ConcurrentDictionary<Id<Pipeline>, string> _warnings = new();
+    /// <summary>What a warning is about; each clears on its own.</summary>
+    public const string Statuses = "statuses";
+    public const string Contents = "contents";
+
+    private readonly ConcurrentDictionary<(Id<Pipeline>, string), string> _warnings = new();
 
     public static string Denied(string repo, int code) =>
         $"CI can't post commit statuses to '{repo}' (GitHub returned {code}): the binding's token needs Commit statuses: write.";
 
+    public static string ContentsDenied(string repo, int code) =>
+        $"The merge queue can't write to '{repo}' (GitHub returned {code}): the binding's token needs Contents: write.";
+
     /// <summary>True when the warning is new or changed.</summary>
-    public bool Set(Id<Pipeline> pipelineId, string warning)
+    public bool Set(Id<Pipeline> pipelineId, string warning) => Set(pipelineId, Statuses, warning);
+
+    public bool Set(Id<Pipeline> pipelineId, string topic, string warning)
     {
-        var changed = !_warnings.TryGetValue(pipelineId, out var before) || before != warning;
-        _warnings[pipelineId] = warning;
+        var changed = !_warnings.TryGetValue((pipelineId, topic), out var before) || before != warning;
+        _warnings[(pipelineId, topic)] = warning;
         return changed;
     }
 
     /// <summary>True when there was a warning to clear.</summary>
-    public bool Clear(Id<Pipeline> pipelineId) => _warnings.TryRemove(pipelineId, out _);
+    public bool Clear(Id<Pipeline> pipelineId) => Clear(pipelineId, Statuses);
 
-    public IReadOnlyList<string> For(Id<Pipeline> pipelineId) => _warnings.TryGetValue(pipelineId, out var w) ? [w] : [];
+    public bool Clear(Id<Pipeline> pipelineId, string topic) => _warnings.TryRemove((pipelineId, topic), out _);
+
+    public IReadOnlyList<string> For(Id<Pipeline> pipelineId) =>
+        [.. _warnings.Where(w => w.Key.Item1 == pipelineId).OrderBy(w => w.Key.Item2, StringComparer.Ordinal).Select(w => w.Value)];
 }
 
 /// <summary>
@@ -138,7 +155,40 @@ public class CiStatusDelivery(
     private readonly Dictionary<CiStatusKey, (CiCommitStatus Status, long Version)> _latest = [];
     private readonly HashSet<CiStatusKey> _inFlight = [];
     private readonly Channel<CiStatusKey> _ready = Channel.CreateUnbounded<CiStatusKey>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly Dictionary<CiStatusKey, TaskCompletionSource> _done = [];
     private long _version;
+
+    /// <summary>
+    /// Sends <paramref name="status"/> and returns once it was delivered (or given up on): a merge needs its required
+    /// status on GitHub first. A delivery of the same key in flight sends it; this then waits for that one.
+    /// </summary>
+    public async Task SendNowAsync(CiStatusKey key, CiCommitStatus status, CancellationToken ct)
+    {
+        Task? running = null;
+        lock (_lock)
+        {
+            _latest[key] = (status, ++_version);
+            if (!_inFlight.Add(key))
+            {
+                if (!_done.TryGetValue(key, out var waiter))
+                    _done[key] = waiter = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                running = waiter.Task;
+            }
+        }
+
+        if (running is null)
+            await DeliverAsync(key, ct);
+        else
+            await running.WaitAsync(ct);
+    }
+
+    private void Finished(CiStatusKey key)
+    {
+        _latest.Remove(key);
+        _inFlight.Remove(key);
+        if (_done.Remove(key, out var waiter))
+            waiter.TrySetResult();
+    }
 
     public void Offer(CiStatusKey key, CiCommitStatus status)
     {
@@ -192,8 +242,7 @@ public class CiStatusDelivery(
                 {
                     if (_latest[key].Version != version)
                         continue;
-                    _latest.Remove(key);
-                    _inFlight.Remove(key);
+                    Finished(key);
                     return;
                 }
             }
@@ -205,10 +254,7 @@ public class CiStatusDelivery(
         {
             logger.LogError(ex, "Posting the CI status of {Sha} failed", key.Sha);
             lock (_lock)
-            {
-                _latest.Remove(key);
-                _inFlight.Remove(key);
-            }
+                Finished(key);
         }
     }
 
@@ -245,7 +291,7 @@ public class CiStatusReporter(CiRunService runs, CiStatusPlanner planner, CiStat
     public void Report(CiRun run)
     {
         if (planner.For(run) is { } status)
-            delivery.Offer(new CiStatusKey(run.PipelineId, run.HeadSha), status);
+            delivery.Offer(new CiStatusKey(run.PipelineId, run.HeadSha, status.Context), status);
     }
 
     public void Report(Id<CiRun> runId)
@@ -258,7 +304,7 @@ public class CiStatusReporter(CiRunService runs, CiStatusPlanner planner, CiStat
     public void ReportLatest(IEnumerable<PullRequest> openPulls)
     {
         foreach (var pull in openPulls)
-            if (runs.ListByPipeline(pull.PipelineId).Where(r => r.Pull == pull.Number).MaxBy(r => r.Number) is { } latest)
+            if (runs.ListByPipeline(pull.PipelineId).Where(r => r.Pull == pull.Number && !r.IsQueue).MaxBy(r => r.Number) is { } latest)
                 Report(latest);
     }
 }
@@ -278,7 +324,7 @@ public class GitHubCommitStatusClient(
         using var client = new HttpClient();
         using var request = GitHubConfigSource.BuildRequest(HttpMethod.Post, $"{_apiBase}/repos/{binding.Repo}/statuses/{Uri.EscapeDataString(sha)}", token);
         request.Content = JsonContent.Create(
-            new GitHubCommitStatusRequest(status.State, status.Description, CiCommitStatus.Context, status.TargetUrl),
+            new GitHubCommitStatusRequest(status.State, status.Description, status.Context, status.TargetUrl),
             GitHubPullRequestJsonContext.Default.GitHubCommitStatusRequest);
         try
         {

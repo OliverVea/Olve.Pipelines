@@ -21,7 +21,7 @@ internal static class PullRequestFixtures
     public static GitHubPullRequest Pull(
         int number = 7, string @base = "main", string state = "open", bool merged = false, bool draft = false,
         string headSha = "aaaaaaa", string? headRepo = Repo, DateTimeOffset? updatedAt = null, bool? mergeable = null, string title = "Add a thing",
-        string? mergeCommitSha = null) =>
+        string? mergeCommitSha = null, bool autoMerge = false) =>
         Parse(Json(p =>
         {
             p["number"] = number;
@@ -36,6 +36,7 @@ internal static class PullRequestFixtures
             p["head"]!["ref"] = $"feature-{number}";
             p["head"]!["repo"] = headRepo is null ? null : new JsonObject { ["full_name"] = headRepo };
             p["base"]!["ref"] = @base;
+            p["auto_merge"] = autoMerge ? new JsonObject { ["merge_method"] = "rebase" } : null;
         }));
 
     public static GitHubPullRequest Parse(JsonNode json) =>

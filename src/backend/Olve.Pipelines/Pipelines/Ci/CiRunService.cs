@@ -24,7 +24,10 @@ public sealed record CiRunRequest(
     int? ConfigSnapshot,
     string? Config,
     IReadOnlyList<string>? Problems = null,
-    bool OwnDefinition = false);
+    bool OwnDefinition = false,
+    CiRunKind Kind = CiRunKind.Pull,
+    IReadOnlyList<CiBatchPull>? Batch = null,
+    int? Number = null);
 
 /// <summary>CI runs: their numbers (a sequence per pipeline of their own), lookups and status. Singleton: owns indexes and the numbering lock.</summary>
 public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeProvider timeProvider)
@@ -34,12 +37,27 @@ public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeP
     private readonly EntityStoreUniqueIndex<CiRun, Id<CiRun>, (Id<Pipeline>, int)> _byNumber =
         store.CreateUniqueIndex<CiRun, Id<CiRun>, (Id<Pipeline>, int)>(r => (r.PipelineId, r.Number));
     private readonly Lock _createGate = new();
+    private readonly Dictionary<Id<Pipeline>, int> _reserved = [];
+
+    /// <summary>The next run number, held for a run created later with it (a queue run names its batch branch after it).</summary>
+    public int Reserve(Id<Pipeline> pipelineId)
+    {
+        lock (_createGate)
+        {
+            var number = NextNumber(pipelineId);
+            _reserved[pipelineId] = number;
+            return number;
+        }
+    }
+
+    private int NextNumber(Id<Pipeline> pipelineId) =>
+        Math.Max(ListByPipeline(pipelineId).Select(r => r.Number).DefaultIfEmpty(0).Max(), _reserved.GetValueOrDefault(pipelineId)) + 1;
 
     public CiRun Create(CiRunRequest request)
     {
         lock (_createGate)
         {
-            var number = ListByPipeline(request.PipelineId).Select(r => r.Number).DefaultIfEmpty(0).Max() + 1;
+            var number = request.Number ?? NextNumber(request.PipelineId);
             var now = timeProvider.GetUtcNow();
             var failed = request.Problems is { Count: > 0 };
             var run = new CiRun(
@@ -64,7 +82,9 @@ public class CiRunService(EntityStore<CiRun> store, IdProvider idProvider, TimeP
                 Config: request.Config,
                 Problems: request.Problems,
                 OwnDefinition: request.OwnDefinition,
-                Building: request.OwnDefinition && !failed);
+                Building: request.OwnDefinition && !failed,
+                Kind: request.Kind,
+                Batch: request.Batch);
             store.Set(run);
             return run;
         }

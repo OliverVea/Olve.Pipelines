@@ -248,6 +248,16 @@ public class CiDefinitionService(
                 continue;
             }
 
+            if (run.IsQueue && !plans.Manifest(build).TryPickProblems(out _, out var batchManifest) && batchManifest.Ci is null)
+            {
+                // A batch whose definition drops CI has nothing to check: it lands once built and described.
+                logger.LogInformation("Queue run #{RunNumber} of pipeline '{PipelineId}' has a definition without CI: nothing to run",
+                    run.Number, run.PipelineId);
+                runs.Define(run.Id, null, null).DiscardResult();
+                runs.Complete(run.Id, RunStatus.Succeeded).DiscardResult();
+                continue;
+            }
+
             if (plans.Manifest(build).TryPickProblems(out _, out var manifest) || manifest.Ci is null)
             {
                 logger.LogInformation("Pull request #{Pull} of pipeline '{PipelineId}' removes CI: CI run #{RunNumber} is dropped",

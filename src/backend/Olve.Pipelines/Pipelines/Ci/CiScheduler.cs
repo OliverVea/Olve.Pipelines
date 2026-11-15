@@ -178,6 +178,8 @@ public class CiScheduler(
                     waiting = true;
             }
 
+            if (waiting && run.IsQueue && FailFast(run, stage))
+                return;
             if (waiting)
                 return;
 
@@ -198,6 +200,19 @@ public class CiScheduler(
 
         logger.LogInformation("CI run #{RunNumber} of pipeline '{PipelineId}' succeeded", run.Number, run.PipelineId);
         Complete(run, RunStatus.Succeeded);
+    }
+
+    /// <summary>A queue run stops at its first failed step: the step's attempts still in flight are cancelled.</summary>
+    private bool FailFast(CiRun run, PlanStage stage)
+    {
+        if (stage.Units.Select(u => Latest(run.Id, u.Name)).FirstOrDefault(a => a?.Status is Failed) is not { } failed)
+            return false;
+        foreach (var attempt in attempts.ListByRun(run.Id).Where(a => a.Status.IsActive()))
+            attempts.Cancel(attempt.Id, $"cancelled: {failed.StepName} failed").DiscardResult();
+        logger.LogInformation("Queue run #{RunNumber} of pipeline '{PipelineId}' failed at step '{StepName}'; its other steps are cancelled",
+            run.Number, run.PipelineId, failed.StepName);
+        Complete(run, RunStatus.Failed);
+        return true;
     }
 
     private static bool IsSettled(CiAttempt? latest, StepDecision decision) => latest?.Status switch

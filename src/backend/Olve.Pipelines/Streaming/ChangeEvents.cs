@@ -106,6 +106,9 @@ public sealed record ChangeEvent(Id<Pipeline> PipelineId, Contract.ChangeEvent P
     public static ChangeEvent Pull(PullRequest pull)
         => new(pull.PipelineId, new Contract.PullChanged { PipelineId = pull.PipelineId.Value.Value, Pull = pull.Number });
 
+    public static ChangeEvent CiQueue(Id<Pipeline> pipelineId)
+        => new(pipelineId, new Contract.CiQueueChanged { PipelineId = pipelineId.Value.Value });
+
     public static ChangeEvent Poll(Id<Pipeline> pipelineId)
         => new(pipelineId, new Contract.PollChanged { PipelineId = pipelineId.Value.Value });
 

@@ -13,11 +13,16 @@ import { toneOf } from '../styles/ui.js';
 import type { Manifest, ManifestStep, Stage } from './manifest.js';
 import type { ManifestMatrix } from './matrix.js';
 
-/** What a pull request's row says: its latest run's status, or `conflict` / `pending` without one. */
+/**
+ * What a pull request's row says: its latest run's status, or without one `conflict`, `pending` (open,
+ * its first run not started) or `Cancelled` (closed or merged before a run started).
+ */
 export type PullStatus = RunStatus | 'conflict' | 'pending';
 
 export const pullStatus = (p: Pull): PullStatus =>
-  p.conflict ? 'conflict' : (p.latestRun?.status ?? 'pending');
+  p.conflict
+    ? 'conflict'
+    : (p.latestRun?.status ?? (p.state === 'open' ? 'pending' : 'Cancelled'));
 
 /** The run a pull request's row shows: none while it conflicts. */
 export const pullRun = (p: Pull): CiRunSummary | null =>

@@ -25,6 +25,11 @@
     "notRecordedBecause": "a delivery needs a hook on a repo, which is a write to GitHub"
   },
   {
+    "path": "src/backend/Olve.Pipelines.UnitTests/Ci/CiStatusTests.cs",
+    "standsFor": "GitHub's POST /repos/{owner}/{repo}/statuses/{sha}, as FakeCommitStatuses in CiScenario: 201 posted, 5xx tried again, 403/404 denied; only the status code is read (GitHub REST docs, API 2022-11-28)",
+    "notRecordedBecause": "posting a status is a write to GitHub and needs a token"
+  },
+  {
     "path": "src/backend/Olve.Pipelines.UnitTests/BindingHookRegistrationTests.cs",
     "standsFor": "GitHub hook create, update and delete",
     "notRecordedBecause": "these are writes to GitHub and need a token"

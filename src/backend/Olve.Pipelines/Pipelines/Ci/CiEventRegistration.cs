@@ -27,6 +27,13 @@ public class CiEventRegistration(
         pullEvents.OnUpdated.Subscribe(e => Trigger().Observe(e.Before, e.After));
         pullEvents.OnDeleted.Subscribe(e => Trigger().Forget(e.Entity));
 
+        runEvents.OnAdded.Subscribe(e => Statuses().Report(e.Entity));
+        runEvents.OnUpdated.Subscribe(e =>
+        {
+            if (e.Before.Status != e.After.Status || e.Before.Building != e.After.Building)
+                Statuses().Report(e.After);
+        });
+
         attemptEvents.OnAdded.Subscribe(_ => sp.GetRequiredService<JobDispatchSignal>().Nudge());
         attemptEvents.OnUpdated.Subscribe(e =>
         {
@@ -34,6 +41,7 @@ public class CiEventRegistration(
             {
                 sp.GetRequiredService<JobDispatchSignal>().Nudge();
                 sp.GetRequiredService<CiScheduler>().Advance(e.After.RunId);
+                Statuses().Report(e.After.RunId);
             }
         });
 
@@ -43,6 +51,8 @@ public class CiEventRegistration(
     }
 
     private CiTriggerService Trigger() => sp.GetRequiredService<CiTriggerService>();
+
+    private CiStatusReporter Statuses() => sp.GetRequiredService<CiStatusReporter>();
 }
 
 /// <summary>Deletes a deleted pipeline's CI runs and attempts. Transient.</summary>
@@ -65,8 +75,14 @@ public class CiRunCleanupService(CiRunService runs, CiAttemptService attempts, C
 /// At startup, after persistence loaded: drops CI runs of pipelines that are gone, advances running ones and resumes the
 /// builds running runs wait for.
 /// </summary>
-public class CiStartup(EntityStore<Pipeline> pipelines, CiRunService runs, CiRunCleanupService cleanup, CiScheduler scheduler, CiDefinitionService definitions)
-    : IRunOnStartup
+public class CiStartup(
+    EntityStore<Pipeline> pipelines,
+    EntityStore<PullRequest> pulls,
+    CiRunService runs,
+    CiRunCleanupService cleanup,
+    CiScheduler scheduler,
+    CiDefinitionService definitions,
+    CiStatusReporter statuses) : IRunOnStartup
 {
     public Result Run()
     {
@@ -74,6 +90,7 @@ public class CiStartup(EntityStore<Pipeline> pipelines, CiRunService runs, CiRun
             cleanup.HandlePipelineDeleted(pipelineId);
         scheduler.AdvanceRunning();
         definitions.ResumeBuilding();
+        statuses.ReportLatest(pulls.List().Where(p => p.State == PullRequestState.Open));
         return Result.Success();
     }
 }

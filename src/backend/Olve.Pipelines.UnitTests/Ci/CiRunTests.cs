@@ -14,6 +14,49 @@ public class CiRunTests
     private const string A = "a000000000000000000000000000000000000000";
     private const string B = "b000000000000000000000000000000000000000";
 
+    // Catches: a restart losing the debounce held in memory, so the head never gets its run (prod, PR #71).
+    [Test]
+    public async Task After_a_restart_a_head_still_waiting_for_its_run_gets_it()
+    {
+        await using var s = new CiScenario();
+        s.Push(7, A);
+
+        s.Restart();
+        await s.SettleAsync();
+
+        await Assert.That((await Single(s, 7)).HeadSha).IsEqualTo(A);
+    }
+
+    [Test]
+    public async Task After_a_restart_a_head_that_has_its_run_gets_no_second_one()
+    {
+        await using var s = new CiScenario();
+        s.Push(7, A);
+        await s.SettleAsync();
+
+        s.Restart();
+        await s.SettleAsync();
+
+        await Single(s, 7);
+    }
+
+    // Catches: a push missed while the server was down, found by the catch-up, getting no run.
+    [Test]
+    public async Task A_head_the_catch_up_finds_moved_gets_its_run()
+    {
+        await using var s = new CiScenario();
+        s.Push(7, A);
+        await s.SettleAsync();
+        s.Restart();
+
+        s.Clock.Advance(TimeSpan.FromSeconds(1));
+        s.GitHub.Answer(PullRequestFixtures.Pull(7, headSha: B, mergeable: true, mergeCommitSha: CiScenario.Merge(B), updatedAt: s.Clock.GetUtcNow()));
+        await Assert.That(await s.Get<PullRequestCatchUp>().CatchUpAsync(s.Binding, default)).Succeeded();
+        await s.SettleAsync();
+
+        await Assert.That(s.Run(7).HeadSha).IsEqualTo(B);
+    }
+
     [Test]
     public async Task A_burst_of_pushes_makes_one_run_for_the_last_once_the_head_was_still_for_a_minute()
     {

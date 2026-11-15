@@ -163,6 +163,7 @@ public class CiStatusDelivery(
     private readonly HashSet<CiStatusKey> _inFlight = [];
     private readonly Channel<CiStatusKey> _ready = Channel.CreateUnbounded<CiStatusKey>(new UnboundedChannelOptions { SingleReader = true });
     private readonly Dictionary<CiStatusKey, TaskCompletionSource> _done = [];
+    private readonly Dictionary<CiStatusKey, CiCommitStatus> _posted = [];
     private long _version;
 
     /// <summary>
@@ -201,7 +202,7 @@ public class CiStatusDelivery(
     {
         lock (_lock)
         {
-            if (_latest.TryGetValue(key, out var held) && held.Status == status)
+            if (_latest.TryGetValue(key, out var held) ? held.Status == status : _posted.GetValueOrDefault(key) == status)
                 return;
             _latest[key] = (status, ++_version);
             if (!_inFlight.Add(key))
@@ -237,7 +238,13 @@ public class CiStatusDelivery(
                 lock (_lock)
                     (status, version) = _latest[key];
 
-                var outcome = await PostAsync(key, status, ct);
+                bool posted;
+                lock (_lock)
+                    posted = _posted.GetValueOrDefault(key) == status;
+                var outcome = posted ? CommitStatusOutcome.Posted : await PostAsync(key, status, ct);
+                if (outcome == CommitStatusOutcome.Posted)
+                    lock (_lock)
+                        _posted[key] = status;
                 if (outcome == CommitStatusOutcome.Retry && retries < Backoff.Length)
                 {
                     await Task.Delay(Backoff[retries++], time, ct);
@@ -294,7 +301,7 @@ public class CiStatusDelivery(
 
 /// <summary>
 /// The heads given "Waiting to start" before their run existed: if no run comes (a conflict, no CI), that status
-/// must be replaced. In memory: after a restart such a head keeps its pending status until it is pushed again. Singleton.
+/// must be replaced. In memory: after a restart, the startup puts such heads back by announcing them again. Singleton.
 /// </summary>
 public class CiWaitingHeads
 {

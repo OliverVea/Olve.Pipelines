@@ -47,7 +47,8 @@ its own runs, scheduling and tab in the UI. What they share is the SDK and the e
 
   The `push` events the binding already receives tell CI that `main` moved.
 - **Debounce:** a run starts once the PR's head has been still for 60 s. A burst of pushes makes one
-  run, for the last of them.
+  run, for the last of them. The pending starts are held in memory; at startup every open PR whose
+  head has no run starts its debounce again.
 - **Supersede at once:** a new run of a PR cancels its running run, Jobs included, through the CI
   equivalent of `RunCancellationService`. The cancelled run is `Superseded` by the new one.
 - **Close or merge** cancels the PR's running run.

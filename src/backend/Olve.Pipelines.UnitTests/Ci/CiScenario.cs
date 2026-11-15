@@ -381,6 +381,18 @@ internal sealed class CiScenario : IAsyncDisposable
 
     public static string Merge(string head) => "m" + head[1..];
 
+    /// <summary>
+    /// A restart as the trigger sees it: its pending starts (in memory) are gone, then the startup hooks run on the
+    /// persisted state.
+    /// </summary>
+    public void Restart()
+    {
+        Clock.Advance(CiTriggerService.Debounce);
+        Trigger.TakeDue();
+        if (Provider.GetServices<IRunOnStartup>().OfType<CiStartup>().Single().Run().TryPickProblems(out var problems))
+            throw new InvalidOperationException(string.Join("; ", problems.Select(p => p.ToDisplayString())));
+    }
+
     /// <summary>Waits until the builds of own definitions in flight have settled their runs.</summary>
     public Task BuildsSettledAsync() => Get<CiDefinitionService>().InFlight();
 

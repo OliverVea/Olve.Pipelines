@@ -14,7 +14,6 @@ public class CiEventRegistration(
     PipelineEvents pipelineEvents,
     EntityStore<CiQueueEntry> queueStore,
     CiQueueEvents queueEvents,
-    AttachmentStore<Pipeline, Versions.PipelineActivation> activations,
     EntityStore<Preview> previewStore,
     PreviewEvents previewEvents,
     IServiceProvider sp) : IRunOnStartup
@@ -82,7 +81,6 @@ public class CiEventRegistration(
         previewEvents.OnUpdated.Subscribe(e => sp.GetRequiredService<PreviewStatusReporter>().Report(e.After));
 
         pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<CiRunCleanupService>().HandlePipelineDeleted(e.Id));
-        activations.OnSet.Subscribe(id => Trigger().ChecksChanged(id));
 
         return Result.Success();
     }

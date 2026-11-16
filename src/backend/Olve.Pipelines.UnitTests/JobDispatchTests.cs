@@ -20,11 +20,8 @@ public class JobDispatchTests
             [new("draft", DraftPull, 0), new("ready", ReadyPull, 1), new("queue", MergeQueue, 2), new("deploy", Deploy, 3)],
             ["deploy"]);
         yield return () => ("each class goes in its order", 5, NoCiCap,
-            [new("draft", DraftPull, 0), new("outdated", OutdatedPull, 1), new("ready", ReadyPull, 2), new("queue", MergeQueue, 3), new("deploy", Deploy, 4)],
-            ["deploy", "queue", "ready", "outdated", "draft"]);
-        yield return () => ("a rerun for new checks waits behind a pull request's own run", 1, NoCiCap,
-            [new("outdated", OutdatedPull, 0), new("ready", ReadyPull, 1)],
-            ["ready"]);
+            [new("draft", DraftPull, 0), new("ready", ReadyPull, 1), new("queue", MergeQueue, 2), new("deploy", Deploy, 3)],
+            ["deploy", "queue", "ready", "draft"]);
         yield return () => ("within a class, oldest first", 2, NoCiCap,
             [new("ready-new", ReadyPull, 5), new("ready-old", ReadyPull, 1), new("ready-mid", ReadyPull, 3)],
             ["ready-old", "ready-mid"]);
@@ -44,7 +41,7 @@ public class JobDispatchTests
             [new("deploy", Deploy, 0), new("queue", MergeQueue, 1), new("ready", ReadyPull, 2)],
             ["deploy", "queue"]);
         yield return () => ("CI keeps its order under its cap", 5, 2,
-            [new("draft", DraftPull, 0), new("outdated", OutdatedPull, 1), new("ready", ReadyPull, 2), new("queue", MergeQueue, 3)],
+            [new("draft", DraftPull, 0), new("ready", ReadyPull, 1), new("queue", MergeQueue, 2)],
             ["queue", "ready"]);
     }
 

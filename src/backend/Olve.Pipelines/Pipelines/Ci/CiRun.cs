@@ -25,8 +25,6 @@ namespace Olve.Pipelines.Pipelines.Ci;
 /// and <see cref="Branch"/> is the batch branch), or a close run removing the pull request's preview with the definition
 /// and commit of the run that deployed it (<see cref="Preview"/>).</param>
 /// <param name="Batch">A queue run's pull requests in queue order, each with the batch commit after merging it.</param>
-/// <param name="Outdated">Started because the active version changed the checks the pull request's latest run used (its Jobs go
-/// after ready pull requests' own runs).</param>
 public sealed record CiRun(
     Id<CiRun> Id,
     Id<Pipeline> PipelineId,
@@ -53,8 +51,7 @@ public sealed record CiRun(
     bool OwnDefinition = false,
     bool Building = false,
     CiRunKind Kind = CiRunKind.Pull,
-    IReadOnlyList<CiBatchPull>? Batch = null,
-    bool Outdated = false) : IHasId<Id<CiRun>>
+    IReadOnlyList<CiBatchPull>? Batch = null) : IHasId<Id<CiRun>>
 {
     [JsonIgnore]
     public bool IsQueue => Kind == CiRunKind.Queue;

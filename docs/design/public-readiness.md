@@ -47,9 +47,9 @@ instance may depend on.
 
 ## 4. Project hygiene
 
-- [ ] Which SDK versions a server accepts is stated, and the SDK leaves beta or says what may still
+- [x] Which SDK versions a server accepts is stated, and the SDK leaves beta or says what may still
       break.
-- [ ] Release notes on the GitHub releases.
+- [x] Release notes on the GitHub releases.
 - [x] `SECURITY.md`: how to report a vulnerability in a service that runs other people's code.
 - [x] Issue templates.
 - [x] A contributor section in `CONTRIBUTING.md`: pull requests get CI from this service, only listed

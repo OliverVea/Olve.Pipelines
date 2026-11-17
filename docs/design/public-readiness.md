@@ -26,7 +26,7 @@ instance may depend on.
 - [ ] `.claude/`: personal commands, skills and `settings.local.json` are untracked; the project's
       conventions (`CLAUDE.md`, `AGENTS.md`) stay, and the agent playbook is optional for contributors.
 - [ ] `.pipelines-test/` and `tools/real-system/` assume nothing about one machine.
-- [ ] `TestResults/` is ignored.
+- [x] `TestResults/` is ignored.
 
 ## 3. Installing is real
 

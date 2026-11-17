@@ -495,3 +495,6 @@ memory/
 # Claude Code scheduler lock (ephemeral)
 .claude/scheduled_tasks.lock
 
+
+# Test reports
+TestResults/

@@ -22,6 +22,8 @@ public enum AttemptFailureKind
     Cancelled,
     /// <summary>A container was OOM-killed.</summary>
     OutOfMemory,
+    /// <summary>The kubelet evicted the pod (an emptyDir over its limit, node disk or memory pressure); the exit code is the eviction signal, not the step's verdict.</summary>
+    Evicted,
     /// <summary>The Job's <c>activeDeadlineSeconds</c> passed (step timeout).</summary>
     DeadlineExceeded,
     /// <summary>olve-init failed (64 config, 65 download, 66 bad archive, 70 filesystem).</summary>
@@ -74,6 +76,7 @@ public static class AttemptFailures
         ("Job failed", AttemptFailureKind.PodFailed),
         ("step container did not terminate", AttemptFailureKind.PodFailed),
         ("step container was killed", AttemptFailureKind.OutOfMemory),
+        ("the step pod was evicted", AttemptFailureKind.Evicted),
         ("unknown harness mode", AttemptFailureKind.Usage),
         ("the result upload failed", AttemptFailureKind.ResultUpload),
         ("the handler was interrupted", AttemptFailureKind.Cancelled),

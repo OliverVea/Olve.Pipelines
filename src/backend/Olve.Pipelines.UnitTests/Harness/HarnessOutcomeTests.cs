@@ -78,6 +78,37 @@ public class HarnessOutcomeTests
             .IsEqualTo(new HarnessFailure(AttemptFailureKind.OutOfMemory, "step container was killed (exit 1, OOMKilled) — out of memory?"));
     }
 
+    private const string EvictedMessage = "Usage of EmptyDir volume \"olve\" exceeds the limit \"1Gi\".";
+
+    private static HarnessPodState EvictedPod(int exitCode, string containerReason)
+        => new(null, null, InitOk, new HarnessContainerState("step", exitCode, containerReason, null),
+            PodStatusReason: "Evicted", PodStatusMessage: EvictedMessage);
+
+    // The kubelet's verdict beats both exit-code readings an eviction looks like (143 as a cancel, 137 as an OOM).
+    [Test]
+    [Arguments(143, "Error")]
+    [Arguments(137, "ContainerStatusUnknown")]
+    public async Task EvictedPod_IsEvicted_NotReadFromItsExitCode(int exitCode, string containerReason)
+    {
+        await Assert.That(HarnessExitCodes.Classify(EvictedPod(exitCode, containerReason)))
+            .IsEqualTo(new HarnessFailure(AttemptFailureKind.Evicted, $"the step pod was evicted: {EvictedMessage}"));
+    }
+
+    [Test]
+    public async Task EvictedPodFromK8sStatus_CarriesTheKubeletsVerdict()
+    {
+        var pod = new K8sPodItem(new K8sMetadata("p"), new K8sPodStatus("Failed", "Evicted", EvictedMessage,
+            [new K8sContainerStatus("olve-init", new K8sContainerState(Terminated: new K8sContainerStateTerminated(0, "Completed")))],
+            [new K8sContainerStatus("step", new K8sContainerState(Terminated: new K8sContainerStateTerminated(137, "ContainerStatusUnknown")))]));
+
+        var state = HarnessPodState.From(null, pod);
+
+        await Assert.That(state.PodStatusReason).IsEqualTo("Evicted");
+        await Assert.That(state.PodStatusMessage).IsEqualTo(EvictedMessage);
+        await Assert.That(HarnessExitCodes.Classify(state))
+            .IsEqualTo(new HarnessFailure(AttemptFailureKind.Evicted, $"the step pod was evicted: {EvictedMessage}"));
+    }
+
     [Test]
     public async Task DeadlineExceeded_FromJobCondition()
     {
@@ -133,7 +164,7 @@ public class HarnessOutcomeTests
     {
         var job = new K8sJobResponse(new K8sMetadata("j"), new K8sJobStatusBody(
             [new K8sJobCondition("Failed", "True", "Job was active longer than specified deadline", "DeadlineExceeded")], null, 1, null));
-        var pod = new K8sPodItem(new K8sMetadata("p"), new K8sPodStatus("Failed", null,
+        var pod = new K8sPodItem(new K8sMetadata("p"), new K8sPodStatus("Failed", null, null,
             [new K8sContainerStatus("olve-init", new K8sContainerState(Terminated: new K8sContainerStateTerminated(0, "Completed")))],
             [new K8sContainerStatus("step", new K8sContainerState(Terminated: new K8sContainerStateTerminated(143, "Error")))]));
 

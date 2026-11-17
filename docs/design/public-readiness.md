@@ -42,7 +42,7 @@ instance may depend on.
 
 - [ ] The chart's Ingress routes `/dex` to the bundled Dex (today only `/`; the quickstart adds the
       route through `extraObjects`).
-- [ ] Pull requests are tracked without webhooks: a periodic re-read, so an instance that GitHub can't
+- [x] Pull requests are tracked without webhooks: a periodic re-read, so an instance that GitHub can't
       reach still gets pull request CI, the merge queue and previews.
 - [ ] Webhook registration uses `GitHub:ApiUrl` (it calls `api.github.com`), for GitHub Enterprise.
 

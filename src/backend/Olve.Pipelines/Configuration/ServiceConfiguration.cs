@@ -63,7 +63,7 @@ public static class ServiceConfiguration
         services.AddHostedService<BindingHookPersistenceService>();
         services.AddSingleton<IConfigSource, GitHubConfigSource>();
 
-        // CI: a binding's pull requests, from its webhook and a catch-up read of GitHub.
+        // CI: a binding's pull requests, from its webhook and a catch-up read of GitHub (on events and every poll interval).
         services.AddSingleton<EntityStore<PullRequest>>();
         services.AddSingleton(sp => new CiOptions([
             .. sp.GetRequiredService<IConfiguration>().GetSection("Ci:Authors").GetChildren()
@@ -78,6 +78,8 @@ public static class ServiceConfiguration
         services.AddSingleton<PullRequestCatchUpQueue>();
         services.AddSingleton<IRunOnStartup, PullRequestCatchUpRegistration>();
         services.AddHostedService<PullRequestCatchUpService>();
+        services.AddSingleton<PullRequestPollService>();
+        services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PullRequestPollService>());
         services.AddSingleton<CiPersistenceService>();
         services.AddHostedService(sp => sp.GetRequiredService<CiPersistenceService>());
         // CI runs of pull requests: their own runs, attempts and scheduler over the shared harness.

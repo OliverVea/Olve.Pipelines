@@ -3,7 +3,7 @@
 [← Index](index.md) · [Running an Instance](self-hosting.md)
 
 From a Kubernetes cluster to an instance people log in to with GitHub, behind an Ingress with TLS,
-that hears about pushes and pull requests from GitHub webhooks. Check the cluster against the
+that hears about pushes and pull requests from GitHub webhooks or by polling. Check the cluster against the
 [requirements](self-hosting.md#requirements) first. The examples use the namespace `pipelines`, the
 release `olve-pipelines` and the host `pipelines.example.com`.
 
@@ -108,10 +108,9 @@ extraObjects:
 
 ## 4. Webhooks or polling
 
-The service polls every binding's branch every 15 minutes (`Reconcile:PollIntervalSeconds`), so
-pushes deploy without webhooks, only later. Pull requests need webhooks: without them, a binding
-reads its pull requests only when the server starts and when the binding is created or moves to
-another branch, so pull request CI, the merge queue and previews don't follow GitHub.
+The service polls every binding's branch and, when `Ci:Authors` is set, its pull requests every
+15 minutes (`Reconcile:PollIntervalSeconds`), so pushes deploy and pull request CI, the merge queue
+and previews work without webhooks, only later. Webhooks make them follow GitHub within seconds.
 
 - **The host is reachable from the internet:** `Webhooks__PublicBaseUrl` is the host, as above.
   Each binding whose token may manage webhooks gets a hook for `push` and `pull_request` events,

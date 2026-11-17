@@ -1,16 +1,16 @@
 namespace Olve.Pipelines.Pipelines.Sync;
 
 /// <summary>
-/// Tuning for reconcile: how often bound repos are polled.
+/// How often bound repos are polled.
 /// </summary>
 public record ReconcileOptions
 {
     /// <summary>
-    /// How often the deploy poll checks each bound repo for config/branch changes. Conservative by
-    /// default — homelab CD doesn't need second-level responsiveness, and a longer interval keeps
-    /// well clear of GitHub rate limits (the branch-head check is one counted request per cycle;
-    /// the config check is a free 304 when unchanged). With webhook-driven deploys as the intended
-    /// default, polling is the slow safety-net/fallback path, so the interval is relaxed to 15 min.
+    /// How often each polling binding is checked: its config, its branch head and, when CI has authors, its pull
+    /// requests. Conservative by default — homelab CD doesn't need second-level responsiveness, and a longer interval
+    /// keeps well clear of GitHub rate limits (the branch-head check and the pull request list are one counted request
+    /// each per cycle; the config check is a free 304 when unchanged). Webhooks make all of it faster; polling is the
+    /// safety net, so the interval is relaxed to 15 min.
     /// </summary>
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromMinutes(15);
 }

@@ -8,7 +8,9 @@
 #   tools/real-system/gate.sh
 #
 # Env: GATE_SLOTS (default "7 8 9", away from the slots people use), GATE_MIN_START_GIB (default 8),
-# GATE_MIN_RUN_GIB (default 4), GATE_DEADLINE_SECONDS (default 1700, under the step's timeout).
+# GATE_WAIT_SECONDS (default 1200, how long to wait for that much memory), GATE_MIN_RUN_GIB (default 4),
+# GATE_DEADLINE_SECONDS (default 1700, from the start of the tiers). The wait and the deadline together
+# stay under the step's timeout.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
@@ -22,7 +24,7 @@ export PATH="$HOME/.dotnet:$HOME/.bun/bin:$PATH"
 read -r -a slots <<< "${GATE_SLOTS:-7 8 9}"
 min_start="${GATE_MIN_START_GIB:-8}"
 min_run="${GATE_MIN_RUN_GIB:-4}"
-deadline=$((SECONDS + ${GATE_DEADLINE_SECONDS:-1700}))
+wait_until=$((SECONDS + ${GATE_WAIT_SECONDS:-1200}))
 TEST_TARGETS="$(for s in "${slots[@]}"; do printf 'http://localhost:%d,' $((5000 + s * 10)); done)"
 export TEST_TARGETS="${TEST_TARGETS%,}"
 
@@ -41,10 +43,16 @@ up() {
 }
 
 free_gib="$(available_gib)"
-if [ "$free_gib" -lt "$min_start" ]; then
-  echo "gate: only ${free_gib} GiB available, the tiers need ${min_start} GiB; rerun this step once the machine has room" >&2
-  exit 1
-fi
+while [ "$free_gib" -lt "$min_start" ]; do
+  if [ "$SECONDS" -ge "$wait_until" ]; then
+    echo "gate: only ${free_gib} GiB available after waiting, the tiers need ${min_start} GiB; rerun this step once the machine has room" >&2
+    exit 1
+  fi
+  echo "gate: waiting for ${min_start} GiB, ${free_gib} GiB available" >&2
+  sleep 30
+  free_gib="$(available_gib)"
+done
+deadline=$((SECONDS + ${GATE_DEADLINE_SECONDS:-1700}))
 
 down
 # Only one attempt of the step runs at a time, so any other copy is one a cancelled step left.

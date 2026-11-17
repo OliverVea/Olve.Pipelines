@@ -19,7 +19,7 @@ export const realSystemTest = (host: ConfigRef, hostKey: ConfigRef) =>
       input: { source: Source },
       secrets: [SSH_PRIVATE_KEY],
       settings: { host, hostKey },
-      timeoutSeconds: 1800,
+      timeoutSeconds: 3000,
     }),
     async ({ source }, ctx) => {
       const target = resolveConfigRefs({ host, hostKey }, ctx.config ?? {}) as {

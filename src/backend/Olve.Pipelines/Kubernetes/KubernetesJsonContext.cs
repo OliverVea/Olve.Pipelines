@@ -152,6 +152,7 @@ public record K8sPodItem(
 public record K8sPodStatus(
     [property: JsonPropertyName("phase")] string? Phase = null,
     [property: JsonPropertyName("reason")] string? Reason = null,
+    [property: JsonPropertyName("message")] string? Message = null,
     [property: JsonPropertyName("initContainerStatuses")] K8sContainerStatus[]? InitContainerStatuses = null,
     [property: JsonPropertyName("containerStatuses")] K8sContainerStatus[]? ContainerStatuses = null);
 

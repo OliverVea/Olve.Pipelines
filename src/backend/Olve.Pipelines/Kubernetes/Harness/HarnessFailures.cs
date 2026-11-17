@@ -16,17 +16,21 @@ public sealed record HarnessContainerState(string Name, int? ExitCode, string? R
 
 /// <summary>
 /// What the executor needs to classify a finished (or stuck) harness/build pod: the Job's failure
-/// condition and the init / main container states. Built by
-/// <see cref="IHarnessKubernetesClient.GetHarnessPodStateAsync"/>, or directly in tests.
+/// condition, the pod's own status reason/message (the kubelet's verdict, e.g. eviction) and the init /
+/// main container states. Built by <see cref="IHarnessKubernetesClient.GetHarnessPodStateAsync"/>, or directly in tests.
 /// </summary>
 /// <param name="JobFailedReason">Reason of the Job's <c>Failed=True</c> condition (<c>DeadlineExceeded</c>, <c>BackoffLimitExceeded</c>).</param>
 /// <param name="PodCreatedAt">When the pod was created.</param>
+/// <param name="PodStatusReason">The pod's <c>status.reason</c> (<c>Evicted</c> — the kubelet evicted the pod).</param>
+/// <param name="PodStatusMessage">The pod's <c>status.message</c> (for an eviction: what the kubelet evicted it for).</param>
 public sealed record HarnessPodState(
     string? JobFailedReason,
     string? JobFailedMessage,
     HarnessContainerState? Init,
     HarnessContainerState? Main,
-    DateTimeOffset? PodCreatedAt = null)
+    DateTimeOffset? PodCreatedAt = null,
+    string? PodStatusReason = null,
+    string? PodStatusMessage = null)
 {
     public static HarnessPodState From(K8sJobResponse? job, K8sPodItem? pod)
     {
@@ -36,7 +40,9 @@ public sealed record HarnessPodState(
             failed?.Message,
             ToState(pod?.Status?.InitContainerStatuses?.FirstOrDefault()),
             ToState(pod?.Status?.ContainerStatuses?.FirstOrDefault()),
-            pod?.Metadata.CreationTimestamp);
+            pod?.Metadata.CreationTimestamp,
+            pod?.Status?.Reason,
+            pod?.Status?.Message);
     }
 
     private static HarnessContainerState? ToState(K8sContainerStatus? status)
@@ -83,6 +89,10 @@ public static class HarnessExitCodes
     /// </summary>
     public static HarnessFailure? Classify(HarnessPodState state)
     {
+        // The kubelet's verdict on the pod outranks any exit-code reading.
+        if (state.PodStatusReason == "Evicted")
+            return new(AttemptFailureKind.Evicted, $"the step pod was evicted{Suffix(state.PodStatusMessage)}");
+
         if (state.JobFailedReason == "DeadlineExceeded")
             return new(AttemptFailureKind.DeadlineExceeded, $"step timed out: {state.JobFailedMessage ?? "Job was active longer than its deadline"}");
 

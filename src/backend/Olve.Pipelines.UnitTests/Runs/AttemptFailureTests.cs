@@ -20,6 +20,7 @@ public class AttemptFailureTests
     [Arguments(AttemptFailureKind.ResultUpload, AttemptFailureCategory.Infrastructure)]
     [Arguments(AttemptFailureKind.Cancelled, AttemptFailureCategory.Infrastructure)]
     [Arguments(AttemptFailureKind.OutOfMemory, AttemptFailureCategory.Infrastructure)]
+    [Arguments(AttemptFailureKind.Evicted, AttemptFailureCategory.Infrastructure)]
     [Arguments(AttemptFailureKind.InitFailed, AttemptFailureCategory.Infrastructure)]
     [Arguments(AttemptFailureKind.PodFailed, AttemptFailureCategory.Infrastructure)]
     [Arguments(AttemptFailureKind.JobLost, AttemptFailureCategory.Infrastructure)]
@@ -43,6 +44,7 @@ public class AttemptFailureTests
     [Arguments(AttemptFailureKind.LaunchFailed, "cannot launch: no binary")]
     [Arguments(AttemptFailureKind.LaunchFailed, "cannot build the step Job: bad spec")]
     [Arguments(AttemptFailureKind.Declined, "declined by oliver: not today")]
+    [Arguments(AttemptFailureKind.Evicted, "the step pod was evicted: Usage of EmptyDir volume \"olve\" exceeds the limit \"1Gi\".")]
     [Arguments(AttemptFailureKind.NotRun, "input.json exceeds 262144 bytes")]
     [Arguments(AttemptFailureKind.NotRun, "Input of step 'build' exceeds 262144 bytes.")]
     public async Task WithoutARecordedKind_TheReasonTells(AttemptFailureKind kind, string? reason)
@@ -78,6 +80,8 @@ public class AttemptFailureTests
     {
         var initOk = new HarnessContainerState("olve-init", 0, "Completed", null);
         HarnessPodState Step(int exit, string? reason = null) => new(null, null, initOk, new HarnessContainerState("step", exit, reason, null));
+        HarnessPodState Evicted(int exit, string? reason) => new(null, null, initOk, new HarnessContainerState("step", exit, reason, null),
+            PodStatusReason: "Evicted", PodStatusMessage: "Usage of EmptyDir volume \"olve\" exceeds the limit \"1Gi\".");
         HarnessPodState[] states =
         [
             new("DeadlineExceeded", "too slow", initOk, null),
@@ -90,6 +94,8 @@ public class AttemptFailureTests
             Step(74),
             Step(143),
             Step(1),
+            Evicted(143, "Error"),
+            Evicted(137, "ContainerStatusUnknown"),
         ];
 
         foreach (var state in states)

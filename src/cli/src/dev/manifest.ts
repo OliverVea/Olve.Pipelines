@@ -52,6 +52,18 @@ export type DevManifest = {
   triggers: JsonObject[];
   stages: StageNode[];
   failureHandlers: { step: DevStep; scope?: string[] }[];
+  /** The checks run on pull requests. */
+  ci?: DevCi;
+};
+
+export type DevCi = {
+  description?: string;
+  inputModel?: string;
+  inputSchema?: JsonObject;
+  secrets: string[];
+  stages: StageNode[];
+  /** The steps of a close run. */
+  onClose: DevStep[];
 };
 
 export const str = (v: Json | undefined): string | undefined =>
@@ -77,6 +89,9 @@ export function parseManifest(text: string): DevManifest {
   const inputModel = str(m.input);
   const model = inputModel ? obj(obj(m.models)?.[inputModel]) : undefined;
   const outputSchema = obj(model?.output);
+  const ci = obj(m.ci);
+  const ciInput = str(ci?.input);
+  const ciModel = ciInput ? obj(obj(m.models)?.[ciInput]) : undefined;
   return {
     text,
     name: str(m.name) ?? 'pipeline',
@@ -100,6 +115,20 @@ export function parseManifest(text: string): DevManifest {
         : undefined;
       return [{ step: parseStep(step, true), scope }];
     }),
+    ...(ci
+      ? {
+          ci: {
+            description: str(ci.description),
+            inputModel: ciInput,
+            inputSchema: obj(ciModel?.input) ?? obj(ciModel?.output),
+            secrets: arr(ci.secrets).flatMap((s) => (typeof s === 'string' ? [s] : [])),
+            stages: parseNodes(arr(ci.stages)),
+            onClose: arr(obj(ci.onClose)?.steps).flatMap((s) =>
+              obj(s) ? [parseStep(obj(s)!, false)] : [],
+            ),
+          },
+        }
+      : {}),
   };
 }
 

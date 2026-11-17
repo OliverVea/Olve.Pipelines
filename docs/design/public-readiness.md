@@ -25,7 +25,7 @@ instance may depend on.
 - [x] `docs/design/pipelines-v2-plan.md`'s still-true parts move into the design docs it backs.
 - [x] `.claude/`: personal commands, skills and `settings.local.json` are untracked; the project's
       conventions (`CLAUDE.md`, `AGENTS.md`) stay, and the agent playbook is optional for contributors.
-- [ ] `.pipelines-test/`, `tools/real-system/` and `src/harness/validate/` assume nothing about one
+- [x] `.pipelines-test/`, `tools/real-system/` and `src/harness/validate/` assume nothing about one
       machine or cluster.
 - [x] `TestResults/` is ignored.
 

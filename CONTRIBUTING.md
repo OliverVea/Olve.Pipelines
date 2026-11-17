@@ -52,7 +52,7 @@ src/
     ├── helm/                       Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
     └── compose/                    The throwaway local instance's config and deployer (docker-compose.yml at the root)
 .pipelines/                         This repo's own pipeline
-.pipelines-test/                    Beta's fixture pipeline (bound on beta)
+.pipelines-test/                    Beta's fixture pipeline: maintainer-only, runs on this instance's beta, whose hosts it names
 docs/setup/                         Setup guide, served at /docs
 docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
 tools/real-system/                  The throwaway host the real-system tests run against
@@ -89,6 +89,11 @@ dotnet run --project src/backend/Olve.Pipelines.RealSystemTests  # add -- --outp
 tools/real-system/host.sh down                                 # remove it and its data
 ```
 
+A host needs x86-64 Linux, Docker Compose that may run privileged containers (k3s), the .NET SDK and Bun:
+images come from public registries, and every cluster action goes through the host's own k3s container.
+Slot `n` uses ports `5000+10n`, `15643+10n`, `15680+10n` and `15900+10n` on 127.0.0.1 and the Docker subnet
+`172.29.(81+n).0/24`; pick slots whose ports and subnet are free.
+
 The header of `tools/real-system/host.sh` covers a pool of hosts (`TEST_TARGETS`, `TEST_TARGETS_FILE`), the
 reset and the sweeper. The tests refuse a target whose cluster doesn't carry the host's marker Secret.
 
@@ -100,8 +105,9 @@ system here and on the fake in the unit tests (`Olve.Pipelines.UnitTests/RealSys
 
 Every deploy with an ssh beta target runs this tier and the browser tests in the `real-system-test` step,
 through `tools/real-system/gate.sh` on the beta machine: it runs after `beta-test`, and a failure stops the
-deploy before prod. The script's header covers its slot and memory limits. Run it yourself to see what the
-step sees, from a checkout with no `artifacts/`.
+deploy before prod. The script's header covers its slot and memory limits, all set from the environment (`GATE_SLOTS`
+defaults to the slots the deploy uses). Run it yourself to see what the step sees, from a checkout with no
+`artifacts/`.
 
 ### Chaos tests
 

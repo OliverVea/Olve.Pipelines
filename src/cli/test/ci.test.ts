@@ -331,7 +331,7 @@ describe('ci commands', () => {
             attempt: 2,
             status: 'succeeded',
             complete: true,
-            text: 'ok',
+            text: 'ok\n---OLVE-RESULT-BEGIN---\n{"output":{"ok":true}}\n---OLVE-RESULT-END---\n',
           },
         };
       return { status: 404 };
@@ -345,7 +345,7 @@ describe('ci commands', () => {
     expect(logs.stdout).toBe('ok\n');
   });
 
-  test('logs --follow streams until the attempt ends, reconnecting without repeating', async () => {
+  test('logs --follow streams until the attempt ends, reconnecting without repeating, without the result envelope', async () => {
     let connections = 0;
     const { fetch } = fakeFetch((req) => {
       if (req.path === '/api/pipelines') return { body: [alpha] };
@@ -362,7 +362,8 @@ describe('ci commands', () => {
           : {
               stream: [
                 'event: log\ndata: {"type":"log","text":"","reset":true}\n\n',
-                'event: log\ndata: {"type":"log","text":"one\\ntwo\\nthree","reset":true}\n\n',
+                'event: log\ndata: {"type":"log","text":"one\\ntwo\\nthree\\n---OLVE-RESULT-","reset":true}\n\n',
+                'event: log\ndata: {"type":"log","text":"BEGIN---\\n{}\\n---OLVE-RESULT-END---\\n","reset":false}\n\n',
                 'event: end\ndata: {"type":"end","status":"succeeded"}\n\n',
               ],
               ends: true,

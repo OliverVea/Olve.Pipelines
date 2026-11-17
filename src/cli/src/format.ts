@@ -37,3 +37,20 @@ export function json(value: unknown): string {
 export function indented(value: unknown): string {
   return value === undefined ? 'null' : JSON.stringify(value, null, 2);
 }
+
+const RESULT_BEGIN = '---OLVE-RESULT-BEGIN---';
+const ENVELOPE = /^---OLVE-RESULT-BEGIN---\n.*\n---OLVE-RESULT-END---(\n|$)/gm;
+
+/**
+ * A step's log without the result envelope the harness prints last (`output` shows the step's
+ * output). `growing`: the log is still being written, so an unfinished envelope, or a last line
+ * that may yet become its first, is held back.
+ */
+export function withoutEnvelope(log: string, growing = false): string {
+  let text = log.replace(ENVELOPE, '');
+  if (!growing) return text;
+  const open = text.search(/^---OLVE-RESULT-BEGIN---$/m);
+  if (open >= 0) text = text.slice(0, open);
+  const last = text.slice(text.lastIndexOf('\n') + 1);
+  return last && RESULT_BEGIN.startsWith(last) ? text.slice(0, -last.length) : text;
+}

@@ -55,7 +55,8 @@ and its Garage, no ingress, auth off). It runs the released image, `ghcr.io/oliv
 pl bootstrap -n <namespace> --chart helm          # --image-tag <version> pins a release
 ```
 
-Turning on auth, ingress and the rest: [Running an Instance](docs/setup/self-hosting.md).
+Turning on auth, ingress and the rest: [A First Real Instance](docs/setup/first-instance.md), and the
+[requirements and configuration](docs/setup/self-hosting.md).
 
 ## Adding a pipeline to your repo
 
@@ -97,7 +98,7 @@ Every instance serves the docs at `/docs` (raw Markdown; agents start at `/docs/
 - [Pipeline Reference](docs/setup/pipeline-reference.md) · [Pipeline Config](docs/setup/configuration.md) · [Local Development](docs/setup/local-development.md)
 - [Runs & Operations](docs/setup/runs-and-operations.md) · [Blocking Steps](docs/setup/blocking-steps.md) · [Troubleshooting](docs/setup/troubleshooting.md)
 - [The `pl` CLI](docs/setup/cli.md) · [API Reference](docs/setup/api-reference.md) (generated from `api.json`)
-- [Running an Instance](docs/setup/self-hosting.md) · [Deploying to Docker Compose](docs/setup/compose-deploy.md)
+- [Running an Instance](docs/setup/self-hosting.md) · [A First Real Instance](docs/setup/first-instance.md) · [Deploying to Docker Compose](docs/setup/compose-deploy.md)
 
 ## Repository
 

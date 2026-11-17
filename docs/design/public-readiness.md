@@ -33,12 +33,12 @@ instance may depend on.
 
 - [ ] The Helm chart is published to ghcr as a versioned OCI chart, so an install pins a release, not
       a git ref (`pl bootstrap` fetches it from a GitHub tarball of `--ref` today).
-- [ ] A quickstart for a first real instance: a GitHub OAuth app for Dex, the allow-list, an Ingress
+- [x] A quickstart for a first real instance: a GitHub OAuth app for Dex, the allow-list, an Ingress
       with TLS, webhooks or polling. `pl bootstrap` asks for them, or one documented `values.yaml`
-      holds them.
+      holds them (`docs/setup/first-instance.md`).
 - [ ] A walkthrough of a first pipeline on a sample repo: binding, secrets, a push that deploys, a
       pull request that gets CI. Checked end to end on a fresh cluster.
-- [ ] The GitHub token scopes a binding needs are documented.
+- [x] The GitHub token scopes a binding needs are documented.
 
 ## 4. Project hygiene
 
@@ -49,7 +49,7 @@ instance may depend on.
 - [x] Issue templates.
 - [x] A contributor section in `CONTRIBUTING.md`: pull requests get CI from this service, only listed
       authors get it, so outside pull requests wait for a maintainer.
-- [ ] What is supported, in one place: GitHub only, the Kubernetes versions, x86-64 step images,
+- [x] What is supported, in one place: GitHub only, the Kubernetes versions, x86-64 step images,
       gVisor optional and recommended for untrusted code.
 - [ ] Branch protection on `main` requires `olve/merge-queue` again.
 

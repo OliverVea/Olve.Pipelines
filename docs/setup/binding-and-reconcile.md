@@ -33,11 +33,32 @@ pipeline; every pipeline has exactly one.
 The pipeline's name and description come from `pipeline({ name, description })` at reconcile; the
 bind seeds a provisional name from the repo.
 
+### The GitHub token
+
+The binding's token is the value under its `credentialsSecret` key in the pipeline's Secret
+(`pl secret set`, then `pl binding set-credentials`). What it needs depends on what the binding uses:
+
+| For | Fine-grained token | Classic token |
+|---|---|---|
+| Every fine-grained token | Metadata: Read-only | — |
+| The definition: the branch's commits and comparisons, `package.json`, the build Job's tarball | Contents: Read-only | `repo` |
+| Tracking pull requests (their merge commits and changed files are Contents) | Pull requests: Read-only | `repo` |
+| The webhook (`push`, `pull_request`), when `Webhooks:PublicBaseUrl` is set | Webhooks: Read and write | `admin:repo_hook` |
+| The commit statuses `olve/ci`, `olve/merge-queue` and `olve/preview` | Commit statuses: Read and write | `repo` |
+| The merge queue: the `olve-queue/<run>` branches, merging into them, landing pull requests | Contents: Read and write | `repo` |
+| The merge queue, when pull requests change `.github/workflows/` | Workflows: Read and write | `workflow` |
+
+A public repository's definition and pull requests are read without a token, but the webhook,
+statuses and the queue always need one. When the binding names no key, the build Job still fetches
+the tarball with the pipeline's `GITHUB_TOKEN` (`Harness:BuildTokenSecretKey`) if that is set. A
+step's own GitHub access, such as `gitHubSource`'s `token`, is a secret the pipeline declares, apart
+from the binding's; fetching a private repository needs Contents: Read-only.
+
 ### How changes are noticed
 
 The service polls every binding's branch every 15 minutes (an unchanged branch costs a free
 conditional request). When the instance has `Webhooks:PublicBaseUrl` set and the binding has a
-`credentialsSecret` token with `admin:repo_hook`, it also registers a GitHub hook for `push` and
+`credentialsSecret` token that may manage webhooks ([The GitHub token](#the-github-token)), it also registers a GitHub hook for `push` and
 `pull_request` events, so changes are picked up within seconds; deliveries are authenticated by an
 HMAC secret the binding generates.
 A binding with polling off (`pl binding set-polling <pipeline> off`) never polls: it syncs only on
@@ -114,7 +135,7 @@ definition keeps CI, so a pull request whose definition removes CI gets no statu
 reports nothing more (the run replacing it reports), and neither does a run cancelled because its pull
 request closed or merged. Statuses go out in the background; a newer state
 replaces one not yet sent, and a GitHub server error is tried again. This needs the binding's token to
-have **Commit statuses: write** (a classic token: `repo`). Without it, `pl binding status` shows a
+have **Commit statuses: Read and write** (a classic token: `repo`). Without it, `pl binding status` shows a
 warning saying so until a status gets through.
 
 ### The merge queue
@@ -142,8 +163,9 @@ leaving draft or reopening puts the pull request back in; one removed at the sam
 So that only the queue merges into the branch, require the status check **`olve/merge-queue`** (not
 `olve/ci`) in the branch's protection. With auto-merge turned on, GitHub then waits for the queue,
 which sets that status on the head it tested right before it merges. The queue needs the binding's
-token to have **Contents: write** (the batch branch and the merges; a classic token: `repo`), and
-**Workflows: write** too when pull requests change `.github/workflows/`. Without it, `pl binding status`
+token to have **Contents: Read and write** (the batch branch and the merges; a classic token: `repo`),
+and **Workflows: Read and write** too when pull requests change `.github/workflows/` (a classic
+token: `workflow`). Without it, `pl binding status`
 shows a warning saying so.
 
 Either way, a branch-head change fires the pipeline's **`onPush`** trigger. `onPoll` triggers are

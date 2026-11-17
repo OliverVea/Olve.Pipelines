@@ -18,7 +18,8 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [runs-and-operations.md](runs-and-operations.md) | Runs, attempts, scheduling, latest-wins, de-dup, rerun/continue/cancel, addresses, how a step runs, storage, retention |
 | [cli.md](cli.md) | Installing `pl`, profiles and login, every command |
 | `/docs/openapi.json` | The API contract as OpenAPI: every operation and schema, auth, the error model, the event stream |
-| [self-hosting.md](self-hosting.md) | Server configuration keys, logging, a local instance with Docker Compose, self-deploy |
+| [self-hosting.md](self-hosting.md) | Requirements, server configuration keys, logging, a local instance with Docker Compose, self-deploy |
+| [first-instance.md](first-instance.md) | Installing a first instance: Dex and its GitHub OAuth app, the allow-list, Ingress and TLS, webhooks or polling, a complete `values.yaml` |
 | [compose-deploy.md](compose-deploy.md) | The compose deployer, its API and rollback, `deployTarget()`, `steps.composeDeploy` |
 | [blocking-steps.md](blocking-steps.md) | Blocking a step, held runs |
 | [troubleshooting.md](troubleshooting.md) | Symptoms → cause → fix |
@@ -54,9 +55,11 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Flaky steps, failure rates (`pl pipeline reliability`) | [runs-and-operations.md#step-reliability](runs-and-operations.md#step-reliability) |
 | Blocking a step (block / unblock, held runs) | [blocking-steps.md](blocking-steps.md) |
 | Git-only (no shape-mutation API) | [binding-and-reconcile.md#git-only](binding-and-reconcile.md#git-only) |
+| GitHub token permissions (fine-grained, classic) | [binding-and-reconcile.md#the-github-token](binding-and-reconcile.md#the-github-token) |
 | Handlers | [pipeline-reference.md#handlers](pipeline-reference.md#handlers) |
 | Harness (how a step runs in any image) | [runs-and-operations.md#how-a-step-runs](runs-and-operations.md#how-a-step-runs) |
 | Health statuses | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
+| Installing an instance (Dex, Ingress, TLS, `values.yaml`) | [first-instance.md](first-instance.md) |
 | Kaniko hang ("Unpacking rootfs") | [troubleshooting.md#a-run-is-stuck](troubleshooting.md#a-run-is-stuck) |
 | Latest-wins, one attempt in progress per step | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
 | Library steps (`gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`, `composeDeploy`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
@@ -72,6 +75,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Private repo (token key) | [getting-started.md#step-3--create-a-pipeline-bound-to-your-repo](getting-started.md#step-3--create-a-pipeline-bound-to-your-repo) |
 | Push trigger (`onPush`, event fields) | [pipeline-reference.md#triggers](pipeline-reference.md#triggers) |
 | Reconcile `Error` | [troubleshooting.md#the-reconcile-shows-error](troubleshooting.md#the-reconcile-shows-error) |
+| Requirements (GitHub, Kubernetes, x86-64, gVisor) | [self-hosting.md#requirements](self-hosting.md#requirements) |
 | Rerun a run / a step | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | Reliability of steps, failures for no real reason | [runs-and-operations.md#step-reliability](runs-and-operations.md#step-reliability) |
 | Retention | [runs-and-operations.md#retention](runs-and-operations.md#retention) |

@@ -3,7 +3,7 @@
 What is being worked on next, agreed with Oliver. The detail behind each item lives in
 [pipelines-v2-plan.md](pipelines-v2-plan.md), [pipeline-config.md](pipeline-config.md),
 [external-inputs.md](external-inputs.md), [review-2026-10-24.md](review-2026-10-24.md) and
-[quality-inventory.md](quality-inventory.md).
+[quality-inventory.md](quality-inventory.md). What stands between it and other people running it: [public-readiness.md](public-readiness.md).
 
 ## State
 

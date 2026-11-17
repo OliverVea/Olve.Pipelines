@@ -24,8 +24,8 @@ scripts from the instance (`curl -fsSL https://<instance>/install.sh | sh`), or 
 (writes `artifacts/cli/pl`).
 
 ```bash
-pl login --api-url https://pipelines-private.ovea.pro           # profile 'default'; add --device over SSH
-pl login --profile beta --api-url https://pipelines-beta.ovea.pro
+pl login --api-url https://pipelines.example.com           # profile 'default'; add --device over SSH
+pl login --profile beta --api-url https://pipelines-beta.example.com
 ```
 
 `pl login` caches the token and the API URL in a **profile** of `~/.pl` (or `$PIPELINES_CONFIG`):

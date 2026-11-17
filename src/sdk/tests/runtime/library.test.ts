@@ -383,10 +383,10 @@ describe('steps.imageBuild', () => {
     const step = steps.imageBuild({
       name: 'build',
       description: '',
-      repository: 'registry.ovea.pro/app',
+      repository: 'registry.example.com/app',
       registryMap: {},
     });
-    expect(settingsOf(step)).toEqual({ repository: 'registry.ovea.pro/app' });
+    expect(settingsOf(step)).toEqual({ repository: 'registry.example.com/app' });
     const r = await testHandler(
       step,
       { source },
@@ -397,10 +397,10 @@ describe('steps.imageBuild', () => {
     );
     expect(r).toMatchObject({
       status: 'succeeded',
-      output: { repository: 'registry.ovea.pro/app', tag: '2026.10.21.7-attempt2' },
+      output: { repository: 'registry.example.com/app', tag: '2026.10.21.7-attempt2' },
     });
     expect(k.calls[2]).toContain(
-      '--destination=registry.ovea.pro/app:2026.10.21.7-attempt2',
+      '--destination=registry.example.com/app:2026.10.21.7-attempt2',
     );
     expect(k.calls[2]!.some((a) => a.startsWith('--cache'))).toBe(false);
     expect(k.calls[2]!.some((a) => a.startsWith('--registry-map'))).toBe(false);
@@ -509,11 +509,11 @@ describe('steps.imageBuild', () => {
     const got = await reachableMirrors(ctx, {
       'mcr.microsoft.com': 'registry.example/mirror/mcr',
       'index.docker.io': 'registry.example/mirror/hub',
-      'ghcr.io': 'hub-cache.ovea.pro',
+      'ghcr.io': 'hub-cache.example.com',
     });
-    expect(got).toEqual({ 'ghcr.io': 'hub-cache.ovea.pro' });
+    expect(got).toEqual({ 'ghcr.io': 'hub-cache.example.com' });
     expect(k.probed.toSorted()).toEqual([
-      'https://hub-cache.ovea.pro/v2/',
+      'https://hub-cache.example.com/v2/',
       'https://registry.example/v2/',
     ]);
     expect(logs).toEqual([
@@ -600,7 +600,7 @@ describe('steps.imageBuild: definitions', () => {
   test.each([
     ['app', 'docker.io/library/app'],
     ['o/app', 'docker.io/o/app'],
-    ['registry.ovea.pro/a/b', 'registry.ovea.pro/a/b'],
+    ['registry.example.com/a/b', 'registry.example.com/a/b'],
     ['registry:5000/app', 'registry:5000/app'],
     ['localhost/app', 'localhost/app'],
     ['localhostx/app', 'docker.io/localhostx/app'],
@@ -789,13 +789,13 @@ describe('steps.imageBuild: context, push', () => {
     const step = steps.imageBuild({
       name: 'build',
       description: '',
-      repository: 'registry.ovea.pro/app/api',
+      repository: 'registry.example.com/app/api',
       push: true,
       registryMap: {},
     });
     expect(step.output.name).toBe('PushedImage');
     expect(settingsOf(step)).toEqual({
-      repository: 'registry.ovea.pro/app/api',
+      repository: 'registry.example.com/app/api',
       push: true,
     });
     const k = kaniko();
@@ -807,7 +807,7 @@ describe('steps.imageBuild: context, push', () => {
     expect(r).toMatchObject({
       status: 'succeeded',
       output: {
-        repository: 'registry.ovea.pro/app/api',
+        repository: 'registry.example.com/app/api',
         tag: '2026.10.22.3',
         digest: 'sha256:' + 'cd'.repeat(32),
       },
@@ -815,7 +815,7 @@ describe('steps.imageBuild: context, push', () => {
     if (r.status === 'succeeded')
       expect(Object.keys(r.output!)).toEqual(['repository', 'tag', 'digest', 'cached']);
     const argv = k.calls[2]!;
-    expect(argv).toContain('--destination=registry.ovea.pro/app/api:2026.10.22.3');
+    expect(argv).toContain('--destination=registry.example.com/app/api:2026.10.22.3');
     expect(argv.some((a) => a === '--no-push' || a.startsWith('--tar-path'))).toBe(false);
     expect(argv.some((a) => a.startsWith('--digest-file='))).toBe(true);
     expect(k.heads).toEqual([]);
@@ -827,7 +827,7 @@ describe('steps.imageBuild: context, push', () => {
   const repo = {
     name: 'build',
     description: '',
-    repository: 'registry.ovea.pro/app/api',
+    repository: 'registry.example.com/app/api',
     registryMap: {},
   } as const;
 
@@ -835,7 +835,7 @@ describe('steps.imageBuild: context, push', () => {
     [
       'caches next to its repository',
       undefined,
-      ['--cache=true', '--cache-repo=registry.ovea.pro/app/api/cache'],
+      ['--cache=true', '--cache-repo=registry.example.com/app/api/cache'],
     ],
     ['has none with cacheRepo: false', false as const, []],
   ])('layer cache: a push %s', async (_, cacheRepo, flags) => {
@@ -857,8 +857,8 @@ describe('steps.imageBuild: context, push', () => {
     ['has none by default', undefined, []],
     [
       'caches where cacheRepo says',
-      'registry.ovea.pro/app/cache',
-      ['--cache=true', '--cache-repo=registry.ovea.pro/app/cache'],
+      'registry.example.com/app/cache',
+      ['--cache=true', '--cache-repo=registry.example.com/app/cache'],
     ],
   ])('layer cache: a tarball build %s', async (_, cacheRepo, flags) => {
     const step = steps.imageBuild({ ...repo, ...(cacheRepo ? { cacheRepo } : {}) });
@@ -875,7 +875,7 @@ describe('steps.imageBuild: context, push', () => {
     const def = {
       name: 'build-figures',
       description: '',
-      repository: 'registry.ovea.pro/qb/figures',
+      repository: 'registry.example.com/qb/figures',
       context: 'src/frontend',
       push: true,
       contentTag: true,
@@ -889,8 +889,10 @@ describe('steps.imageBuild: context, push', () => {
 
     const built = await testHandler(steps.imageBuild(def), { source }, { ctx: k.ctx });
     expect(built).toMatchObject({ status: 'succeeded', output: { tag, cached: false } });
-    expect(k.heads).toEqual([`https://registry.ovea.pro/v2/qb/figures/manifests/${tag}`]);
-    expect(k.calls[2]).toContain(`--destination=registry.ovea.pro/qb/figures:${tag}`);
+    expect(k.heads).toEqual([
+      `https://registry.example.com/v2/qb/figures/manifests/${tag}`,
+    ]);
+    expect(k.calls[2]).toContain(`--destination=registry.example.com/qb/figures:${tag}`);
 
     const existing = 'sha256:' + 'ef'.repeat(32);
     const k2 = kaniko({ tagDigest: existing });
@@ -898,7 +900,7 @@ describe('steps.imageBuild: context, push', () => {
     expect(skipped).toMatchObject({
       status: 'succeeded',
       output: {
-        repository: 'registry.ovea.pro/qb/figures',
+        repository: 'registry.example.com/qb/figures',
         tag,
         digest: existing,
         cached: true,
@@ -928,7 +930,7 @@ describe('steps.imageBuild: context, push', () => {
     const build = steps.imageBuild({
       name: 'b',
       description: '',
-      repository: 'registry.ovea.pro/app/api',
+      repository: 'registry.example.com/app/api',
       push: true,
       registryMap: {},
     });
@@ -1739,7 +1741,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
     });
     const f = fakes();
     const image = {
-      repository: 'registry.ovea.pro/qb/figures',
+      repository: 'registry.example.com/qb/figures',
       tag: 'src-0123456789ab',
       digest: 'sha256:' + 'ab'.repeat(32),
     };
@@ -1750,15 +1752,15 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
     );
     expect(r).toMatchObject({
       status: 'succeeded',
-      output: { image: 'registry.ovea.pro/qb/figures:src-0123456789ab' },
+      output: { image: 'registry.example.com/qb/figures:src-0123456789ab' },
     });
     expect(f.calls.some((c) => typeof c === 'string' && c.includes(' load'))).toBe(false);
     const remote = sshCmd(f.calls);
     expect(remote[0]).toBe(
-      'sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io pull -q registry.ovea.pro/qb/figures:src-0123456789ab',
+      'sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io pull -q registry.example.com/qb/figures:src-0123456789ab',
     );
     expect(remote[2]).toContain(
-      '--set image.repository=registry.ovea.pro/qb/figures --set image.tag=src-0123456789ab --set image.pullPolicy=IfNotPresent',
+      '--set image.repository=registry.example.com/qb/figures --set image.tag=src-0123456789ab --set image.pullPolicy=IfNotPresent',
     );
     expect(remote[3]).toBe(
       'kubectl -n apps rollout status deploy/figures --timeout=300s',

@@ -1,10 +1,13 @@
 # Olve.Pipelines
 
-A small GitOps CD service for a homelab. Pipelines are defined in TypeScript in the repo they
-deploy (`.pipelines/pipeline.ts`): typed **models**, **steps** that consume and produce them,
-**handlers** that implement the steps, and a pipeline of sequential **stages** of parallel steps.
-The service compiles each definition into a versioned binary and runs every step as a Kubernetes
-Job, in any x86-64 image.
+Typed GitOps CI/CD on Kubernetes. A pipeline is TypeScript in the repo it deploys
+(`.pipelines/`): typed **models**, **steps** that consume and produce them, **handlers** that
+implement the steps, and sequential **stages** of parallel steps, so a wiring mistake is a compile
+error. A push builds the definition into a new version and runs it; every step is a Kubernetes Job,
+in any x86-64 image. Pull requests get CI, with a merge queue and preview environments. You drive it
+with the `pl` CLI or the web UI.
+
+It started as the CD for a homelab, and deploys itself.
 
 ```ts
 export default pipeline({ name: "my-app", input: M.DeployRequest })
@@ -14,8 +17,8 @@ export default pipeline({ name: "my-app", input: M.DeployRequest })
   .when({ deployTo: "prod" }, p => p.stage(deploy));
 ```
 
-This repo deploys itself with it: [`.pipelines/`](.pipelines) builds every component once, deploys
-beta, smoke-tests it, deploys prod and promotes the same artifacts.
+This repo's own pipeline, [`.pipelines/`](.pipelines), builds every component once, deploys beta,
+tests it, deploys prod and promotes the same artifacts.
 
 ![The Olve.Pipelines pipeline in the web UI: its last run succeeded, and the step graph runs from source through parallel build, test and publish steps to beta, prod and promote](docs/images/self-deploy.png)
 
@@ -54,7 +57,7 @@ pl bootstrap -n <namespace> --chart helm          # --image-tag <version> pins a
 
 Turning on auth, ingress and the rest: [Running an Instance](docs/setup/self-hosting.md).
 
-## Adding CD to your repo
+## Adding a pipeline to your repo
 
 1. Add `.pipelines/` (an ordinary TypeScript package: `package.json` with `main` naming the entry point, `bun.lock`), written
    against the SDK `@olivervea/pipelines` ([src/sdk/](src/sdk/README.md)). See
@@ -105,7 +108,7 @@ Every instance serves the docs at `/docs` (raw Markdown; agents start at `/docs/
 | `src/sdk/` | `@olivervea/pipelines`: the authoring API, the harness, the build and dev tools (Bun) |
 | `src/frontend/` | The web UI (Lit + Vite) |
 | `src/deploy/helm/`, `docker-compose.yml`, `src/deploy/compose/` | The Helm chart; a local instance |
-| `harness/` | The step pods' init image |
+| `src/harness/` | The step pods' init image |
 | `docs/setup/` | User docs (served at `/docs`); `docs/design/`: specs and plans |
 
 Working on Olve.Pipelines itself: [CONTRIBUTING.md](CONTRIBUTING.md).

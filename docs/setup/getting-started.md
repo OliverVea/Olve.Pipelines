@@ -11,7 +11,7 @@ A pipeline imports the SDK, published to npm as
 [`@olivervea/pipelines`](https://www.npmjs.com/package/@olivervea/pipelines):
 
 ```json
-"dependencies": { "@olivervea/pipelines": "2.0.0-beta.40" }
+"dependencies": { "@olivervea/pipelines": "2.0.0-beta.42" }
 ```
 
 Until v2 reaches prod, releases are `2.0.0-beta.N` on the `beta` dist-tag; pin an exact version.
@@ -29,16 +29,16 @@ first.
 - The **`pl` CLI**. Each instance serves the `pl` it was deployed with, set up to talk to that
   instance (installs to `~/.local/bin`; `PL_INSTALL_DIR` overrides):
   ```sh
-  curl -fsSL https://pipelines-private.ovea.pro/install.sh | sh        # Linux
-  irm https://pipelines-private.ovea.pro/install.ps1 | iex             # Windows
+  curl -fsSL https://pipelines.example.com/install.sh | sh             # Linux
+  irm https://pipelines.example.com/install.ps1 | iex                  # Windows
   pl --version
   ```
   From source, with Bun: `bun run build` in `src/spec`, then in `src/cli` (writes `artifacts/cli/pl`).
 - A session. `pl login` stores the instance URL with the token in a **profile** of `~/.pl`
   (`default` unless you pass `--profile`), so name the instance once:
   ```sh
-  pl login --api-url https://pipelines-private.ovea.pro                  # profile 'default'; add --device over SSH
-  pl login --profile beta --api-url https://pipelines-beta.ovea.pro      # a second instance beside it
+  pl login --api-url https://pipelines.example.com                         # profile 'default'; add --device over SSH
+  pl login --profile beta --api-url https://pipelines-beta.example.com     # a second instance beside it
   pl pipeline list --profile beta                                          # or PIPELINES_PROFILE=beta
   pl profile list
   ```
@@ -69,7 +69,7 @@ or rename files as you like.
   "type": "module",
   "main": "pipeline.ts",
   "scripts": { "typecheck": "tsc --noEmit -p .", "describe": "olve-dev describe .", "build": "olve-build . --out .olve/out" },
-  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.40" },
+  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.42" },
   "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
 }
 ```
@@ -266,7 +266,7 @@ Copy the reference app pipeline,
 source → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test.
 `beta-test` runs the app's whole API test suite against the fresh beta (`mise run api:remote` in the
 dotnet SDK image, the in-cluster Service as `API_BASE_URL`), authenticated with a token it fetches
-from a beta-only Authentik machine client (client credentials; the client secret is a pipeline
+from a beta-only OIDC machine client (client credentials; the client secret is a pipeline
 secret declared on `beta-test` only); `prod-test` is a read-only smoke test
 (`lib/smoke.ts`), since the suite writes data. Hosts, namespaces, the image repository and the token
 client are [config](configuration.md) (`config.ts`), so change those in the config document, and the

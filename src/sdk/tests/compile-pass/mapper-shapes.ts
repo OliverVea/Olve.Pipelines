@@ -23,7 +23,7 @@ base()
         image: from.build.image,
         chart: from.build.chart,
       },
-      target: { env: from.input.deployTo, url: "https://pipelines.ovea.pro", replicas: 2 },
+      target: { env: from.input.deployTo, url: "https://pipelines.example.com", replicas: 2 },
       commit: { repo: from.input.repo, sha: from.checkout.sha },
     }),
   ]);

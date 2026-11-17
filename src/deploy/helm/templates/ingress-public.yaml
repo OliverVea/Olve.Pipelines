@@ -1,8 +1,7 @@
 {{- if .Values.ingress.public.enabled -}}
-# Internet-facing ingress exposing ONLY the webhook receivers (binding push, manifest webhook triggers). The private ingress
-# targets a Tailscale IP that GitHub cannot reach, so inbound webhooks need this separate,
-# narrowly-scoped public entrypoint (fronted by Cloudflare Tunnel or a public ingress
-# controller). Everything else stays behind the private ingress + Authentik OIDC.
+# Internet-facing ingress exposing ONLY the webhook receivers (binding push, manifest webhook triggers),
+# for when the main ingress is private and GitHub cannot reach it (fronted by a tunnel or a public
+# ingress controller). Everything else stays behind the private ingress and OIDC.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

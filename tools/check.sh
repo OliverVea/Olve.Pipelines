@@ -82,7 +82,7 @@ no_api_urls() {
 }
 
 pipeline_valid() {
-  command -v pl >/dev/null || { echo "pl is not installed (curl -fsSL https://pipelines-private.ovea.pro/install.sh | sh)"; return 1; }
+  command -v pl >/dev/null || { echo "pl is not installed (curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.sh | sh)"; return 1; }
   pl dev validate
 }
 

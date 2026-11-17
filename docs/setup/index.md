@@ -7,14 +7,13 @@
 > (every `ctx` helper and the harness contract) is
 > [`src/sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/src/sdk/README.md).
 
-> **Instances:** `https://pipelines-private.ovea.pro` (prod) and
-> `https://pipelines-beta.ovea.pro` (beta), over Tailscale.
-
 ## What this service does
 
-Olve.Pipelines is a small CD orchestration service for a homelab. You bind a pipeline to a Git
+Olve.Pipelines is a GitOps CI/CD service on Kubernetes. You bind a pipeline to a Git
 repository. The pipeline is defined in TypeScript in that repo (`.pipelines/` by default). On every
-push the service builds the definition, then runs it. Each step runs as a Kubernetes Job.
+push the service builds the definition, then runs it. Each step runs as a Kubernetes Job. Pull requests
+get CI runs too, with a merge queue and preview environments
+([Binding, Reconcile & Versions](binding-and-reconcile.md)).
 
 A pipeline is a list of **stages**. Stages run one after another; the steps inside a stage run in
 parallel. Each step declares the typed **models** it consumes and the model it produces, so wiring

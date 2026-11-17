@@ -1,9 +1,8 @@
 # harness
 
-The step pod runtime for Olve.Pipelines v2, "design B" (see `docs/design/pipelines-v2-spikes.md`,
-decision 2). One stable init image, `harness-base`, fetches the per-commit step binary and the
-run's `input.json` into an emptyDir. The step container can then be any x86-64 image, glibc or
-musl, with or without a shell. It runs the binary through the bundled glibc loader.
+The step pod runtime for Olve.Pipelines v2. One stable init image, `harness-base`, fetches the
+per-commit step binary and the run's `input.json` into an emptyDir. The step container can then be
+any x86-64 image, glibc or musl, with or without a shell. It runs the binary through the bundled glibc loader.
 
 ```
 harness/
@@ -173,7 +172,7 @@ These were measured with a 42 MB `step.tar.gz` (a 91 MB binary) from v2 beta Gar
 
 Extraction dominated, so olve-init also unpacks zstd. Locally, the same binary as zstd -19 is 35 MB
 and unpacks in 0.4 s against 0.96 s for gzip, with the same busybox tar. Beyond that: the shared
-runtime plus a per-commit JS bundle (~1 MB), see spikes decision 9.
+runtime plus a per-commit JS bundle (~1 MB).
 
 ## Validation results
 

@@ -23,6 +23,6 @@ export const deployProd = implement(
         CHART_DIR: await ctx.files.fetch(artifact.chart),
       },
     });
-    return { release, version: artifact.version, url: 'https://pipelines-v2.ovea.pro' };
+    return { release, version: artifact.version, url: 'https://pipelines.example.com' };
   },
 );

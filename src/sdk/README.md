@@ -7,7 +7,7 @@ The [Olve.Pipelines](https://github.com/OliverVea/Olve.Pipelines) v2 SDK. It has
 - the **build tool** (`olve-build`), which turns a pipeline directory into `step.tar.zst` and `manifest.json`;
 - the **dev runner** (`olve-dev`), which runs the same harness path from source (used by `pl dev`).
 
-Design: [`docs/design/pipelines-v2.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/docs/design/pipelines-v2.md). Spike findings: [`pipelines-v2-spikes.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/docs/design/pipelines-v2-spikes.md).
+Design: [`docs/design/pipelines-v2.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/docs/design/pipelines-v2.md).
 The manifest format is in [`manifest.schema.json`](manifest.schema.json), generated from [`src/describe/manifest-schema.ts`](src/describe/manifest-schema.ts).
 
 ```
@@ -153,7 +153,7 @@ Library steps carry their own implementation and image; they take typed settings
 - `helmDeployOverSsh` gets each image into the host's **k3s** containerd: a `BuiltImage` tar is streamed in (`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load`), a `PushedImage` (`fromRegistry`) is pulled there (`… pull -q`, so the rollout doesn't wait on the pull). It copies the chart to `/tmp/<release>-helm-<namespace>`, runs `helm upgrade --install` from inside it (values, then `set`, then per image `<prefix>.repository`/`.tag`/`.pullPolicy` — `Never` for tarballs, `IfNotPresent` for registry images — which always win), waits for `kubectl rollout status` of each of `deployments` in order (`deploy/<name>` for a bare name), and with `healthUrl` polls it (5 × 5 s unless given) from the harness. `images: {}` deploys the chart alone: the step's only input is `source`, no image is imported and no image flag set, and nothing is waited on unless `deployments` names it. `dependencies: true` runs `helm pull <name> --repo <repository> --version <version>` (or the `oci://` reference) into the copied chart's `charts/` for each dependency in `Chart.yaml`; `helmWait` / `atomic` add `--wait` / `--atomic` with `--timeout=<rolloutTimeoutSeconds>s` and make `deployments` default to none. Several images (one chart, two Deployments):
 
   ```ts
-  steps.helmDeployOverSsh({ name: "deploy-beta", description: "", host: "oliver@bulwark-m2", sshKey: SSH_PRIVATE_KEY,
+  steps.helmDeployOverSsh({ name: "deploy-beta", description: "", host: "deploy@host.example.com", sshKey: SSH_PRIVATE_KEY,
     release: "olve-slimerepublics", namespace: "apps-beta", chart: "helm",
     images: { server: "image", web: "web.image" }, deployments: ["olve-slimerepublics-server", "olve-slimerepublics-web"] });
   ```
@@ -233,9 +233,9 @@ import deployScript from "./scripts/deploy.sh" with { type: "file" };
 
 export const deployBeta = implement(step({ name: "deploy-beta", /* … */ }), async ({ artifact }, ctx) => {
   await ctx.sh(deployScript, { env: { IMAGE_TAR: await ctx.files.fetch(artifact.image), CHART_DIR: await ctx.files.fetch(artifact.chart) } });
-  await ctx.retry({ attempts: 5, delaySeconds: 5 }, () => ctx.http.expectOk("https://pipelines-beta.ovea.pro/api/health"));
-  ctx.link("https://pipelines-beta.ovea.pro", "beta");                             // shown on the step card and in pl run get
-  return { release: "olve-pipelines", version: artifact.version, url: "https://pipelines-beta.ovea.pro" };   // or ctx.skip("reason")
+  await ctx.retry({ attempts: 5, delaySeconds: 5 }, () => ctx.http.expectOk("https://pipelines-beta.example.com/api/health"));
+  ctx.link("https://pipelines-beta.example.com", "beta");                       // shown on the step card and in pl run get
+  return { release: "olve-pipelines", version: artifact.version, url: "https://pipelines-beta.example.com" };   // or ctx.skip("reason")
 });
 ```
 

@@ -1,7 +1,7 @@
 // Helm deploys to a target from config (`helmTarget()`): steps.helmDeployInCluster runs helm in the step
 // pod against its own cluster; steps.helmDeployOverSsh({ target, … }) runs it on a k3s host. Pick one
 // per target kind with `select`. Images come from a registry, pinned by digest.
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { Ctx } from '../ctx/types.ts';
@@ -298,7 +298,7 @@ export function helmDeployOverSshTarget(
   ) as never;
 }
 
-interface AnyTargetDef {
+export interface AnyTargetDef {
   name: string;
   description: string;
   chart: string;
@@ -312,11 +312,20 @@ interface AnyTargetDef {
   timeoutSeconds?: number;
 }
 
-function targetDeploy(
+/** A chart the step brings itself instead of reading it from `source`: written into a directory at run time. */
+export interface BundledChart {
+  /** Recorded in the step's settings as `chart`. */
+  name: string;
+  /** Writes the chart under `dir` and returns its directory. */
+  write(dir: string): string;
+}
+
+export function targetDeploy(
   kind: 'helmDeployInCluster' | 'helmDeployOverSsh',
   def: AnyTargetDef,
   sshKey: Secret | undefined,
   deployments?: readonly string[],
+  bundled?: BundledChart,
 ): Implementation {
   const images: Record<string, string> = { ...(def.images ?? { image: 'image' }) };
   const imageEntries = Object.entries(images);
@@ -334,7 +343,7 @@ function targetDeploy(
     throw new Error(`${kind} '${def.name}': healthPath must start with '/'`);
   const inCluster = kind === 'helmDeployInCluster';
   const input = {
-    source: Source,
+    ...(bundled ? {} : { source: Source }),
     ...Object.fromEntries(imageEntries.map(([key]) => [key, PushedImage])),
     ...Object.fromEntries(refEntries.map(([key]) => [key, optional(PushedImage)])),
   };
@@ -358,7 +367,7 @@ function targetDeploy(
     settings: {
       target: def.target,
       ...(sshKey ? { sshKey: sshKey.name } : {}),
-      chart: def.chart,
+      chart: bundled ? bundled.name : def.chart,
       ...(def.inlineValues?.length ? { inlineValues: def.inlineValues } : {}),
       images: { ...images },
       ...(refEntries.length > 0 ? { imageRefs: { ...imageRefs } } : {}),
@@ -383,7 +392,14 @@ function targetDeploy(
       throw new Error(
         `${kind} '${def.name}': the target is kind '${String(target?.kind)}', not '${want}'`,
       );
-    const chartDir = chartDirectory(await ctx.files.fetch(input.source.tree), def.chart);
+    if (bundled && target.values.length > 0)
+      throw new Error(
+        `${kind} '${def.name}': the target's values files can't apply to the bundled chart (${target.values.join(', ')}); use set`,
+      );
+    if (bundled) mkdirSync(ctx.tmpDir, { recursive: true });
+    const chartDir = bundled
+      ? bundled.write(mkdtempSync(join(ctx.tmpDir, 'chart-')))
+      : chartDirectory(await ctx.files.fetch(input.source.tree), def.chart);
 
     const secretFiles: string[] = [];
     const generated = inlineValues.map((values, i) => {

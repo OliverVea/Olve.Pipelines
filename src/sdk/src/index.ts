@@ -149,3 +149,14 @@ export {
   serviceUrl,
   checkSpa,
 } from './library/index.ts';
+export {
+  Site,
+  siteIngress,
+  type SiteIngress,
+  type StaticSite,
+  type StaticSiteDef,
+  type SitePreview,
+  type SitePreviewDef,
+  type SiteDeployInClusterDef,
+  type SiteDeploySshDef,
+} from './library/index.ts';

@@ -4,9 +4,11 @@ import { helmDeployInCluster } from './helm-deploy.ts';
 import { helmDeployOverSsh } from './helm-deploy-ssh.ts';
 import { imageBuild } from './image-build.ts';
 import { mirrorToRepo } from './mirror-to-repo.ts';
+import { staticSite } from './static-site.ts';
 
 export {
   Source,
+  Site,
   BuiltImage,
   PushedImage,
   HelmRelease,
@@ -43,6 +45,16 @@ export {
 export { sshSession, type HostKey, type SshSession } from './ssh.ts';
 export { serviceUrl, checkSpa } from './checks.ts';
 export { httpHealthCheck, type HttpHealthCheckOptions } from './http-health.ts';
+export {
+  siteIngress,
+  type SiteIngress,
+  type StaticSite,
+  type StaticSiteDef,
+  type SitePreview,
+  type SitePreviewDef,
+  type SiteDeployInClusterDef,
+  type SiteDeploySshDef,
+} from './static-site.ts';
 
 /** SDK-provided steps: each is `implement(step(…), …)` with typed settings, staged directly. */
 export const steps = {
@@ -52,4 +64,5 @@ export const steps = {
   helmDeployInCluster,
   composeDeploy,
   mirrorToRepo,
+  staticSite,
 };

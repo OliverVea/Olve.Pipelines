@@ -290,6 +290,7 @@ a step only one pipeline needs stays a custom step there.
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value; its optional `link` is the public URL the step links to), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 | `steps.mirrorToRepo` | `debian:bookworm-slim` | `{ snapshot: Snapshot }`, plus `source: Source` with `rules` → `MirroredCommit { repository, commit }` | `repository` (`owner/name` on GitHub), `deployKey: Secret` (a deploy key with write access), `author: { name, email }`, `hostKey?` (default GitHub's published ed25519 key), `rules?` (a gitleaks TOML in the source tree), `canaries?` (rule id → a sample line that must trip it; needs `rules`) |
+| `steps.staticSite` | kaniko (`image`), `alpine/helm:3.16.2` (deploys, previews) | `{ site: Site }` → `PushedImage`; `{ image: PushedImage }` → `HelmRelease`; previews also read `CiInput` | `name` (step name prefix), `repository`, `registryMap?`, `registryAuth?`, `secrets?`, `wasm?`, `spa?`, `dir?`; then `deploy({ name, target, sshKey?, ingress?, healthPath?, … })` and `preview({ kubeconfig, namespace, domain, tlsSecret?, className?, annotations?, release? })` |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
 output take a config reference instead of a literal (`repository: PUBLISH.server.repository`); `push`,
@@ -424,6 +425,54 @@ config are reserved.
   // id = "private-host"
   // regex = '''-private\.example\.com'''
   // keywords = ["-private.example.com"]
+  ```
+
+- **`steps.staticSite`** serves a directory of static files. The pipeline produces the files as a
+  `Site` (`{ root }`, a directory reference holding `index.html`; `dir` picks a subdirectory, e.g.
+  `site` when the root is a source tree) and the SDK brings the rest: `site.image` (`<name>-image`)
+  builds an image of the Caddy binary (pinned by digest) on `scratch`, running as 65532 on port 8080,
+  with a generated Caddyfile (no admin API, precompressed `br`/`gzip` files, `X-Content-Type-Options`,
+  `Referrer-Policy`, `Cross-Origin-Opener-Policy` and a CSP; `wasm: true` adds `'wasm-unsafe-eval'` to
+  `script-src`, `spa: true` answers unknown paths with `/index.html`), and pushes it like
+  `imageBuild` with `push`. `site.deploy(…)` installs the bundled chart (a Deployment, a Service, a
+  NetworkPolicy that admits traefik and step pods, and an Ingress when `ingress.host` is set) on a
+  `helmTarget()` target, pinned by digest: without `sshKey` it is an inCluster deploy, with one an ssh
+  deploy, so each `select` case calls it with its narrowed target. The target's `set` applies; its
+  `values` files can't (the chart is not in your source). `ingress` takes a config reference to a
+  `siteIngress()` value: `host`, `tlsSecret?`, `className?`, `annotations?`.
+  `site.preview(…)` returns `{ deploy, remove }` for `checks()`: `deploy` (`<name>-preview`,
+  `reuse: false`) installs release `<release>-<pull>` in `namespace` with the kubeconfig secret
+  (written to a file, never on a command line), serves it at `pr-<pull>.<domain>` (TLS with
+  `tlsSecret` when set) and links it; `remove` (`<name>-preview-remove`) uninstalls it in `onClose`.
+  `release` defaults to `<repository name>-<site name>-preview`. Hosts, namespaces and certificate
+  names come from config:
+
+  ```ts
+  export const WEB = config("web", "Where the site is pushed and deployed.", z.object({
+    repository: z.string(),
+    beta: helmTarget({ release: "web" }, { ingress: siteIngress().optional() }),
+    preview: z.object({ namespace: z.string(), domain: z.string(), tlsSecret: z.string().optional() }),
+  }));
+  export const site = steps.staticSite({ name: "web", repository: WEB.repository, wasm: true });
+
+  // pipeline: build-web outputs a Site; every input is matched by model
+  .stage(buildWeb)
+  .stage(site.image)
+  .select(WEB.beta, {
+    ssh: (p, beta) => p.stage(site.deploy({ name: "deploy-web-beta", target: beta, sshKey: SSH_PRIVATE_KEY, ingress: beta.ingress })),
+    inCluster: (p, beta) => p.stage(site.deploy({ name: "deploy-web-beta", target: beta, ingress: beta.ingress })),
+  })
+
+  // ci: a preview per pull request, removed when it closes
+  const preview = site.preview({
+    kubeconfig: PREVIEW_KUBECONFIG, namespace: WEB.preview.namespace,
+    domain: WEB.preview.domain, tlsSecret: WEB.preview.tlsSecret,
+  });
+  checks({ secrets: [PREVIEW_KUBECONFIG] })
+    .stage(buildWeb)
+    .when({ kind: "pull" }, c => c.stage(site.image).stage(preview.deploy))
+    .onClose(preview.remove);
+  // config: preview: { namespace: previews, domain: preview.example.com, tlsSecret: preview-wildcard }
   ```
 - **Helpers for custom handlers:** `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`;
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);

@@ -7,6 +7,9 @@ export const Source = model(
   z.object({ repo: z.string(), sha: z.string(), tree: fileRef() }),
 );
 
+/** A static site: `root` references the directory served at `/` (it holds `index.html`). */
+export const Site = model('Site', z.object({ root: fileRef() }));
+
 /**
  * A container image built by a step, as an image tarball (`docker save` format) in the step's files.
  * `repository` is fully qualified the way a container runtime names it after loading the tar

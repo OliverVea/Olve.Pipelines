@@ -23,7 +23,8 @@ export type CommandContext = {
   /** Aborted on Ctrl+C. */
   signal: AbortSignal;
   now(): Date;
-  sleep(ms: number): Promise<void>;
+  /** Ends early, and disarms its timer, when `signal` aborts. */
+  sleep(ms: number, signal?: AbortSignal): Promise<void>;
   /** stderr is a terminal (QR codes and progress belong there only then). */
   interactive: boolean;
   /** No browser a loopback redirect could reach: over SSH, or without a display. */

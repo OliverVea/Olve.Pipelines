@@ -253,7 +253,7 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
             return;
           }
         }
-        await ctx.sleep(seconds * 1000);
+        await ctx.sleep(seconds * 1000, ctx.signal);
         if (ctx.signal.aborted) return;
       }
     },

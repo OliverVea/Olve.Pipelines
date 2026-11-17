@@ -264,7 +264,7 @@ async function followLog(
       ctx.log(`log stream: ${describe(failure)}`);
     }
     if (ended || ctx.signal.aborted) return;
-    await ctx.sleep(logRetryMs.value);
+    await ctx.sleep(logRetryMs.value, ctx.signal);
   }
 }
 

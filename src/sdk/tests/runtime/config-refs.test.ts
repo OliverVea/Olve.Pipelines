@@ -202,6 +202,11 @@ describe('config references', () => {
     const digest = 'sha256:' + 'cd'.repeat(32);
     const ctx = {
       files: { fetch: async () => tree },
+      http: {
+        fetch: async () => {
+          throw new Error('no registry in a unit test');
+        },
+      } as unknown as Ctx['http'],
       exec: async (argv: readonly string[]) => {
         calls.push([...argv]);
         if (argv[0] === '/kaniko/executor')

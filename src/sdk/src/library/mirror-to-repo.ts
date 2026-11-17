@@ -1,6 +1,14 @@
 // steps.mirrorToRepo — publish a snapshot directory to a GitHub repository as one force-pushed commit,
 // after a gitleaks scan that can't be turned off.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
 import type { Ctx } from '../ctx/types.ts';
 import type { FileRef } from '../core/models.ts';
@@ -31,6 +39,8 @@ export const GITHUB_HOST_KEY =
 export const DEFAULT_GITLEAKS_CONFIG = '[extend]\nuseDefault = true\n';
 
 const REPOSITORY = /^[\w.-]+\/[\w.-]+$/;
+const BRANCH =
+  /^(?![-/.]|refs\/)(?!.*(?:\.\.|\/\/|\/\.))(?!.*(?:\.lock|\/|\.)$)[\w./-]+$/;
 
 export interface MirrorToRepoDef<N extends string, K extends string> {
   name: LiteralName<N>;
@@ -44,6 +54,11 @@ export interface MirrorToRepoDef<N extends string, K extends string> {
   author: { name: string; email: string };
   /** github.com's public key, as `ssh-keyscan` prints it. Default: GitHub's published ed25519 key. */
   hostKey?: string;
+  /**
+   * A branch of `repository` holding the public repository's own files (README, LICENSE, its `.pipelines/`).
+   * Its files are laid under the snapshot's and scanned with them; a file in both fails the step.
+   */
+  base?: string;
   /**
    * A gitleaks TOML config in the source tree (path relative to its root), used instead of gitleaks'
    * defaults; `[extend] useDefault = true` keeps them. It comes from the `Source` input, never from
@@ -65,8 +80,8 @@ interface Finding {
 }
 
 /**
- * Pushes the snapshot's files to `repository` as one commit on `main` (force-pushed, no history),
- * after a mandatory gitleaks scan: any finding fails the step before git runs.
+ * Pushes the snapshot's files (laid over `base`'s, when given) to `repository` as one commit on `main`
+ * (force-pushed, no history), after a mandatory gitleaks scan: any finding fails the step before the push.
  */
 export function mirrorToRepo<const N extends string, const K extends string>(
   def: MirrorToRepoDef<N, K> & { rules: string },
@@ -81,6 +96,10 @@ export function mirrorToRepo(def: MirrorToRepoDef<string, string>): any {
     throw fail(`repository '${def.repository}' must be owner/name`);
   if (!def.author?.name || !def.author?.email)
     throw fail('author needs a name and an email');
+  if (def.base !== undefined && !BRANCH.test(def.base))
+    throw fail(`base '${def.base}' must be a branch name`);
+  if (def.base === 'main')
+    throw fail("base can't be main: that is the branch the snapshot replaces");
   const known = knownHosts(def.hostKey ?? GITHUB_HOST_KEY);
   const rules = def.rules === undefined ? undefined : relativePath(def.rules);
   if (rules === '')
@@ -110,6 +129,7 @@ export function mirrorToRepo(def: MirrorToRepoDef<string, string>): any {
       deployKey: def.deployKey.name,
       author: { name: def.author.name, email: def.author.email },
       ...(def.hostKey !== undefined ? { hostKey: def.hostKey } : {}),
+      ...(def.base !== undefined ? { base: def.base } : {}),
       ...(rules !== undefined ? { rules } : {}),
       ...(canaries.length ? { canaries: Object.fromEntries(canaries) } : {}),
     },
@@ -170,6 +190,64 @@ export function mirrorToRepo(def: MirrorToRepoDef<string, string>): any {
       return JSON.parse(readFileSync(report, 'utf8')) as Finding[];
     };
 
+    const ssh = () => {
+      const key = (ctx.secrets as Record<string, string | undefined>)[def.deployKey.name];
+      if (!key?.trim())
+        throw new Error(`secret ${def.deployKey.name} (deployKey) is not set`);
+      const { keyFile, knownFile } = writeSshFiles(ctx.tmpDir, key, known);
+      const command = [
+        'ssh',
+        '-i',
+        keyFile,
+        '-o',
+        'IdentitiesOnly=yes',
+        ...hostKeyOptions(knownFile).flatMap((o) => ['-o', o]),
+        '-o',
+        'LogLevel=ERROR',
+        '-o',
+        'BatchMode=yes',
+      ]
+        .map(shq)
+        .join(' ');
+      return { GIT_SSH_COMMAND: command };
+    };
+    const remote = `git@github.com:${def.repository}.git`;
+    const at = { cwd: repo };
+    let sshEnv: { GIT_SSH_COMMAND: string } | undefined;
+
+    if (def.base !== undefined) {
+      sshEnv = ssh();
+      const ref = `refs/heads/${def.base}`;
+      mkdirSync(repo, { recursive: true });
+      await ctx.exec(['git', 'init', '-q'], at);
+      try {
+        await ctx.exec(['git', 'ls-remote', '-q', '--exit-code', remote, ref], {
+          ...at,
+          env: sshEnv,
+        });
+      } catch (e) {
+        // --exit-code: 2 means the remote answered and has no such ref.
+        if ((e as { exitCode?: unknown }).exitCode === 2)
+          throw new Error(`branch '${def.base}' not found in ${def.repository}`);
+        throw e;
+      }
+      await ctx.exec(['git', 'fetch', '-q', '--depth', '1', remote, ref], {
+        ...at,
+        env: sshEnv,
+      });
+      await ctx.exec(['git', 'checkout', '-q', 'FETCH_HEAD'], at);
+      rmSync(join(repo, '.git'), { recursive: true, force: true });
+      if (existsSync(join(repo, '.gitleaksignore')))
+        throw new Error(`branch '${def.base}' has a .gitleaksignore: remove it`);
+      const both = overlap(repo, tree);
+      if (both.length)
+        throw new Error(
+          `the snapshot and branch '${def.base}' both have: ` +
+            (both.length > 10 ? [...both.slice(0, 10), '…'] : both).join(', ') +
+            ': keep each file in one of them',
+        );
+    }
+
     if (canaries.length) {
       const dir = join(work, 'canaries');
       mkdirSync(dir, { recursive: true });
@@ -193,11 +271,13 @@ export function mirrorToRepo(def: MirrorToRepoDef<string, string>): any {
     }
 
     await ctx.exec(['cp', '-a', `${tree}/.`, repo]);
-    ctx.log('scanning the snapshot for secrets');
+    const scanned =
+      def.base === undefined ? 'the snapshot' : `the snapshot and branch '${def.base}'`;
+    ctx.log(`scanning ${scanned} for secrets`);
     const findings = await scan(repo, join(work, 'findings.json'), true);
     if (findings.length)
       throw new Error(
-        `gitleaks found ${findings.length} secret${findings.length === 1 ? '' : 's'} in the snapshot; nothing was pushed:\n` +
+        `gitleaks found ${findings.length} secret${findings.length === 1 ? '' : 's'} in ${scanned}; nothing was pushed:\n` +
           findings
             .map((f) => {
               const file = isAbsolute(f.File) ? relative(repo, f.File) : f.File;
@@ -206,27 +286,9 @@ export function mirrorToRepo(def: MirrorToRepoDef<string, string>): any {
             .join('\n'),
       );
 
-    const key = (ctx.secrets as Record<string, string | undefined>)[def.deployKey.name];
-    if (!key?.trim())
-      throw new Error(`secret ${def.deployKey.name} (deployKey) is not set`);
     const message = join(work, 'message.txt');
     writeFileSync(message, input.snapshot.message);
-    const { keyFile, knownFile } = writeSshFiles(ctx.tmpDir, key, known);
-    const sshCommand = [
-      'ssh',
-      '-i',
-      keyFile,
-      '-o',
-      'IdentitiesOnly=yes',
-      ...hostKeyOptions(knownFile).flatMap((o) => ['-o', o]),
-      '-o',
-      'LogLevel=ERROR',
-      '-o',
-      'BatchMode=yes',
-    ]
-      .map(shq)
-      .join(' ');
-    const at = { cwd: repo };
+    sshEnv ??= ssh();
     await ctx.exec(['git', 'init', '-q', '-b', 'main'], at);
     await ctx.exec(['git', 'add', '-A'], at);
     await ctx.exec(
@@ -245,10 +307,10 @@ export function mirrorToRepo(def: MirrorToRepoDef<string, string>): any {
     );
     const commit = await ctx.sh.text('git rev-parse HEAD', at);
     ctx.log('pushing', { repository: def.repository, commit });
-    await ctx.exec(
-      ['git', 'push', '-q', '--force', `git@github.com:${def.repository}.git`, 'main'],
-      { ...at, env: { GIT_SSH_COMMAND: sshCommand } },
-    );
+    await ctx.exec(['git', 'push', '-q', '--force', remote, 'main'], {
+      ...at,
+      env: sshEnv,
+    });
     ctx.link(`https://github.com/${def.repository}`, def.repository);
     return { repository: def.repository, commit };
   }) as never;
@@ -260,4 +322,24 @@ function relativePath(path: string): string {
   if (clean.startsWith('/') || clean.split('/').includes('..') || clean === '.')
     return '';
   return clean;
+}
+
+/** Paths that are a file (or a link) in one tree and exist in the other, sorted. */
+function overlap(a: string, b: string): string[] {
+  const out: string[] = [];
+  const walk = (rel: string) => {
+    for (const name of readdirSync(join(b, rel))) {
+      const path = rel ? `${rel}/${name}` : name;
+      let inA;
+      try {
+        inA = lstatSync(join(a, path));
+      } catch {
+        continue;
+      }
+      if (inA.isDirectory() && lstatSync(join(b, path)).isDirectory()) walk(path);
+      else out.push(path);
+    }
+  };
+  walk('');
+  return out.sort();
 }

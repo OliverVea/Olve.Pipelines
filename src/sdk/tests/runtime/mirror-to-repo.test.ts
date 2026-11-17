@@ -1,9 +1,10 @@
 // steps.mirrorToRepo through testHandler with faked ctx parts; the assertions pin the exact commands.
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { secret, steps, type AnyStep, type Ctx, type FileRef } from '../../src/index.ts';
 import { recordConfigRefs } from '../../src/core/config-refs.ts';
+import { CommandError } from '../../src/ctx/sh.ts';
 import { testFileRef, testHandler } from '../../src/testing/index.ts';
 import { SHA, tmp, removeTmpDirs } from './helpers.ts';
 
@@ -41,14 +42,27 @@ const input = {
 
 type Call = { argv: string[] | string; env?: Record<string, string>; cwd?: string };
 
-/** Fakes the step's world: `fired` = rule ids the canary scan reports, `findings` = the snapshot scan's report. */
+const writeFiles = (dir: string, files: readonly string[]) => {
+  for (const f of files)
+    (mkdirSync(join(dir, f, '..'), { recursive: true }),
+      writeFileSync(join(dir, f), 'x'));
+};
+
+/**
+ * Fakes the step's world: `fired` = rule ids the canary scan reports, `findings` = the snapshot scan's report,
+ * `baseFiles` = what checking out the base branch writes, `baseMissing` = the remote has no such branch.
+ */
 const fakes = (
-  o: { fired?: string[]; findings?: object[]; snapshotFiles?: string[] } = {},
+  o: {
+    fired?: string[];
+    findings?: object[];
+    snapshotFiles?: string[];
+    baseFiles?: string[];
+    baseMissing?: boolean;
+  } = {},
 ) => {
   const snapshot = tmp('mirror-snapshot');
-  for (const f of o.snapshotFiles ?? ['README.md'])
-    (mkdirSync(join(snapshot, f, '..'), { recursive: true }),
-      writeFileSync(join(snapshot, f), 'x'));
+  writeFiles(snapshot, o.snapshotFiles ?? ['README.md']);
   const source = tmp('mirror-source');
   mkdirSync(join(source, '.mirror'));
   writeFileSync(join(source, '.mirror/gitleaks.toml'), RULE);
@@ -59,6 +73,15 @@ const fakes = (
     },
     exec: async (argv, opts) => {
       calls.push({ argv: [...argv], ...opts });
+      if (argv[1] === 'ls-remote' && o.baseMissing)
+        throw new CommandError('`git ls-remote`', 2, null);
+      if (argv[1] === 'checkout') {
+        mkdirSync(join(opts!.cwd!, '.git'), { recursive: true });
+        writeFiles(
+          opts!.cwd!,
+          o.baseFiles ?? ['README.md', 'LICENSE', '.pipelines/pipeline.ts'],
+        );
+      }
       if (!argv[0]!.endsWith('/gitleaks')) return;
       const report = argv[argv.indexOf('--report-path') + 1]!;
       const scanned = argv[2]!;
@@ -271,6 +294,160 @@ describe('steps.mirrorToRepo', () => {
     expect(existsKey(r.dir)).toBe(false);
   });
 
+  describe('with base', () => {
+    const { rules: _, canaries: __, ...plain } = def;
+    const withBase = { ...plain, base: 'public' };
+    const baseInput = { snapshot: input.snapshot };
+
+    test('fetches the branch, lays the snapshot over it, scans the whole tree, then pushes', async () => {
+      const step = steps.mirrorToRepo({ ...def, base: 'public' });
+      expect(recordConfigRefs(step.settings)).toMatchObject({ base: 'public' });
+      const f = fakes({ snapshotFiles: ['index.md', '.pipelines/site.ts'] });
+      const r = await run(f, step);
+      expect(r.status).toBe('succeeded');
+
+      const work = join(r.dir, 'tmp', 'mirror');
+      const repo = join(work, 'repo');
+      const tgz = join(work, 'gitleaks.tgz');
+      const ssh = {
+        GIT_SSH_COMMAND:
+          `ssh -i ${join(r.dir, 'tmp', 'ssh', 'id')} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes ` +
+          `-o UserKnownHostsFile=${join(r.dir, 'tmp', 'ssh', 'known_hosts')} ` +
+          `-o GlobalKnownHostsFile=/dev/null -o HostKeyAlias=olve-ssh-host -o LogLevel=ERROR -o BatchMode=yes`,
+      };
+      const remote = 'git@github.com:example/public-mirror.git';
+      const gitleaks = (dir: string, report: string, verbose: boolean) => [
+        join(work, 'bin', 'gitleaks'),
+        'dir',
+        dir,
+        '--config',
+        join(f.source, '.mirror/gitleaks.toml'),
+        '--no-banner',
+        '--redact',
+        ...(verbose ? ['--verbose'] : []),
+        '--ignore-gitleaks-allow',
+        '--gitleaks-ignore-path',
+        join(work, 'no-gitleaksignore'),
+        '--exit-code',
+        '0',
+        '--report-format',
+        'json',
+        '--report-path',
+        join(work, report),
+      ];
+      expect(f.calls).toEqual([
+        {
+          argv:
+            'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ' +
+            'ca-certificates curl git openssh-client',
+        },
+        {
+          argv: [
+            'curl',
+            '-fsSL',
+            '-o',
+            tgz,
+            'https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz',
+          ],
+        },
+        {
+          argv: `echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  ${tgz}' | sha256sum -c -`,
+        },
+        { argv: ['tar', 'xzf', tgz, '-C', join(work, 'bin'), 'gitleaks'] },
+        { argv: ['git', 'init', '-q'], cwd: repo },
+        {
+          argv: ['git', 'ls-remote', '-q', '--exit-code', remote, 'refs/heads/public'],
+          cwd: repo,
+          env: ssh,
+        },
+        {
+          argv: ['git', 'fetch', '-q', '--depth', '1', remote, 'refs/heads/public'],
+          cwd: repo,
+          env: ssh,
+        },
+        { argv: ['git', 'checkout', '-q', 'FETCH_HEAD'], cwd: repo },
+        { argv: gitleaks(join(work, 'canaries'), 'canaries.json', false) },
+        { argv: ['cp', '-a', `${f.snapshot}/.`, repo] },
+        { argv: gitleaks(repo, 'findings.json', true) },
+        { argv: ['git', 'init', '-q', '-b', 'main'], cwd: repo },
+        { argv: ['git', 'add', '-A'], cwd: repo },
+        {
+          argv: [
+            'git',
+            '-c',
+            'user.name=Mirror Bot',
+            '-c',
+            'user.email=mirror@example.com',
+            'commit',
+            '-q',
+            '-F',
+            join(work, 'message.txt'),
+          ],
+          cwd: repo,
+        },
+        { argv: 'git rev-parse HEAD', cwd: repo },
+        { argv: ['git', 'push', '-q', '--force', remote, 'main'], cwd: repo, env: ssh },
+      ]);
+      // The base branch's history is dropped: only its files reach the new commit.
+      expect(existsSync(join(repo, '.git'))).toBe(false);
+      expect(existsSync(join(repo, 'LICENSE'))).toBe(true);
+      expect(JSON.stringify(f.calls)).not.toContain('mirror-key-material');
+    });
+
+    test.each([
+      [
+        'a file in both fails before the snapshot is scanned',
+        { snapshotFiles: ['README.md', 'LICENSE', '.pipelines/site.ts'] },
+        "the snapshot and branch 'public' both have: LICENSE, README.md: keep each file in one of them",
+      ],
+      [
+        'a long overlap is cut after ten paths',
+        {
+          baseFiles: Array.from(
+            { length: 12 },
+            (_, i) => `f${String(i).padStart(2, '0')}`,
+          ),
+          snapshotFiles: Array.from(
+            { length: 12 },
+            (_, i) => `f${String(i).padStart(2, '0')}`,
+          ),
+        },
+        "the snapshot and branch 'public' both have: f00, f01, f02, f03, f04, f05, f06, f07, f08, f09, …: keep each file in one of them",
+      ],
+      [
+        'a .gitleaksignore on the branch is refused',
+        { baseFiles: ['README.md', '.gitleaksignore'], snapshotFiles: ['index.md'] },
+        "branch 'public' has a .gitleaksignore: remove it",
+      ],
+      [
+        'a missing branch fails',
+        { baseMissing: true },
+        "branch 'public' not found in example/public-mirror",
+      ],
+      [
+        'findings in either tree fail the step',
+        {
+          snapshotFiles: ['index.md'],
+          findings: [{ RuleID: 'private-key', File: 'LICENSE', StartLine: 3 }],
+        },
+        "gitleaks found 1 secret in the snapshot and branch 'public'; nothing was pushed:\n  private-key in LICENSE:3",
+      ],
+    ] as const)('%s', async (_, o, message) => {
+      const f = fakes(o as unknown as Parameters<typeof fakes>[0]);
+      const r = await run(f, steps.mirrorToRepo(withBase), baseInput);
+      expect(r).toMatchObject({
+        status: 'failed',
+        error: { kind: 'handler', message: `step 'publish' failed: ${message}` },
+      });
+      const argvs = f.calls.map((c) => c.argv);
+      expect(argvs.some((a) => a[0] === 'git' && a[1] === 'push')).toBe(false);
+      if (!('findings' in o))
+        expect(argvs.some((a) => Array.isArray(a) && a[0]!.endsWith('/gitleaks'))).toBe(
+          false,
+        );
+    });
+  });
+
   test.each([
     [
       { repository: 'public-mirror' },
@@ -299,6 +476,25 @@ describe('steps.mirrorToRepo', () => {
     [
       { hostKey: 'github.com' },
       "hostKey: 'github.com' is not a public key; give it as ssh-keyscan prints it, e.g. 'ssh-ed25519 AAAA…'",
+    ],
+    [
+      { base: 'main' },
+      "mirrorToRepo 'publish': base can't be main: that is the branch the snapshot replaces",
+    ],
+    [{ base: '-x' }, "mirrorToRepo 'publish': base '-x' must be a branch name"],
+    [{ base: 'a..b' }, "mirrorToRepo 'publish': base 'a..b' must be a branch name"],
+    [
+      { base: 'site pages' },
+      "mirrorToRepo 'publish': base 'site pages' must be a branch name",
+    ],
+    [{ base: '' }, "mirrorToRepo 'publish': base '' must be a branch name"],
+    [
+      { base: 'refs/heads/public' },
+      "mirrorToRepo 'publish': base 'refs/heads/public' must be a branch name",
+    ],
+    [
+      { base: 'site/.hidden' },
+      "mirrorToRepo 'publish': base 'site/.hidden' must be a branch name",
     ],
   ])('definition error %#', (patch, message) => {
     expect(() => steps.mirrorToRepo({ ...def, ...patch } as never)).toThrow(message);

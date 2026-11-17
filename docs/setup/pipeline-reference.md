@@ -289,7 +289,7 @@ a step only one pipeline needs stays a custom step there.
 | `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `hostKey` (the host's public key, or `false`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`, `link?` (the public URL the step links to after the deploy); or the target form: `target` (an ssh `deployTarget()` value, with `host` and `hostKey`; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`, and its optional `link` the public URL the step links to), `sshKey`, `chart`, `inlineValues?`, `secrets?` (what `secretRef`s in `inlineValues` name), `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value; its optional `link` is the public URL the step links to), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
-| `steps.mirrorToRepo` | `debian:bookworm-slim` | `{ snapshot: Snapshot }`, plus `source: Source` with `rules` → `MirroredCommit { repository, commit }` | `repository` (`owner/name` on GitHub), `deployKey: Secret` (a deploy key with write access), `author: { name, email }`, `hostKey?` (default GitHub's published ed25519 key), `rules?` (a gitleaks TOML in the source tree), `canaries?` (rule id → a sample line that must trip it; needs `rules`) |
+| `steps.mirrorToRepo` | `debian:bookworm-slim` | `{ snapshot: Snapshot }`, plus `source: Source` with `rules` → `MirroredCommit { repository, commit }` | `repository` (`owner/name` on GitHub), `deployKey: Secret` (a deploy key with write access), `author: { name, email }`, `hostKey?` (default GitHub's published ed25519 key), `base?` (a branch of the repository whose files go under the snapshot's), `rules?` (a gitleaks TOML in the source tree), `canaries?` (rule id → a sample line that must trip it; needs `rules`) |
 | `steps.staticSite` | kaniko (`image`), `alpine/helm:3.16.2` (deploys, previews) | `{ site: Site }` → `PushedImage`; `{ image: PushedImage }` → `HelmRelease`; previews also read `CiInput` | `name` (step name prefix), `repository`, `registryMap?`, `registryAuth?`, `secrets?`, `wasm?`, `spa?`, `dir?`; then `deploy({ name, target, sshKey?, ingress?, healthPath?, … })` and `preview({ kubeconfig, namespace, domain, tlsSecret?, className?, annotations?, release? })` |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
@@ -394,8 +394,8 @@ config are reserved.
   Compose](compose-deploy.md).
 - **`steps.mirrorToRepo`** publishes a directory to a GitHub repository as one commit on `main`,
   force-pushed: the repository holds that snapshot and no history. A step of yours builds the
-  `Snapshot` (`{ tree, message }`: a directory output and the commit message). Before any git work,
-  [gitleaks](https://github.com/gitleaks/gitleaks) 8.30.1 (checksum-pinned) scans the snapshot, and
+  `Snapshot` (`{ tree, message }`: a directory output and the commit message). Before anything is pushed,
+  [gitleaks](https://github.com/gitleaks/gitleaks) 8.30.1 (checksum-pinned) scans the snapshot (with the `base` files), and
   there is no option to skip it: any finding fails the step with each finding's rule id, file and line
   (never the secret), and nothing is pushed. Inline `gitleaks:allow` comments are ignored, and a snapshot holding a `.git` or a `.gitleaksignore` is
   refused. Without `rules` the scan uses gitleaks' default rules. **`rules`** is a gitleaks TOML
@@ -409,6 +409,16 @@ config are reserved.
   the pipeline code that holds them out of the snapshot. The deploy key is written to a file in the
   attempt's temp directory, and git connects with `StrictHostKeyChecking=yes` against `hostKey`. The
   step links to the repository.
+
+  **`base`** names a branch of the same repository that holds the public repository's own files
+  (its README, LICENSE, its own `.pipelines/`), which the snapshot doesn't carry. The step fetches
+  that branch's tip (shallow, over the same deploy key) before scanning, keeps its files without its
+  history, and lays the snapshot on top; the scan then covers both. A file present in both fails the
+  step before anything is scanned (`the snapshot and branch 'public' both have: LICENSE, README.md:
+  keep each file in one of them`); directories may be shared. A branch the repository doesn't have
+  fails with `branch 'public' not found in example/public-mirror`. A `.gitleaksignore` on the branch is refused like one
+  in the snapshot (`branch 'public' has a .gitleaksignore: remove it`). `base` can't be `main`, the
+  branch the step replaces.
 
   ```ts
   export const MIRROR_DEPLOY_KEY = secret("MIRROR_DEPLOY_KEY", "Deploy key of the public mirror.");

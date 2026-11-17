@@ -3,6 +3,7 @@ import { composeDeploy } from './compose-deploy.ts';
 import { helmDeployInCluster } from './helm-deploy.ts';
 import { helmDeployOverSsh } from './helm-deploy-ssh.ts';
 import { imageBuild } from './image-build.ts';
+import { mirrorToRepo } from './mirror-to-repo.ts';
 
 export {
   Source,
@@ -10,8 +11,11 @@ export {
   PushedImage,
   HelmRelease,
   FailureContext,
+  Snapshot,
+  MirroredCommit,
 } from './models.ts';
 export type { GitHubSourceDef } from './github-source.ts';
+export type { MirrorToRepoDef } from './mirror-to-repo.ts';
 export type {
   ImageBuildDef,
   ImageBuildTarballDef,
@@ -47,4 +51,5 @@ export const steps = {
   helmDeployOverSsh,
   helmDeployInCluster,
   composeDeploy,
+  mirrorToRepo,
 };

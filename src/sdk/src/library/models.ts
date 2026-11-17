@@ -50,6 +50,18 @@ export const HelmRelease = model(
   }),
 );
 
+/** Files to publish as one commit (`mirrorToRepo`): `tree` references a directory, `message` is the commit message. */
+export const Snapshot = model(
+  'Snapshot',
+  z.object({ tree: fileRef(), message: z.string().min(1) }),
+);
+
+/** A commit `mirrorToRepo` force-pushed: `repository` is `owner/name`, `commit` the full sha. */
+export const MirroredCommit = model(
+  'MirroredCommit',
+  z.object({ repository: z.string(), commit: z.string() }),
+);
+
 /** One failed step of a run, as seen by a failure handler. */
 export const FailedStep = z.object({
   step: z.string(),

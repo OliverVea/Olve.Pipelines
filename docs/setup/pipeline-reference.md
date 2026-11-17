@@ -289,6 +289,7 @@ a step only one pipeline needs stays a custom step there.
 | `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `hostKey` (the host's public key, or `false`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`, `link?` (the public URL the step links to after the deploy); or the target form: `target` (an ssh `deployTarget()` value, with `host` and `hostKey`; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`, and its optional `link` the public URL the step links to), `sshKey`, `chart`, `inlineValues?`, `secrets?` (what `secretRef`s in `inlineValues` name), `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value; its optional `link` is the public URL the step links to), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
+| `steps.mirrorToRepo` | `debian:bookworm-slim` | `{ snapshot: Snapshot }`, plus `source: Source` with `rules` → `MirroredCommit { repository, commit }` | `repository` (`owner/name` on GitHub), `deployKey: Secret` (a deploy key with write access), `author: { name, email }`, `hostKey?` (default GitHub's published ed25519 key), `rules?` (a gitleaks TOML in the source tree), `canaries?` (rule id → a sample line that must trip it; needs `rules`) |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
 output take a config reference instead of a literal (`repository: PUBLISH.server.repository`); `push`,
@@ -390,6 +391,40 @@ config are reserved.
   health and rolls back if it fails. The target is `{ kind: "compose", deployerUrl, service, token:
   { secret }, healthUrl?, link? }`. Running the deployer, the API and an example: [Deploying to Docker
   Compose](compose-deploy.md).
+- **`steps.mirrorToRepo`** publishes a directory to a GitHub repository as one commit on `main`,
+  force-pushed: the repository holds that snapshot and no history. A step of yours builds the
+  `Snapshot` (`{ tree, message }`: a directory output and the commit message). Before any git work,
+  [gitleaks](https://github.com/gitleaks/gitleaks) 8.30.1 (checksum-pinned) scans the snapshot, and
+  there is no option to skip it: any finding fails the step with each finding's rule id, file and line
+  (never the secret), and nothing is pushed. Inline `gitleaks:allow` comments are ignored, and a snapshot holding a `.git` or a `.gitleaksignore` is
+  refused. Without `rules` the scan uses gitleaks' default rules. **`rules`** is a gitleaks TOML
+  (`[extend] useDefault = true` keeps the defaults, then your `[[rules]]` with `id`, `regex` and
+  `keywords`) read from the `Source` input, never from the snapshot: it names the strings it guards,
+  such as private host names, so it must not be published. gitleaks matches `keywords` against
+  lowercased text, so write them in lowercase. **`canaries`** prove the custom rules work on every
+  run: each sample line is scanned first, and a rule that doesn't fire on its sample fails the step
+  (`rule 'private-host' didn't fire on its canary: check its regex and keywords (keywords must be
+  lowercase)`). Canaries land in the manifest (`settings`) and are as sensitive as the rules, so keep
+  the pipeline code that holds them out of the snapshot. The deploy key is written to a file in the
+  attempt's temp directory, and git connects with `StrictHostKeyChecking=yes` against `hostKey`. The
+  step links to the repository.
+
+  ```ts
+  export const MIRROR_DEPLOY_KEY = secret("MIRROR_DEPLOY_KEY", "Deploy key of the public mirror.");
+  export const publish = steps.mirrorToRepo({
+    name: "publish", description: "…", repository: "example/public-mirror",
+    deployKey: MIRROR_DEPLOY_KEY, author: { name: "Mirror Bot", email: "mirror@example.com" },
+    rules: ".mirror/gitleaks.toml",
+    canaries: { "private-host": "see https://pipelines-private.example.com" },
+  });
+  // .mirror/gitleaks.toml in the source tree:
+  // [extend]
+  // useDefault = true
+  // [[rules]]
+  // id = "private-host"
+  // regex = '''-private\.example\.com'''
+  // keywords = ["-private.example.com"]
+  ```
 - **Helpers for custom handlers:** `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`;
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
   `checkSpa(ctx, url)` (the page references an `/assets/*.js` bundle served as JavaScript; returns

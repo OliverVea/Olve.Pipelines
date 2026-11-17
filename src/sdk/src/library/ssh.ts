@@ -63,6 +63,36 @@ export function knownHosts(hostKey: string): string {
   return keys.join('\n') + '\n';
 }
 
+/** Writes the private key to `<tmpDir>/ssh/id` (0600) and, when given, `known_hosts` beside it. */
+export function writeSshFiles(
+  tmpDir: string,
+  key: string,
+  known: string | undefined,
+): { keyFile: string; knownFile: string | undefined } {
+  const dir = join(tmpDir, 'ssh');
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const keyFile = join(dir, 'id');
+  // OpenSSH rejects a key without a trailing newline.
+  writeFileSync(keyFile, key.endsWith('\n') ? key : key + '\n', { mode: 0o600 });
+  chmodSync(keyFile, 0o600);
+  if (!known) return { keyFile, knownFile: undefined };
+  const knownFile = join(dir, 'known_hosts');
+  writeFileSync(knownFile, known);
+  return { keyFile, knownFile };
+}
+
+/** ssh `-o` options checking the host against `knownFile` (from `knownHosts`), or not checking it without one. */
+export function hostKeyOptions(knownFile: string | undefined): string[] {
+  return knownFile
+    ? [
+        'StrictHostKeyChecking=yes',
+        `UserKnownHostsFile=${knownFile}`,
+        'GlobalKnownHostsFile=/dev/null',
+        `HostKeyAlias=${HOST_KEY_ALIAS}`,
+      ]
+    : ['StrictHostKeyChecking=no', 'UserKnownHostsFile=/dev/null'];
+}
+
 /**
  * Opens an SSH "session" to `host` (`user@host`) with a private key: installs openssh-client if needed,
  * writes the key to `<tmpDir>/ssh/id`. The host must present a key in `hostKey`, unless it is `false`.
@@ -77,24 +107,8 @@ export async function sshSession(
     );
   const known = opts.hostKey === false ? undefined : knownHosts(opts.hostKey);
   await ctx.sh(SSH_CLIENT_INSTALL);
-  const dir = join(ctx.tmpDir, 'ssh');
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const keyFile = join(dir, 'id');
-  // OpenSSH rejects a key without a trailing newline.
-  writeFileSync(keyFile, opts.key.endsWith('\n') ? opts.key : opts.key + '\n', {
-    mode: 0o600,
-  });
-  chmodSync(keyFile, 0o600);
-  const knownFile = join(dir, 'known_hosts');
-  if (known) writeFileSync(knownFile, known);
-  const hostOpts = known
-    ? [
-        'StrictHostKeyChecking=yes',
-        `UserKnownHostsFile=${knownFile}`,
-        'GlobalKnownHostsFile=/dev/null',
-        `HostKeyAlias=${HOST_KEY_ALIAS}`,
-      ]
-    : ['StrictHostKeyChecking=no', 'UserKnownHostsFile=/dev/null'];
+  const { keyFile, knownFile } = writeSshFiles(ctx.tmpDir, opts.key, known);
+  const hostOpts = hostKeyOptions(knownFile);
   const sshOpts = [
     '-i',
     keyFile,

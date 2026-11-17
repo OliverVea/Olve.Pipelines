@@ -62,7 +62,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Installing an instance (Dex, Ingress, TLS, `values.yaml`) | [first-instance.md](first-instance.md) |
 | Kaniko hang ("Unpacking rootfs") | [troubleshooting.md#a-run-is-stuck](troubleshooting.md#a-run-is-stuck) |
 | Latest-wins, one attempt in progress per step | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
-| Library steps (`gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`, `composeDeploy`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
+| Library steps (`gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`, `composeDeploy`, `mirrorToRepo`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
 | Reusable steps (`implement(step(…))` staged directly, `kind`, `settings`, step packages) | [pipeline-reference.md#reusable-steps](pipeline-reference.md#reusable-steps) |
 | Chart-only Helm deploys (`images: {}`), chart dependencies (`dependencies`), `helm --wait`/`--atomic` | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
 | Local pool (`.olve/pool.json`) | [local-development.md#2-run-one-step-from-source](local-development.md#2-run-one-step-from-source) |

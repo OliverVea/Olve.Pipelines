@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
-import { instanceFrontendConfig } from '@olve/api';
-import { call } from '../api';
+import { instanceFrontendConfig, pipelinesList } from '@olve/api';
+import { call, createApi } from '../api';
 import {
   authorizeUrl,
   codeChallenge,
@@ -49,10 +49,20 @@ A profile remembers its instance and the flow its last login forced, so logging 
 needs only \`pl login --profile beta\`; a new --api-url, --device or --browser replaces them.`,
   async run(ctx) {
     const frontend = await call(instanceFrontendConfig({ client: ctx.api }));
-    if (!frontend.oidcAuthority || !frontend.oidcClientId)
+    if (!frontend.oidcAuthority || !frontend.oidcClientId) {
+      const anonymous = createApi({
+        baseUrl: ctx.apiUrl,
+        token: async () => undefined,
+        fetch: ctx.fetch,
+        log: ctx.log,
+      });
+      const { response } = await pipelinesList({ client: anonymous });
       throw new CliError(
-        'This server exposes no frontend OIDC config (Auth:FrontendAuthority/Audience unset) — cannot log in. Use --token instead.',
+        response?.ok
+          ? `This server runs without auth: there is no login. Point pl at it with --api-url ${ctx.apiUrl} or PIPELINES_API_URL=${ctx.apiUrl}.`
+          : 'This server exposes no frontend OIDC config (Auth:FrontendAuthority/Audience unset) — cannot log in. Use --token instead.',
       );
+    }
     const scope = `${frontend.oidcScopes || DEFAULT_SCOPES} offline_access`;
     const discovery = await discover(ctx.fetch, frontend.oidcAuthority);
 

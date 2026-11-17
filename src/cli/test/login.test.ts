@@ -18,7 +18,13 @@ const frontend: FrontendConfig = {
 
 /** The instance and its OIDC provider. `token` answers each token request in turn. */
 function provider(
-  options: { device?: boolean; frontend?: FrontendConfig; token?: unknown[] } = {},
+  options: {
+    device?: boolean;
+    frontend?: FrontendConfig;
+    token?: unknown[];
+    /** The answer to a request without a token: 200 when auth is off. */
+    anonymous?: number;
+  } = {},
 ) {
   const token = options.token ?? [
     { access_token: 'access-1', refresh_token: 'refresh-1', expires_in: 3600 },
@@ -26,6 +32,10 @@ function provider(
   return fakeFetch((req) => {
     if (req.url === `${API}/api/config/frontend`)
       return { body: options.frontend ?? frontend };
+    if (req.url === `${API}/api/pipelines`)
+      return req.headers.has('Authorization')
+        ? { status: 500, body: {} }
+        : { status: options.anonymous ?? 401, body: [] };
     if (req.url === `${ID}/.well-known/openid-configuration`)
       return {
         body: {
@@ -167,6 +177,12 @@ describe('pl login refusals', () => {
       'This server exposes no frontend OIDC config (Auth:FrontendAuthority/Audience unset) — cannot log in. Use --token instead.',
     ],
     [
+      'auth off',
+      { frontend: { oidcScopes: '', apiReference: false }, anonymous: 200 },
+      ['login', '--token', 'stale'],
+      `This server runs without auth: there is no login. Point pl at it with --api-url ${API} or PIPELINES_API_URL=${API}.`,
+    ],
+    [
       '--device without a device endpoint',
       { device: false },
       ['login', '--device'],
@@ -179,7 +195,7 @@ describe('pl login refusals', () => {
     const out = await pl([...argv, '--api-url', API], { fetch, home });
 
     expect(out.code).toBe(1);
-    expect(out.stderr).toContain(message);
+    expect(out.stderr).toBe(`error: ${message}`);
     expect(() => readFileSync(join(home, '.pl'))).toThrow();
   });
 });

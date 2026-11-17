@@ -38,6 +38,14 @@ instance may depend on.
       holds them (`docs/setup/first-instance.md`).
 - [ ] A walkthrough of a first pipeline on a sample repo: binding, secrets, a push that deploys, a
       pull request that gets CI. Checked end to end on a fresh cluster.
+  - `docs/setup/getting-started.md` covers all four. On a fresh k3s, `pl bootstrap` (the checkout's
+    chart), a binding, a secret, a push that ran and a pull request whose CI passed and posted
+    `olve/ci` were checked against `tools/real-system/github-stand-in.ts` (extended with pull
+    requests and statuses), not github.com. Still unverified: binding a real GitHub repository, a
+    real push and pull request, webhooks, commit statuses on GitHub, and `first-instance.md`'s Dex,
+    Ingress and TLS.
+- [ ] The published chart can be pulled anonymously: `pl bootstrap` without `--chart` gets 401 from
+      `ghcr.io/olivervea/charts/olve-pipelines` while the images are public.
 - [x] The GitHub token scopes a binding needs are documented.
 
 - [x] The chart's Ingress routes `/dex` to the bundled Dex.

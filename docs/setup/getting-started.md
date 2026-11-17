@@ -65,7 +65,9 @@ first.
   pl pipeline list --profile beta                                          # or PIPELINES_PROFILE=beta
   pl profile list
   ```
-  `PIPELINES_API_URL` and `--api-url` override the URL per command.
+  `PIPELINES_API_URL` and `--api-url` override the URL per command. An instance with auth off (the
+  `pl bootstrap` install) has no login: set `PIPELINES_API_URL` to it instead
+  ([Installing on a cluster](self-hosting.md#installing-on-a-cluster)).
 
 ## Step 1 — Add `.pipelines/` to your repo
 
@@ -111,6 +113,9 @@ export const Request = model("Request", z.object({
   sha: z.string().regex(/^[0-9a-f]{40}$/),
 }));
 ```
+
+Use your repository as `repo`'s default: a run started without a `repo` field (`pl dev run`,
+`pl trigger`) fetches it.
 
 `pipeline.ts`:
 
@@ -167,6 +172,8 @@ pl dev run test            # chains: takes source's output from the local pool
 `pl dev describe` for the example above prints:
 
 ```text
+my-app
+
 input:    Request { repo="you/my-app", sha* }
 secrets:  none
 triggers: push
@@ -268,6 +275,42 @@ pl run get my-app#1
 pl step logs my-app#1/test --follow
 ```
 
+From then on every push starts a run, as soon as the service sees it: within seconds with a
+webhook, otherwise at the next poll (every 15 minutes by default). `pl binding reconcile` builds a
+pushed definition at once but doesn't start the push's run; `pl wait push my-app <sha>` waits for it.
+
+## Step 6 — Pull request CI
+
+CI is declared next to the pipeline and exported as `ci` from the entry point. Its input is
+`CiInput` `{ repo, sha, kind, pull }`, and a step staged in both is one step:
+
+```ts
+import { checks, pipeline, steps } from "@olivervea/pipelines";
+// …the pipeline as above…
+
+export const ci = checks({ description: "Tests a pull request." })
+  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(test);
+```
+
+A secret a CI step declares is listed in `checks({ secrets: [...] })` too. The instance runs CI only
+for pull requests by the GitHub logins in its `ci.authors` (`Ci:Authors`), into the bound branch, from
+the same repository. Once that holds, open a pull request: the service sees it at the next poll (or
+its webhook), and a run starts when its head has been still for a minute. It tests GitHub's merge
+commit of the pull request onto the branch:
+
+```sh
+pl wait ci my-app <pull request number>     # prints my-app#ci1  Succeeded
+pl ci ls my-app                             # pull requests and their latest CI run
+pl ci get my-app#ci1
+pl ci logs my-app#ci1/test
+```
+
+The result is reported on the pull request as the commit status `olve/ci` when the binding's token
+may write commit statuses ([The GitHub token](binding-and-reconcile.md#the-github-token)). The rest
+of CI (reuse of succeeded steps, the merge queue, previews) is in
+[Binding & Reconcile](binding-and-reconcile.md).
+
 ## What happens on every push
 
 1. The deploy poll (or a webhook) sees the branch head move.
@@ -309,8 +352,8 @@ hundred MB (the step pod's scratch space is 1Gi). Then:
 3. Set the secrets the steps declare, piping bytes, never through `$(…)`:
    `pl secret set <pipeline> SSH_PRIVATE_KEY < key`. Set the config with
    `pl config set <pipeline> -f app.yml`; until both are satisfied the version stays pending.
-4. Push the next commit. That push starts the first run; `pl wait push <pipeline> <sha>` waits for
-   it.
+4. Push the next commit. That push starts the first run when the service sees it (at the next poll
+   without a webhook); `pl wait push <pipeline> <sha>` waits for it.
 
 Only one system should deploy a repo at a time: if something else deploys it today, stop that
 before step 2.

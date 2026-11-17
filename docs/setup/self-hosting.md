@@ -273,10 +273,10 @@ docker compose down -v           # stop and wipe all state (the reset between ev
   ```bash
   export PIPELINES_CONFIG=/tmp/pl-local.json PIPELINES_PROFILE=local
   pl login --api-url http://localhost:5080        # Dex; device flow on a headless box
-  pl binding create OliverVea/Olve.Pipelines --branch main --path .pipelines-test   # the v2 fixture
+  pl binding create <owner>/<repo> --branch main   # a repo with a .pipelines/ package
   pl binding reconcile <pipelineId>
-  pl wait reconcile <pipelineId> <sha touching .pipelines-test or sdk>
-  pl trigger <pipelineId> --field sha=<sha>
+  pl wait reconcile <pipelineId> <sha touching .pipelines>
+  pl trigger <pipelineId> --field <field>=<value>
   pl wait run '<pipelineId>#1'
   ```
 

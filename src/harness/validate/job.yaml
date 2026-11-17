@@ -1,10 +1,10 @@
-# Design-B step pod, as validated by validate.sh (rendered with envsubst; URLs are pre-signed
-# GETs and must never be committed or printed). Mirrors what the B5 executor should generate.
+# The step pod validate.sh runs (rendered with envsubst, plus runtimeClassName when RUNTIME_CLASS is
+# set; URLs are pre-signed GETs and must never be committed or printed).
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: ${JOB_NAME}
-  namespace: olve-runners-beta
+  namespace: ${NAMESPACE}
   labels: { app: olve-pipelines, spike: v2-harness-base }
 spec:
   backoffLimit: 0
@@ -14,7 +14,6 @@ spec:
     metadata:
       labels: { app: olve-pipelines, spike: v2-harness-base, spike-case: "${CASE}" }
     spec:
-      runtimeClassName: gvisor
       restartPolicy: Never
       automountServiceAccountToken: false
       enableServiceLinks: false

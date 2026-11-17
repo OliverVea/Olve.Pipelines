@@ -9,7 +9,7 @@ harness/
   base/Dockerfile     harness-base image (static busybox + /opt/olve/lib + olve-init)
   base/olve-init      init container entrypoint (POSIX sh)
   base/build.sh       build + push, content-derived tag
-  validate/           end-to-end check on the beta cluster (validate.sh, job.yaml, step.ts, s3.ts)
+  validate/           end-to-end check on a cluster (validate.sh, job.yaml, step.ts, s3.ts)
 ```
 
 ## Image
@@ -186,22 +186,24 @@ All of these ran on 2026-10-21 in `olve-runners-beta` with `runtimeClassName: gv
 | `debian:bookworm-slim`, step `runAsUser: 65534` | yes, as uid 65534 | `/bin/sh` |
 | tampered signature (negative) | init exit 65 in <1 s: `HTTP/1.1 403 Forbidden` | n/a |
 
-To re-run (needs `kubectl` access to `apps-beta` and `olve-runners-beta`, plus `bun`):
+To re-run on any cluster you can reach with `kubectl`, with `bun` and an S3 bucket (such as an
+instance's Garage) that both this machine and the cluster's pods can reach:
 
 ```bash
-src/harness/validate/validate.sh            # uses harness-base:<current content tag>
+NAMESPACE=<ns> S3_UPLOAD_ENDPOINT=<from here> S3_SIGN_ENDPOINT=<from the pods> \
+  S3_BUCKET=<bucket> S3_ACCESS_KEY=<key> S3_SECRET_KEY=<secret> \
+  src/harness/validate/validate.sh          # uses harness-base:<current content tag>; RUNTIME_CLASS=gvisor to match the table
 ```
 
 The script works in these steps:
 
 1. It compiles `validate/step.ts`.
-2. It uploads `step.tar.gz` and `input.json` to Garage under `spike/harness-base/`, through a
-   `kubectl port-forward`. The credentials come from the `olve-pipelines-minio` secret and are
-   never printed.
-3. It pre-signs URLs for the in-cluster host.
-4. It runs one Job per step image, labelled `spike: v2-harness-base`.
+2. It uploads `step.tar.gz` and `input.json` to `S3_UPLOAD_ENDPOINT` under `spike/harness-base/`
+   (a `kubectl port-forward` to the in-cluster store works). The credentials are never printed.
+3. It pre-signs URLs for `S3_SIGN_ENDPOINT`.
+4. It runs one Job per step image in `NAMESPACE`, labelled `spike: v2-harness-base`.
 5. It prints the timing and `OUTPUT` lines.
-6. It deletes the Jobs and the Garage objects when it exits.
+6. It deletes the Jobs and the uploaded objects when it exits.
 
 ## Rebuild / push
 

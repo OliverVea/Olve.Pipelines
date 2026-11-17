@@ -33,26 +33,29 @@ v2 test fixture — End-to-end fixture: file refs between steps, a parallel stag
 
 input:    TestInput { mode="normal" (normal|skip-last|fail), sha*, smoke=true, target="beta" (none|beta|prod) }
 secrets:  none
-triggers: push, poll (GET https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/v2 every 3600s)
+triggers: none (manual only)
 
 stages:
   1.  hello                alpine:3.22 -> Greeting
   2.  count                debian:bookworm-slim -> LineCount
       echo                 busybox:1.37
+  3.  send-signals         alpine:3.22 -> SignalsSent
+  4.  called-back          alpine:3.22  [waits for: signal (Signal)]  [preflight]
+      polled               alpine:3.22  [waits for: signal (Signal)]
   when mode in ["normal"]:
-    3.  last                 alpine:3.22 -> Summary
+    5.  last                 alpine:3.22 -> Summary
     when target in ["beta", "prod"]:
-      4.  deploy-beta          alpine:3.22
+      6.  deploy-beta          alpine:3.22
       when target in ["prod"]:
-        5.  deploy-prod          alpine:3.22
+        7.  deploy-prod          alpine:3.22
         when mode in ["normal"] and smoke in [true]:
-          6.  smoke                alpine:3.22
+          8.  smoke                alpine:3.22
   select on config notify.channel:
     log:
-      7.  notify-log           alpine:3.22
+      9.  notify-log           alpine:3.22
     none:
     webhook:
-      7.  notify-webhook       alpine:3.22
+      9.  notify-webhook       alpine:3.22
 
 failure handlers:
   log-failure            on any step
@@ -148,19 +151,16 @@ pl dev pipeline --field sha=<sha> --field deployTo=beta [--until <step>] [--only
 - With `--config` / `--config-from`, each `select` runs only the case that config picks; without
   one, every case's steps run.
 
+This repo's fixture reaches its own beta's signal-test service from `send-signals` on, so elsewhere it
+stops before that step:
+
 ```text
-$ pl dev pipeline --dir .pipelines-test --field sha=abcdef1 --field mode=skip-last
+$ pl dev pipeline --dir .pipelines-test --field sha=abcdef1 --field mode=skip-last --until echo
 …
 result:
-  hello           succeeded
-  count           succeeded
-  echo            succeeded
-  last            skipped   when mode in ["normal"] did not match (mode = "skip-last")
-  deploy-beta     skipped   when mode in ["normal"] did not match (mode = "skip-last")
-  deploy-prod     skipped   when mode in ["normal"] did not match (mode = "skip-last")
-  smoke           skipped   when mode in ["normal"] did not match (mode = "skip-last")
-  notify-log      succeeded
-  notify-webhook  succeeded
+  hello  succeeded
+  count  succeeded
+  echo   succeeded
 ```
 
 ## Unit-testing handlers

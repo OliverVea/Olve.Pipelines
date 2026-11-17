@@ -13,7 +13,8 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
-export DOTNET_ROOT="$HOME/.dotnet"
+# An SSH command gets no login profile, so the user-local installs go on the path here.
+[ -n "${DOTNET_ROOT:-}" ] || [ ! -d "$HOME/.dotnet" ] || export DOTNET_ROOT="$HOME/.dotnet"
 export PATH="$HOME/.dotnet:$HOME/.bun/bin:$PATH"
 # shellcheck disable=SC1091
 [ ! -s "$HOME/.nvm/nvm.sh" ] || . "$HOME/.nvm/nvm.sh"

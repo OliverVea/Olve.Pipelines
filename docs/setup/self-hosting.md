@@ -50,10 +50,31 @@ Releases are public. Each one (e.g. `2026.11.17.296`, the version `pl --version`
 `pl bootstrap` (`pl` from the latest [release](cli.md#installing)) installs the chart's minimal
 profile: the server and its Garage, with no ingress and auth off. It installs the chart of the
 release it belongs to, or of `--version <release>`. It is idempotent, and `pl teardown` removes it
-(the Garage data is kept unless `--purge-data`).
+(the Garage data is kept unless `--purge-data`). Teardown leaves the namespace and what the server
+created in it: the pipelines' Secrets (`olve-pipeline-<id>`, which hold their secret values) and
+finished step and build Jobs. Delete the namespace to remove those too.
 
 ```bash
 pl bootstrap -n <namespace>                              # --version <release> installs another release
+```
+
+It installs into the cluster of the current `kubectl` context (`KUBECONFIG` picks another), and
+prints that context first. The server's Service is `olve-pipelines` (the release name), with no
+Ingress, so reach it with a port-forward. With auth off there is no login (`pl login` refuses): point
+`pl` at the URL with `--api-url` or `PIPELINES_API_URL`:
+
+```bash
+kubectl -n <namespace> port-forward svc/olve-pipelines 8080:80
+export PIPELINES_API_URL=http://localhost:8080
+pl pipeline list
+```
+
+Running `pl bootstrap` again resets the release to the minimal profile. To change one value of a
+bootstrapped instance, such as `ci.authors` (whose pull requests get CI) or a `config.*` key, upgrade
+the release with the same chart and keep the rest:
+
+```bash
+helm upgrade olve-pipelines <chart> -n <namespace> --reuse-values --set 'ci.authors={your-github-login}'
 ```
 
 Helm alone installs it too (`helm upgrade --install olve-pipelines
@@ -319,7 +340,8 @@ run on a fresh stack also pulls the build images. The redeployed instance keeps 
 same container config and the same Garage, only the image changes.
 
 - The deploy poll checks the branch every 15 minutes (`Reconcile:PollIntervalSeconds`), and webhooks
-  are off in the stack: after a push, `pl binding reconcile` picks it up at once.
+  are off in the stack: after a push, `pl binding reconcile` builds the new definition at once, but
+  the push's run starts only at the next poll; `pl trigger` starts one now.
 - The run survives the redeploy: the new server reattaches to the run's Jobs, as on prod.
 - `docker compose up` names `olve-pipelines-v2:local` again, so it can put the locally built image
   back over a deployed one.

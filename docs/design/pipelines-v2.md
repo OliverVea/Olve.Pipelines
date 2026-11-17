@@ -1,7 +1,11 @@
 # Olve.Pipelines v2 — typed pipelines in TypeScript
 
-Status: **design agreed, spikes done, not implemented** (2026-10-21). Built on the `v2` branch and deployed as a
-separate instance (`pipelines-v2`) alongside v1 until every pipeline has migrated.
+The design of typed pipelines: how a pipeline is written, compiled, versioned and run. How to use it
+is in [docs/setup](../setup/index.md) (the authoring API in [pipeline-reference.md](../setup/pipeline-reference.md)
+and `src/sdk/README.md`); areas with a design of their own are [ci.md](ci.md),
+[pipeline-config.md](pipeline-config.md), [external-inputs.md](external-inputs.md),
+[matrix-builds.md](matrix-builds.md), [preview-environments.md](preview-environments.md) and
+[spec-first.md](spec-first.md). What comes next is in [roadmap.md](roadmap.md).
 
 ## 1. Goals
 
@@ -12,8 +16,8 @@ separate instance (`pipelines-v2`) alongside v1 until every pipeline has migrate
 3. **Introspectable.** The models, steps and wiring are plain data in a manifest, so the GUI and
    `pl` can render forms, run plans, typed inputs/outputs and history without running user code.
 
-Non-goals for v2.0: wait steps (v2.1), matrix steps, output caching, environments/tags, SDK publishing story,
-arbitrary-payload webhook mapping. See [Deferred](#11-deferred).
+Not built: output caching and environments/tags (see [Open questions](#9-open-questions) and the
+[roadmap](roadmap.md)).
 
 ## 2. Concepts at a glance
 
@@ -22,7 +26,7 @@ arbitrary-payload webhook mapping. See [Deferred](#11-deferred).
 | **Model** | A named, nominal zod schema (`BuildArtifact`). Emitted as JSON Schema. |
 | **Step** | A contract: name, image, inputs (models or plain schemas), output model, secrets. No behavior. |
 | **Handler** | The implementation of one step: `(input, ctx) => output`, attached with `implement(step, fn)`. |
-| **Library step** | An SDK-provided step + handler pair with typed config (`script`, `gitCheckout`, `imageBuild`). |
+| **Library step** | An SDK-provided implemented step with typed settings (`gitHubSource`, `imageBuild`, `helmDeployOverSsh`, …). |
 | **Pipeline** | Input model, triggers, and an ordered list of **stages**; each stage runs its steps in parallel. |
 | **Run** | One execution of a pinned pipeline version: an input plus the outputs of each step (the **pool**). |
 | **Attempt** | One execution of one step within a run. Reruns add attempts. |
@@ -76,7 +80,7 @@ export const ProdDeployment = model("ProdDeployment", z.object({ release: z.stri
 
 - Models are **nominal**: `BetaDeployment` and `ProdDeployment` share a shape but are not
   interchangeable (`model()` brands with the name).
-- **Files are references**, not inline data. Structured output stays small (cap TBD, ~64 KB); large
+- **Files are references**, not inline data. Structured output stays small (64 KB cap); large
   data lives in the bundle and is referenced via `fileRef()`, marked `"x-olve-kind": "fileRef"` in
   the JSON Schema so the service and GUI recognize it.
 - **One schema per model name** — two different schemas registered under one name is a describe error.
@@ -120,7 +124,7 @@ export const deployProd = step({
 });
 ```
 
-- A step's **name is its identity** (history, scheduling, promotion gates are keyed on it).
+- A step's **name is its identity** (history, scheduling and blocked steps are keyed on it).
 - Each **input entry** is a model, `optional(model)` (see skip propagation, §3.6), or a plain zod
   schema (`{ repo: z.string() }`). Plain-schema entries have no model to match on, so the step
   **requires a mapper**.
@@ -130,29 +134,26 @@ export const deployProd = step({
 
 ### 3.4 Library steps
 
-First-class, SDK-provided step + handler pairs. Each has **its own typed config properties** and
-SDK-provided models (`Source`, `BuiltImage`, …) so pipelines share vocabulary.
+SDK-provided steps with typed settings and SDK models (`Source`, `BuiltImage`, `HelmRelease`, …), so
+pipelines share vocabulary: `gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`,
+`composeDeploy` (their settings are in `src/sdk/README.md`).
 
 ```ts
-import testSh from "./scripts/test.sh" with { type: "file" };
-
-export const test = steps.script({ name: "test", image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
-               script: testSh, input: { source: Source }, output: TestReport /* optional */ });
-
-export const checkout = steps.gitCheckout({ name: "checkout", depth: 1, submodules: false });
-//   input { repo: z.string(), sha: z.string() } (plain schemas → mapper required) → output Source { repo, sha, tree: fileRef }
-
-steps.imageBuild({ name: "image", dockerfile: "Dockerfile", context: ".", tag: "olve-pipelines",
-                   buildArgs: { CONFIGURATION: "Release" } });
-//   input { source: Source } → output BuiltImage { ref, digest, tar: fileRef }
+export const source = steps.gitHubSource({ name: "source", description: "", token: GITHUB_TOKEN });
+//   input { repo, sha } (plain schemas → mapper required) → output Source { repo, sha, tree: fileRef }
 ```
 
-- `script` takes an **embedded** script (the `with { type: "file" }` import), exposes inputs as env
-  vars **and** `input.json`; if an output model is declared it reads and validates `output.json`.
-  This is the zero-TypeScript migration path from v1.
-- Config values that depend on the run (e.g. a tag containing the version) may be functions of the
-  inputs; they execute inside the handler, so describe stays pure.
-- Helpers used by library steps are also exported for custom handlers (`ctx.checkout(sha)`).
+- **One mechanism.** `step()` takes a `kind` (default `custom`) and `settings`; a library step is a
+  function returning `implement(step({ kind, settings, … }), handler)`, exactly what a pipeline
+  writes. The harness, describe and `testHandler` dispatch on "does the step carry an
+  implementation", never on its kind, and to the service a kind is only a label. So a step from
+  another package works the same, and `tests/runtime/library-public.test.ts` keeps the library on the
+  public API.
+- **The library grows from use.** A step joins it when several pipelines need it; a single-use step
+  stays custom in its pipeline.
+- `settings` may reference config entries ([pipeline-config.md](pipeline-config.md)); describe
+  records them as the step's manifest `config`. Values that depend on the run (a tag containing the
+  version) are computed inside the handler, so describe stays pure.
 
 ### 3.5 Handlers
 
@@ -175,21 +176,31 @@ export const deployBeta = implement(step({ name: "deploy-beta", /* … */ }), as
 });
 ```
 
-`ctx` surface (initial): `sh`, `sh.text`, `readText`, `readJson`, `files.fetch`, `output.file`,
-`output.dir`, `http`, `retry`, `secrets`, `log`, `signal` (cancellation/timeout), `run` (run id,
-number, derived version), `skip(reason)` (runtime escape hatch — prefer `when`).
+`ctx` surface: `sh`, `exec`, `readText`, `readJson`, `files.fetch`, `output.file`, `output.dir`,
+`output.write`, `http`, `retry`, `secrets`, `config`, `log`, `signal` (cancellation/timeout), `run`
+(run id, number, version stamp), `tmpDir`, `link(url, label?)`, `inputUrl` (external inputs),
+`skip(reason)` (runtime escape hatch — prefer `when`).
+
+**Step links.** `ctx.link` records where a step's work can be seen (a deployed app, a review). The
+links travel in the result envelope on any status and are stored on the attempt; the server checks
+them strictly (absolute http(s), at most 10, URL ≤ 2048 and label ≤ 100 characters). A step
+declares no link of its own: the URL usually depends on config or on what the run did. A waiting
+step gets its link from its external input or its preflight ([external-inputs.md](external-inputs.md)).
 
 `ctx.sh` runs a command string or an embedded script (copied out to `/olve/tmp` first) via the
 image's shell, detected from `/bin/sh`, `/busybox/sh`, `/bin/bash`; shell-less images (distroless)
-get a clear error, not an `ENOENT`. Children use the image's own libc and tools.
+get a clear error, not an `ENOENT`. Children use the image's own libc and tools. `idleTimeoutSeconds`
+on `sh`/`exec` is an inactivity watchdog: a child that prints nothing for that long is terminated
+(`CommandStalledError`), so a hung download fails the attempt instead of holding it until
+`timeoutSeconds`.
 
 Return type is `Infer<Output> | Skipped`: a handler produces a valid output or explicitly skips.
 
 ### 3.6 Pipeline
 
 ```ts
-// checkout, test (§3.4), build, deployBeta, deployProd (§3.3) are defined above, each with its implementation;
-// publishCli (a step consuming BuildArtifact) and aoeTriage (a failure handler) are defined elsewhere.
+// source (§3.4), build, deployBeta, deployProd (§3.3) are defined above, each with its implementation;
+// test, publishCli (a step consuming BuildArtifact) and aoeTriage (a failure handler) are defined elsewhere.
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "Read-only token for polling the commits API.");
 
 export default pipeline({
@@ -203,7 +214,7 @@ export default pipeline({
             secrets: [GITHUB_TOKEN], headers: { Authorization: "$SECRET:GITHUB_TOKEN" },
             valuePath: "sha", intervalSeconds: 300 },
           value => ({ sha: value }))                   // z.input: repo/deployTo take their defaults
-  .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(build, test)                                  // no mapper: match inputs by model (Source)
   .stage(deployBeta)                                   // BuildArtifact from build
   .when({ deployTo: "prod" }, p => p
@@ -224,6 +235,20 @@ triggers declare their own `secrets: [...]`, and `$SECRET:NAME` header reference
 against that list. Manual triggers (GUI / `pl trigger --input deployTo=beta`) use a form generated
 from the input model. Input is validated at trigger time; invalid input is a 400 (or a rejected
 event), never a half-run.
+
+- **Push** belongs to the binding, not the trigger: every binding is polled (an unchanged branch is
+  a free 304) and gets a GitHub hook when the instance has a public base URL and the binding a token
+  allowed to manage hooks. Whether a moved branch head starts a run is the manifest's `onPush`, so
+  `onPush` takes no source config; repo, branch and credentials are binding data.
+- **Webhook**: `onWebhook({ name, verify }, ({ headers, body }) => input | null)` receives
+  `POST /api/hooks/{pipeline}/{trigger}`, verified with a declared secret (`hmac-sha256` over the raw
+  body, or `bearer`), answered 202 and mapped in the background; `null` starts nothing.
+- **Poll** remembers its last value per (pipeline, trigger) in `pipeline-state.json`, so a change
+  made just before a restart still triggers; only a new trigger or a changed URL seeds.
+- **Config before run.** On a bound pipeline every automatic trigger starts its run only once the
+  binding's current config commit is applied (`IConfigLock`, reconciling first). A poll value is
+  recorded only then, so a change seen while the config is unapplied is picked up by a later poll; a
+  webhook delivery in that state is dropped and logged.
 
 **Input mapping.** By default a step's inputs are matched **by model** from what is available (the
 pipeline input + outputs of earlier stages). An optional per-step mapper builds the input
@@ -257,16 +282,29 @@ only *maybe* available afterwards: a later step must declare them `optional(Mode
 `T | undefined`), or it is a compile error. `optional` means *maybe skipped* only: there must still
 be an earlier producer — `optional(M)` with no producer of `M` at all is an error.
 
-**Failure handlers.** v1's failure handlers carry over as `.onFailure(handler, { steps? })`; the
-failure context becomes a typed `FailureContext` model instead of `$PIPELINE_*` env vars.
+**Failure handlers.** `.onFailure(handler, { steps? })` runs `handler` when a run fails. Its input
+is a typed `FailureContext`: `pipeline {id, name}`, `run {id, number, address, versionStamp,
+trigger, url}`, `version {number, commit}`, the run's `input`, a `reason` and `failedSteps[] {step,
+attempt, address, reason, logUrl}` (only the steps in the handler's scope).
+
+- A run going Running → Failed runs each handler of its *pinned* manifest whose scope (`steps`, none
+  = any) holds one of its failed steps (each step's latest failed attempt since the run was last
+  resumed). A run that failed without a failed step (unusable manifest) runs none.
+- The context is projected onto the pinned manifest's `FailureContext` schema and validated first,
+  so a version built with an older SDK model is skipped with a logged reason, not launched to fail.
+- Untracked and best-effort: a harness Job `olve-fh-…` (role `on-failure`), named deterministically
+  per run, failure and handler, so a duplicate dispatch reattaches and a continued run that fails
+  again dispatches again. It gets the handler's declared secrets and uploads no result; its
+  `input.json` and log go under `runs/<p>/<run>/_failure/<handler>/<id>/`. No attempt, no retry, no
+  effect on the run, nothing in the API or UI. Links use `Links:BaseUrl`, else
+  `Webhooks:PublicBaseUrl`.
 
 ### 3.7 Pipeline-build checks
 
 Enforced in three layers: **TypeScript** (the builder accumulates available outputs in its type),
 **describe** (checks only the evaluated source can answer) and **reconcile** (the service re-runs
 every manifest-level check and rejects invalid configs — it never trusts that the compiler ran, and
-script handlers bypass it anyway). The spike verified every TS check below (incl. ambiguity, fully);
-the compile-fail checker runs in SDK CI against both TS lines.
+script handlers bypass it anyway). The SDK's compile-fail checker holds every TS check below.
 
 | Check | TS | Describe | Reconcile |
 |---|---|---|---|
@@ -287,65 +325,11 @@ the compile-fail checker runs in SDK CI against both TS lines.
 | Staged step without an implementation | — | ✓ | — |
 | Output nothing consumes | — | | warning (fine for gate steps like `test`) |
 
-### 3.8 Wait steps (v2.1)
+### 3.8 External inputs
 
-> **Deferred to v2.1.** Waits don't fit the "attempt = one Job" model and get designed properly
-> then. Nothing in v2.0 implements or reserves them; the notes below are the starting point.
-
-A `wait` step has **no pod while waiting**. The attempt sits in `Waiting` until it is resolved with a
-value that is validated against the step's **output model** — the output model *is* the human's or
-external system's input.
-
-```ts
-steps.wait({
-  name: "visual-review",
-  input: { diff: VisualDiff },
-  output: ReviewDecision,             // z.object({ approved: z.boolean(), note: z.string().optional() })
-  resolveBy: {
-    manual: true,                     // GUI / pl form generated from ReviewDecision
-    callback: true,                   // per-attempt URL; caller POSTs a ReviewDecision
-    check: { every: "5m", async run({ diff }, ctx) {
-      const s = await ctx.http.getJson(`https://percy.example/api/builds/${diff.buildId}`);
-      return s.state === "approved" ? { approved: true } : ctx.notYet();
-    } },
-  },
-  timeoutHours: 72,                   // optional; timeout = failure
-});
-```
-
-| Mode | Resolver must know Olve.Pipelines? | Cost |
-|---|---|---|
-| Manual | n/a | none |
-| Callback | yes | none |
-| Scheduled check | no | one short Job per interval running the `check` function |
-
-Rule of thumb: if code must *actively* watch with low latency (SSE, tight polling), it is an ordinary
-step with a long timeout; if the result is pushed or can be checked periodically, it is a `wait`.
-
-Semantics: a waiting run is abandoned when superseded or when its version is switched out; it does
-not block a `switch` drain.
-
-**Execution model — waits are not Jobs.** An attempt has an **execution kind**, and the scheduler
-dispatches by kind instead of assuming "attempt = one K8s Job":
-
-| Kind | Lifecycle | K8s footprint |
-|---|---|---|
-| `job` (every ordinary/library step) | Scheduled → InProgress → Succeeded/Failed | exactly one Job per attempt |
-| `wait` | Scheduled → Waiting → Succeeded (resolved) / Failed (timeout) / Cancelled | none while waiting; zero or more short **probe** Jobs |
-
-- A waiting attempt is a **persisted state with a schedule** (`nextCheckAt`, `deadline`), driven by the
-  service: a timer fires checks, the API/callback endpoint delivers resolutions, a timeout fails it.
-  It survives restarts like any other state.
-- **Probes** (scheduled-check Jobs) are children of the attempt, not attempts themselves: many per
-  attempt, each returning `notYet` or an output. They don't consume the step's slot or count as
-  attempts in history (shown as a probe log under the attempt).
-- A `Waiting` attempt **holds its step's slot** (one in progress per step): latest-wins and supersede
-  apply to it like any in-progress step — a newer run's arrival at the wait abandons the older wait.
-- Resolution is the only way out besides timeout/cancel: whichever resolver (manual, callback, probe)
-  delivers a valid output first wins; later deliveries are rejected (attempt no longer Waiting).
-- In the backend this is one executor per kind behind a common interface (`JobStepExecutor`,
-  `WaitStepExecutor`), so further kinds can be added without touching the stage scheduler.
-
+A step input can come from outside the run (a person, a callback, a polled URL) instead of from the
+pool: the step waits, with no pod, until the input is answered. Design:
+[external-inputs.md](external-inputs.md).
 
 ## 4. Manifest
 
@@ -367,7 +351,7 @@ dispatches by kind instead of assuming "attempt = one K8s Job":
   "triggers": [ { "kind": "push" },
                 { "kind": "poll", "url": "…", "secrets": ["GITHUB_TOKEN"], "valuePath": "sha", "intervalSeconds": 300 } ],
   "stages": [
-    { "steps": [ { "name": "checkout", "kind": "gitCheckout", "image": "…",
+    { "steps": [ { "name": "source", "kind": "gitHubSource", "image": "…",
                    "input": { "repo": { "ref": "input.repo" }, "sha": { "ref": "input.sha" } },
                    "output": "Source" } ] },
     { "steps": [ "…build, test…" ] },
@@ -396,12 +380,14 @@ dispatches by kind instead of assuming "attempt = one K8s Job":
 ### 5.1 Harness
 
 The pipeline compiles (at reconcile, per commit) into **one standalone executable** (`bun build
---compile`, ~91 MB, ~38 MB gzipped) stored in Garage as `step.tar.gz`. It has three modes:
+--compile`, ~91 MB, ~38 MB gzipped) stored in Garage as `step.tar.gz`. It has four modes:
 
 - `describe` → the manifest.
 - `run <step>` → read `/olve/input.json`, validate against the step's input, call the handler,
   validate the return value strictly against the output model, write `/olve/work/output.json` (files
   under `/olve/work/files/`), pack both into `result.tar.gz` and PUT it to `OLVE_RESULT_URL`.
+- `preflight <step>` → a step's preflight, before it waits for its external inputs
+  ([external-inputs.md](external-inputs.md)).
 - `map-trigger <trigger>` → short-lived helper mapping one event to pipeline input.
 
 **`run` contract** (authoritative detail: `src/sdk/README.md`; manifest format: `src/sdk/manifest.schema.json`).
@@ -433,9 +419,17 @@ service) is the single init container. It fetches the per-version `step.tar.gz` 
 `input.json` from Garage via presigned GETs into the `/olve` emptyDir. The step container runs the
 loader command above with `TMPDIR=/olve/tmp` (kaniko has no `/tmp`); outputs go to `/olve/work`.
 
+- **Secrets** are `secretKeyRef`s marked optional: a declared secret whose key is unset leaves its
+  env var unset instead of failing the pod, so a handler can check for it and skip; `ctx.secrets.X`
+  throws on access.
+- **Collecting the result is memory-safe**: `HarnessResultCollector` streams `result.tar.gz` through
+  a temp file and stages each file to disk before uploading it; only the capped `output.json` is
+  held in memory, so an image tarball as a step output costs disk, not server memory.
+
 **Build/describe Job** (on `oven/bun:<pinned>-slim` — never alpine, where `bun-linux-x64` silently
-yields musl): fetch the repo tarball → `bun install --frozen-lockfile` → generate the handler
-registry → `bun build --compile --target=bun-linux-x64 --no-compile-autoload-dotenv
+yields musl): fetch the repo tarball → `bun install --frozen-lockfile` in the pipeline and in each
+local `file:`/`link:` dependency of its `package.json` (one resolving outside the repo fails the
+build) → generate the entry point → `bun build --compile --target=bun-linux-x64 --no-compile-autoload-dotenv
 --no-compile-autoload-bunfig --bytecode --format=esm` → verify the ELF `PT_INTERP` → PUT
 `step.tar.gz` (presigned) → print the manifest between `---OLVE-MANIFEST-BEGIN---` /
 `---OLVE-MANIFEST-END---` on stdout; the service reads it from the pod log (termination messages
@@ -447,37 +441,57 @@ The service never executes TypeScript itself.
 
 - A run **pins one pipeline version** and stores its input plus every step's output (the **pool**).
   Each job receives only the models its step declared (or its mapped paths), keeping contracts honest.
-- The run's **version stamp is derived from the run** (e.g. `<date>.<run number>`; format TBD), so it
-  is known before `build` starts.
+- The run's **version stamp is derived from the run** (`yyyy.MM.dd.<run number>`), so it is known
+  before `build` starts.
 - A step's outcome is `Succeeded`, `Failed`, `Skipped` (with reason), `Cancelled`, `Obsolete`. A failed step halts the run at its stage barrier.
 - **Explicit reruns are attempts.** Rerunning a step adds an attempt in the same run with the same
   pinned version and pool input; the operator chooses *rerun only* or *rerun and continue*. Later
   stages consume the **latest successful attempt**; earlier attempts stay in history. Rerunning a
-  whole run creates a new run with the same input, linked to the original.
+  whole run creates a new run with the same input, linked to the original; that input is
+  re-validated against the version the rerun binds to (defaults filled in).
 - **Continue** a run with a changed input (e.g. `deployTo: beta → prod`) keeps completed stages and
-  re-evaluates `when` for the rest. Only fields no completed step consumed may change (e.g. `sha`
-  cannot) — this is "promote what you tested in beta".
-- **No automatic retries** unless a step opts in with `retries: n` (an idempotency claim).
+  re-evaluates `when` for the rest. The changed fields are merged over the stored input and validated
+  against the run's *pinned* input model; only fields no completed step consumed may change (e.g.
+  `sha` cannot) — this is "promote what you tested in beta".
+- **Cancel.** Cancelling a run also cancels its in-progress attempts (their Jobs are deleted), unlike
+  being superseded; a finished run with still-active attempts gets only those cancelled. Cancelling a
+  step cancels its active attempt; the run ends Cancelled at that stage's barrier, and rerunning the
+  step with continue re-opens it.
+- **No automatic retries** unless a step opts in with `retries: n` (an idempotency claim). A failed
+  attempt is retried while the trailing streak of failed attempts since the run was last resumed is
+  at most `n`; cancelled and obsolete attempts and failures on the scheduler's side (an oversized
+  input) are never retried. A retry is a fresh attempt, so a fresh pod: `imageBuild` retries (2 by
+  default) after its stall watchdog (300 s without output) kills kaniko, because kaniko unpacks the
+  base image over the container's root and a second kaniko in the same container would snapshot a
+  half-unpacked root as its base.
+- **Logs** of a running attempt are its pod's current output; an attempt that never ran answers a
+  one-line note, not an error.
 
 ### 5.3 Scheduling
 
-- **Keyed on step id, not version.** At most one `InProgress` job per (pipeline, step); latest-wins
-  among scheduled jobs; v1 semantics carry over.
-- **An automatic newer run supersedes an older run as a whole**: the older run is marked superseded
-  (linked to the newer one) and its remaining stages are abandoned: scheduled attempts are cancelled,
-  in-progress attempts finish (a half-done deploy is never killed) but the run never advances.
-  Explicit reruns follow the per-step rules.
-- **Trigger de-duplication applies to automatic triggers only** (webhook, poll, reconcile): keyed on
-  (pipeline, mapped input) by default, so the same SHA from webhook and poll yields one run. Since
-  mappers are code, de-dup needs the mapped input: one `map-trigger` Job per event, de-dup after it.
-  Explicit actions (GUI, `pl`, API) always create work.
-- **Promotion gates** stay keyed on step id: a blocked step holds its run at that step; unblock
-  resumes the due promotion. A braked step stays braked across version switches.
+- **Keyed on step name, not version.** At most one `InProgress` attempt per (pipeline, step);
+  latest-wins among scheduled attempts (an older Scheduled attempt becomes Obsolete and its run is
+  superseded).
+- **Runs flow on concurrently.** Starting a run leaves older runs running; they meet only per step.
+  A run never starts a step a newer run already started: it is superseded instead (linked to the
+  newer run), so an older run can't deploy after a newer one, while under a stream of pushes an older
+  run still reaches the end. In-progress attempts of a superseded run finish (a half-done deploy is
+  never killed).
+- **Trigger de-duplication applies to automatic triggers only** (push, poll, webhook): keyed on the
+  canonical hash of the mapped input, against a Running run or the latest automatic run within an
+  hour on the same version, so the same SHA from webhook and poll yields one run. Since mappers are
+  code, de-dup needs the mapped input: one `map-trigger` Job per event, de-dup after it. Explicit
+  actions (GUI, `pl`, API) always create work.
+- **Blocked steps** are keyed on step name: a blocked step gets no attempt and holds its run at that
+  step; unblocking resumes held runs. A block is an operator hold, operational state rather than
+  config, so it survives version switches and reconcile. It is not an approval mechanism; *gate*
+  means a step in the pipeline that decides whether a run goes on (tests, approval, visual review).
 
 ### 5.4 Persistence
 
-Runs, pools, attempts, pipeline versions, enable state and an in-progress `switch` are persisted and
-must survive a restart — in particular during v2's own self-deploy.
+Runs, pools, attempts, pipeline versions, activations, blocked steps and queued run starts are
+persisted and survive a restart, including the instance redeploying itself mid-run: the executor
+reattaches to its Jobs by name.
 
 ### 5.5 Addressing and storage
 
@@ -516,15 +530,15 @@ and content dedup is possible later.
 across runs (promote; later the environments view); run by version stamp.
 
 **API / CLI:** `GET /api/pipelines/{id}/runs/{run}/steps/{step}/output?attempt=…` and
-`…/steps/{step}/files/{path}`; `pl run output <pipeline> 412 deploy-beta`,
-`pl run file <pipeline> 412 build image.tar`.
+`…/steps/{step}/files/{path}`; `pl step output <pipeline>#412/deploy-beta`,
+`pl step file <pipeline>#412/build image.tar`.
 
 ## 6. Versioning
 
 ### 6.1 Versions
 
 - **Pipeline version**: monotonic integer per pipeline, added by reconcile whenever the manifest
-  changes; linked to the commit. Replaces v1's hand-written `version:` field.
+  changes; linked to the commit. Nobody writes a version by hand.
 - **Entity versions**: steps and models each have `<id>.<version>`, incremented only when *that*
   entity's content changes, by content comparison:
   - model → its JSON Schema
@@ -535,28 +549,34 @@ across runs (promote; later the environments view); run by version stamp.
 - A model change ripples to every step consuming it.
 - Hash the **manifest**, not the source; describe must be deterministic (no env/time/network) or
   versions flap. Dependency changes reach the code hash. The manifest carries `harness: { bun, sdkHash }`; a Bun or SDK bump likewise
-  legitimately bumps all handlers.
-- Versions are **immutable** and retained while any retained run references them.
+  makes a new pipeline version.
+- **What makes a new build.** The config cursor (`ConfigCursor`) watches the binding path plus the
+  local `file:`/`link:` dependencies of its `package.json` (e.g. `../src/sdk`), so a commit touching
+  only an in-repo SDK still rebuilds the binary. Direct dependencies only; absolute specs and paths
+  outside the repo are ignored.
+- Versions are **immutable**; their manifests are kept, and their binaries while retention keeps
+  them (§6.4).
 
 ### 6.2 Single active version and `switch`
 
-Only **one version of a pipeline runs at a time**. Replacing a version is one composite operation:
+New runs start on **one active version** of a pipeline:
 
 ```
-Active(7)              # 8 added, idle
+Active(7)              # 8 added
   └─ switch → 8
-Draining(7 → 8)        # 7 starts no new runs; in-flight jobs finish
-  └─ no Scheduled/InProgress jobs on 7
-Active(8)              # queued trigger (if any) starts on 8
+Active(8)              # new runs start on 8; runs pinned to 7 carry on there
 ```
 
 - Reconcile calls `switch` automatically. Rollback is `switch → 7`.
-- Triggers during draining are queued (latest-wins collapses them) and **bind to a version at start**,
-  so they are mapped and validated against v8's triggers and input model.
-- `switch --cancel-running` cancels v7's in-flight jobs instead of waiting.
+- A normal switch completes at once. Runs on older versions keep the version they pinned; since a
+  run never starts a step a newer run already started (§5.3), an old-version run can't deploy after
+  a newer one.
+- `switch --cancel-running` drains instead, `Draining(7 → 8)`: other versions' in-flight attempts
+  and runs are cancelled, and run requests meanwhile queue (latest-wins) and **bind to a version at
+  start**, so they are mapped and validated against 8's triggers and input model.
+- Reruns and continues need the run's version to be active; a run on an older version is re-triggered
+  on the new one.
 - A reconcile whose manifest fails checks never switches; the problems surface in binding status.
-- Paused runs (waiting for continue/promote, braked) don't block draining and become
-  un-continuable afterwards (the GUI says so; re-trigger on the new version).
 - No side-by-side canary of pipeline definitions: testing a new definition means switching to it.
 
 ### 6.3 History
@@ -576,6 +596,27 @@ deploy-beta
 - Removed steps: history kept, shown as retired; re-adding the same name resumes it. Renames are a new
   identity (a `renamedFrom` hint can come later if missed).
 
+### 6.4 Retention
+
+`RetentionService` (`Retention:*`, a dry run by default) sweeps 2 minutes after start-up and then
+daily; `RetentionPlanner` is one pure function over a snapshot of the bucket, the cluster and the
+stores. Settings and defaults are in [runs-and-operations.md](../setup/runs-and-operations.md#retention).
+
+- A run goes only when it is **both** beyond its pipeline's latest 20 and older than 183 days, and
+  never while Running. Its objects go after the run is deleted and persistence has flushed;
+  `run.json`, manifests and indexes belong to persistence and are never deleted by retention.
+- A binary stays while an active or draining version, a retained run or a running CI run uses it,
+  else it goes after a 7-day grace. Version entities and their manifests are kept: they are small and
+  are the history.
+- Leftovers: objects of deleted runs, `result.tar.gz` of finished attempts, stale trigger
+  events, URL Secrets whose Job is gone or finished, and leaked or TTL-less finished Jobs, the last
+  only with an Olve.Pipelines role and a pipeline of this instance.
+- The run whose `publish-cli` files `/download` serves is pinned (`CliReleaseQuery`).
+- **Per pipeline**, `pipeline({ retention: { keepLatestRuns, minRunAgeDays, buildGraceDays } })`
+  overrides the three thresholds; `RetentionPolicies` reads the manifest of the version new runs
+  start on. The policy lives in the definition rather than in runtime config so that it travels
+  with the repo and is versioned like the rest of the pipeline.
+
 ## 7. GUI and CLI
 
 - **Pipeline view**: stages, field-level wiring from mappings / model matches, `when` blocks,
@@ -584,11 +625,14 @@ deploy-beta
   `when` won't match).
 - **Run view**: input, then each step's attempts with typed input/output rendered against the pinned
   model versions; skip reasons; superseded/rerun links.
-- **Health summary** redefined over runs/stages — `Skipped` never counts as unhealthy.
+- **Health** is over runs: running if any run is Running, else the latest Succeeded or Failed run
+  (cancelled and superseded runs say nothing about health; skipped steps never count as unhealthy).
+- **Live updates**: views open `/api/events` (change notices, never state) and re-fetch on a
+  relevant notice ([runs-and-operations.md](../setup/runs-and-operations.md#live-events)).
 - `pl`: `trigger --input k=v`, `run continue`, `step rerun [--continue]`, `pipeline switch <version>`,
-  `pipeline manifest` (replaces `pipeline document`), and local development (§7.1).
+  `pipeline manifest`, and local development (§7.1); the full set is in [cli.md](../setup/cli.md).
 
-### 7.1 Local development (wanted early)
+### 7.1 Local development
 
 Three loops, all from the repo via `pl` (which shells out to Bun):
 
@@ -597,91 +641,86 @@ Three loops, all from the repo via `pl` (which shells out to Bun):
    validation endpoint for the C# reconcile checks without pushing.
 2. **One step from source** — `pl dev run <step>` runs the handler with Bun directly (no compile),
    through the same harness path (validate input → handler → validate output → `<pipeline dir>/.olve/work/`).
-   Input via `--input-file`, `--input k=v` (pipeline-input fields), or **`--from <pipeline>#<run>`**,
+   Input via `--input-file`, `--field k=v` (pipeline-input fields), or **`--from <pipeline>#<run>`**,
    which pulls a real run's input + outputs (file refs on demand) to reproduce or iterate on a step
    with production data. Secrets come from the local env or `--secret NAME=…` — never auto-pulled.
 3. **One step in its real image** — `pl dev run <step> --docker` compiles the real binary and runs it
    in the step's declared image exactly like the pod (`/olve` mount, bundled loader, env layout),
    catching missing shells/tools/`/tmp` surprises.
 
-`pl dev pipeline --input deployTo=beta [--until|--only|--from]` chains stages locally through a
+`pl dev pipeline --field deployTo=beta [--until|--only|--from]` chains stages locally through a
 local pool, evaluating `when`; it asks for confirmation before steps that declare secrets (they do
 real things). The SDK exports `testHandler(step, input, { ctx })` for `bun test` with a fake `ctx`.
 No "run on the cluster from a laptop" — pushing to a beta-bound branch covers that.
 
+### 7.2 Step reliability
+
+`StepReliabilityService` (`pl pipeline reliability`, the reliability page) reports how reliable a
+pipeline's steps were; what it shows is defined in
+[runs-and-operations.md](../setup/runs-and-operations.md#step-reliability). Its design:
+
+- **A query plus one recorded fact.** Everything is derived from attempts on request, except why an
+  attempt failed: a Failed attempt stores an `AttemptFailureKind` (the harness's exit-code kinds plus
+  lost Job, failed launch, not run, declined). The own / infrastructure / timeout split is a mapping
+  in the query (`AttemptFailures.Category`), so it can be retuned without touching stored state.
+  Attempts recorded without a kind get one from the fixed start of their reason
+  (`AttemptFailures.KindOf`); no match counts as the step's own.
+- **Same input is not `InputHash`.** That hash is taken before external answers are added, and a file
+  ref names the run and attempt that made the file, so it differs between runs for the same file. The
+  query compares the stored input with file refs reduced to path and content hash, and only for steps
+  with an own failure in the window.
+- **Same code** is the manifest's `codeHash`, the step's entity version and the run's config
+  snapshot. `codeHash` covers the whole program, so changing one handler makes every step's
+  executions incomparable with earlier ones: that under-reports flakiness and never invents it.
+- **The combined rate is observed, not multiplied.** `1 − Π(1 − rᵢ)` over step rates assumes every
+  step runs in every run and ignores `retries`; counting the runs a no-reason failure stopped needs
+  neither. A failure stops the run when it is past the step's first `retries` failures in that run.
+- **Thresholds** for "above usual" are constants in the service, picked to stay quiet on a steady
+  test step; they are not configurable.
+- **It never fails a build**: nothing in scheduling reads the report and no step can gate on it.
+
+### 7.3 API errors
+
+Every non-2xx answer but 401/403 (empty) has one body, `ApiProblem`:
+`{type, title, status, detail, errors: [{code, message, field?}], traceId}`, served as
+`application/json`, with `type` `urn:olve-pipelines:<code>` and the codes
+`not-found | conflict | invalid | unavailable | internal`.
+
+- Domain code returns typed problems (`Shared/Problems`): `NotFoundProblem` (404), `ConflictProblem`
+  (409: inactive version, blocked step, active attempts, superseded, already exists),
+  `ValidationProblem` (400) and `UnavailableProblem` (503: Kubernetes, Garage, GitHub). Validation and
+  conflict problems may carry a `field` (`input.sha`). A plain `ResultProblem` is 400.
+- **Status precedence** 404 > 409 > 503 > 400: a missing resource or a conflicting state can't be
+  fixed by retrying, and context prepended to a problem never downgrades its status.
+- `ApiProblems` builds the body from a handler's problems; the contract's own request validation
+  answers through `ApiProblemWriter` ([spec-first.md](spec-first.md)). Severity, source, tags and
+  exception summaries are never returned. `traceId` is the W3C trace id and greps to the request's
+  log lines.
+- `UseApiErrors` turns unhandled exceptions into the same body: 503 with `Retry-After` for transient
+  failures (network errors, timeouts, 5xx/429 from a dependency), 500 otherwise with a generic text,
+  logged once with the stack; binding failures answer 400.
+- Rejected: array bodies (no place for status-level fields) and string codes on `ResultProblem`
+  (easy to drop on `Prepend`).
+
 ## 8. Security
 
-- The describe Job and step Jobs run under the existing runner hardening (gVisor, PSS baseline,
-  NetworkPolicy). Describe needs the repo + npm registry, the init container Garage — both already
-  allowed; **no NetworkPolicy change needed**.
-- Runner pods can reach everything in apps/apps-beta (both Pipelines APIs, Garage), so **every
-  service endpoint is authenticated**, and artifacts go in/out only via presigned URLs.
+- The describe Job and step Jobs run under the runner hardening (gVisor, PSS baseline,
+  NetworkPolicy). Describe needs the repo + npm registry, the init container Garage.
+- Step pods can reach services in the cluster, so **every service endpoint is authenticated**, and
+  artifacts go in/out only via presigned URLs.
 - Manifests and step outputs are **untrusted input**: schema-validated with size caps before use.
 - Repo code (describe, handlers, checks, trigger mappers) only ever executes in sandboxed Jobs, never
   in the service.
-- Secret values are masked in outputs and logs (approach TBD during implementation).
+- Secret values are masked in what a step prints and in its failure message: given the declared
+  names in `OLVE_SECRETS`, the binary runs the step as its own child and filters its output
+  (`src/sdk/README.md`). Outputs and files are data and are not masked.
 
-## 9. Mapping from v1
+## 9. Open questions
 
-| v1 | v2 |
-|---|---|
-| `config.yaml` production + processing steps | stages; first stage ≈ production, later stages generalize processing |
-| `ProductionJob` / `ProcessingJob`, job groups | runs → attempts (one job per attempt) |
-| ArtifactBundle (combined zip) | per-step bundle dir + `output.json`; `fileRef()` for files |
-| "find the bundle dir containing version.txt", `commit.txt` | typed fields on `BuildArtifact` |
-| Promotion gate + promote | gate keyed on step id; promote = continue / rerun-and-continue |
-| Processing trigger target | continue a run from a step |
-| Poll trigger (`$SECRET:` headers) | `.onPoll({ …, secrets }, mapper)`, headers type-checked against `secrets` |
-| Webhook / poll overlap fix | automatic-trigger de-duplication |
-| Failure handlers | `.onFailure(handler, { steps })`, typed `FailureContext` |
-| All pipeline secrets mounted in every job | per-step declared secrets |
-| `version:` field | service-assigned pipeline/entity versions |
-| Retention (6 months / latest 20, Job TTL 7d) | extended to versions, pools and file refs |
-
-## 10. Edge cases (decide during implementation)
-
-Output size cap; file-ref lifetime vs retention (check refs exist before scheduling); per-step
-timeouts and cancellation reaching child processes; secret masking; restart persistence; warning when
-a promote/rerun would roll an environment back to an older build; describe determinism enforcement.
-
-## 11. Deferred
-
-- **Matrix steps** (`step.matrix([...])`) — near future.
-- **Output caching** by (step version, input hash) — near future; store the input hash per attempt now.
-- **Environments / tags** (environment strip, promote-beta-to-prod, rollback warnings).
-- **Wait steps** (§3.8) — v2.1, including arbitrary-payload callback mapping.
-- **SDK publishing** (`@olivervea/pipelines` distribution and version compatibility with the service).
-- **TypeSpec** (or other) model sources — possible later since JSON Schema is the interchange.
-
-## 12. Spikes — done (2026-10-21)
-
-All four passed; findings are folded into this spec. The spike code is at `d269107:spikes/`.
-
-1. **Harness in any image** — PASS (glibc binary + bundled loader; §5.1).
-2. **One binary, many modes** — PASS (deterministic manifest; a bundle hash, not the
-   metafile; §6.1).
-3. **Describe sandbox** — PASS (~1.3 s; manifest via stdout sentinels; §5.1, §8).
-4. **Type-level builder** — PASS (every TS check in §3.7; tuple mappers, describe source analysis).
-
-Still to validate early: one full busybox-wget `harness-base` pod end to end.
-
-## 13. Transition plan
-
-**v2 is fully breaking.** Anything in v1 that conflicts with this design (the production/processing
-split, job groups, the combined ArtifactBundle zip, the `config.yaml` format, all-secrets-mounted,
-the hand-written `version:` field, …) is removed on the `v2` branch rather than kept for
-compatibility. Nothing is migrated from a v1 instance's state.
-
-1. **v2 branch, v1 feature-frozen** (critical fixes only, ported to `v2`). v2 is deployed as a
-   separate instance (`pipelines-v2`), initially beta-only, by a v1 pipeline bound to the `v2` branch.
-   It needs its own Helm release + hostname, Garage bucket, Authentik app, Cloudflare tunnel route for
-   webhooks, and runner namespace (or distinct job labels in `olve-runners`).
-2. **Migrate pipelines one by one**, least critical first: add `.pipelines/pipeline.ts` next to
-   `config.yaml` (different files, both instances read their own), copy the pipeline secret, bind on
-   v2, test with `deployTo: beta`, then move the GitHub webhook to v2 and pause/unbind on v1.
-   **Never both active** — two instances reacting to one push means two concurrent deploys. Rollback =
-   webhook back to v1. Delete `config.yaml` once stable.
-3. **Olve.Pipelines last**: once v2 deploys itself, retire v1, promote `v2` to `main`, optionally move
-   v2 to the `pipelines` hostname.
-4. v1 run history is not migrated; it stays readable until v1 shuts down and v1 bundles/logs follow
-   existing retention. `pl` gets a v2 profile (or a v2 build from the branch).
+- **Output caching** (reuse a succeeded attempt's output for the same step, code and input) and
+  **environments / tags** (what is deployed where, promote, rollback warnings) are not built; see the
+  [roadmap](roadmap.md).
+- No warning when a continue or rerun would roll an environment back to an older build.
+- Describe determinism is not enforced: a describe that reads the environment, time or network makes
+  versions flap.
+- Other model sources than zod are possible, since JSON Schema is the interchange.

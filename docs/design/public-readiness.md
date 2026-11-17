@@ -22,7 +22,7 @@ instance may depend on.
 - [x] Working notes leave the repo: `docs/superpowers/`, `docs/operations/`, `docs/design/review-2026-10-24.md`,
       `docs/design/test-audit.md`, `docs/design/quality-inventory.md`,
       `docs/design/pipelines-v2-spikes.md`.
-- [ ] `docs/design/pipelines-v2-plan.md`'s still-true parts move into the design docs it backs.
+- [x] `docs/design/pipelines-v2-plan.md`'s still-true parts move into the design docs it backs.
 - [x] `.claude/`: personal commands, skills and `settings.local.json` are untracked; the project's
       conventions (`CLAUDE.md`, `AGENTS.md`) stay, and the agent playbook is optional for contributors.
 - [ ] `.pipelines-test/`, `tools/real-system/` and `src/harness/validate/` assume nothing about one

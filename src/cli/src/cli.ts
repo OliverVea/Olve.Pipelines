@@ -37,7 +37,7 @@ export type Io = {
   interactive?: boolean;
   openBrowser?(url: string): void;
   now?(): Date;
-  sleep?(ms: number): Promise<void>;
+  sleep?(ms: number, signal?: AbortSignal): Promise<void>;
   stdin?(): Promise<string>;
   stdoutBytes?(bytes: Uint8Array): void;
   stdinIsTerminal?: boolean;
@@ -45,6 +45,20 @@ export type Io = {
   run?: ProcessRunner;
   version?: string;
 };
+
+// A timer left armed keeps the process alive after the command returns.
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const done = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener('abort', done, { once: true });
+  });
+}
 
 /** Runs one invocation and returns the exit code. Never calls process.exit. */
 export async function run(
@@ -196,7 +210,7 @@ export async function run(
       fetch: fetchFn,
       signal,
       now,
-      sleep: io.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
+      sleep: io.sleep ?? sleep,
       interactive: io.interactive ?? false,
       headless: isHeadless(io.env),
       openBrowser: io.openBrowser ?? (() => {}),

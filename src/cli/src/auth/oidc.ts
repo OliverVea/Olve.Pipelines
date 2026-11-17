@@ -208,11 +208,15 @@ export async function pollDevice(
   endpoint: string,
   clientId: string,
   device: DeviceStart,
-  io: { now(): Date; sleep(ms: number): Promise<void>; signal: AbortSignal },
+  io: {
+    now(): Date;
+    sleep(ms: number, signal?: AbortSignal): Promise<void>;
+    signal: AbortSignal;
+  },
 ): Promise<TokenSet> {
   let interval = Math.max(1, device.interval);
   for (;;) {
-    await io.sleep(interval * 1000);
+    await io.sleep(interval * 1000, io.signal);
     if (io.signal.aborted) throw new CliError('Login cancelled.');
     const { status, body } = await json(
       fetchFn,

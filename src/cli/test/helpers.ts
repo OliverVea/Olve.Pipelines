@@ -11,6 +11,7 @@ export type Recorded = {
   path: string;
   headers: Headers;
   body: unknown;
+  signal: AbortSignal;
 };
 
 type Reply =
@@ -19,8 +20,8 @@ type Reply =
       statusText?: string;
       body?: unknown;
       headers?: Record<string, string>;
-      /** Server-sent events: each string is one chunk; the stream then stays open until the request aborts. */
-      stream?: string[];
+      /** Server-sent events: each string is one chunk (a promise: sent once it resolves); the stream then stays open until the request aborts. */
+      stream?: (string | Promise<string>)[];
       /** The server ends the stream after its chunks. */
       ends?: boolean;
     }
@@ -46,6 +47,7 @@ export function fakeFetch(reply: (req: Recorded) => Reply) {
       path: new URL(request.url).pathname + new URL(request.url).search,
       headers: request.headers,
       body: text ? parseBody(text) : undefined,
+      signal: request.signal,
     };
     requests.push(recorded);
     const r = reply(recorded);
@@ -55,7 +57,6 @@ export function fakeFetch(reply: (req: Recorded) => Reply) {
       const chunks = r.stream;
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
-          for (const chunk of chunks) controller.enqueue(new TextEncoder().encode(chunk));
           const close = () => {
             try {
               controller.close();
@@ -63,8 +64,16 @@ export function fakeFetch(reply: (req: Recorded) => Reply) {
               /* already closed */
             }
           };
-          if (r.ends || request.signal.aborted) close();
-          else request.signal.addEventListener('abort', close, { once: true });
+          if (request.signal.aborted) return close();
+          request.signal.addEventListener('abort', close, { once: true });
+          void (async () => {
+            for (const chunk of chunks) {
+              const text = await chunk;
+              if (request.signal.aborted) return;
+              controller.enqueue(new TextEncoder().encode(text));
+            }
+            if (r.ends) close();
+          })();
         },
       });
       return new Response(stream, {
@@ -106,7 +115,7 @@ export async function pl(
     fetch?: typeof fetch;
     env?: Record<string, string>;
     home?: string;
-    sleep?: (ms: number) => Promise<void>;
+    sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
     stdin?: string;
     run?: ProcessRunner;
     stdinIsTerminal?: boolean;

@@ -116,12 +116,16 @@ export async function waitFor(
           }
       }
       if (!woken) {
-        await new Promise<void>((resolve) => {
-          wake = resolve;
-          const stop = () => resolve();
-          deadline.signal.addEventListener('abort', stop, { once: true });
-          ctx.sleep(waitMs).then(resolve, resolve);
-        });
+        const pause = new AbortController();
+        const stop = () => pause.abort();
+        wake = stop;
+        deadline.signal.addEventListener('abort', stop, { once: true });
+        try {
+          await ctx.sleep(waitMs, pause.signal);
+        } finally {
+          pause.abort();
+          deadline.signal.removeEventListener('abort', stop);
+        }
       }
       woken = false;
       wake = undefined;
@@ -162,11 +166,11 @@ async function watchEvents(
       );
       if (signal.aborted) return;
       nudge(); // reconnected: something may have changed meanwhile
-      await ctx.sleep(waitSettings.reconnectMs);
+      await ctx.sleep(waitSettings.reconnectMs, signal);
     } catch (error) {
       if (signal.aborted) return;
       ctx.log(`event stream: ${describe(error)}`);
-      await ctx.sleep(waitSettings.errorMs);
+      await ctx.sleep(waitSettings.errorMs, signal);
     }
   }
 }

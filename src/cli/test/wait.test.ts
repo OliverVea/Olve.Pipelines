@@ -345,6 +345,105 @@ describe('wait', () => {
     expect(failed.stdout).toBe('reconcile of abcdef failed: step x: image empty\n');
   });
 
+  // No pause may outlive the wait: an armed timer keeps the process alive.
+  test.each([
+    [
+      'run',
+      ['wait', 'run', 'alpha#1'],
+      `/api/pipelines/${ID}/runs/1`,
+      { body: run(1, 'Running') },
+      { body: run(1, 'Succeeded') },
+      0,
+      'alpha#1  Succeeded\n',
+    ],
+    [
+      'push',
+      ['wait', 'push', 'alpha', 'abcdef'],
+      `/api/pipelines/${ID}/binding/status`,
+      { body: { result: 'Success', reconcileInProgress: true, problems: [] } },
+      {
+        body: {
+          result: 'Error',
+          reconcileSha: 'abcdef999',
+          reconcileInProgress: false,
+          problems: ['step x: image empty'],
+        },
+      },
+      1,
+      'reconcile of abcdef failed: step x: image empty\n',
+    ],
+    [
+      'reconcile',
+      ['wait', 'reconcile', 'alpha', 'abcdef'],
+      `/api/pipelines/${ID}/binding/status`,
+      { body: { result: 'Success', reconcileInProgress: true, problems: [] } },
+      {
+        body: {
+          result: 'Success',
+          lastReconciledSha: 'abcdef9999',
+          reconciledVersion: 3,
+          reconcileInProgress: false,
+          problems: [],
+          pending: null,
+        },
+      },
+      0,
+      'alpha: abcdef9 applied (v3)\n',
+    ],
+    [
+      'ci',
+      ['wait', 'ci', 'alpha', '12'],
+      `/api/pipelines/${ID}/ci/pulls/12`,
+      { status: 404 },
+      { body: { state: 'closed', latestRun: null, conflict: false } },
+      1,
+      'alpha #12  closed without a CI run\n',
+    ],
+  ] as const)(
+    'wait %s ends its pause and its event stream as soon as it has the result',
+    async (_, argv, checked, before, after, code, stdout) => {
+      let paused!: () => void;
+      const firstPause = new Promise<void>((resolve) => (paused = resolve));
+      const pauses = new Set<object>();
+      // Like a timer that only an abort disarms.
+      const sleep = (_ms: number, signal?: AbortSignal) =>
+        new Promise<void>((resolve) => {
+          if (signal?.aborted) return resolve();
+          const pause = {};
+          pauses.add(pause);
+          paused();
+          signal?.addEventListener(
+            'abort',
+            () => {
+              pauses.delete(pause);
+              resolve();
+            },
+            { once: true },
+          );
+        });
+      let checks = 0;
+      const { fetch, requests } = fakeFetch((req) => {
+        if (req.path === '/api/pipelines') return { body: [alpha] };
+        if (req.path.startsWith('/api/events'))
+          return {
+            stream: [firstPause.then(() => 'event: resync\ndata: {"type":"resync"}\n\n')],
+          };
+        if (req.path.startsWith(`/api/pipelines/${ID}/runs?`))
+          return { body: { items: [], offset: 0, limit: 15, total: 0 } };
+        if (req.path === checked) return ++checks === 1 ? before : after;
+        return { status: 404 };
+      });
+
+      const result = await pl([...argv], { fetch, sleep });
+
+      expect({ code: result.code, stdout: result.stdout }).toEqual({ code, stdout });
+      expect(checks).toBe(2);
+      expect(pauses.size).toBe(0);
+      const stream = requests.find((r) => r.path.startsWith('/api/events'))!;
+      expect(stream.signal.aborted).toBe(true);
+    },
+  );
+
   test('a retryable failure is retried; --timeout gives up with 124', async () => {
     let calls = 0;
     const { fetch } = fakeFetch((req) => {

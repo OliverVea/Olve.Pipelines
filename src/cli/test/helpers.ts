@@ -1,5 +1,5 @@
 import type { PipelineHealth } from '@olve/api';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type Io, run } from '../src/cli';
@@ -87,7 +87,19 @@ export function fakeFetch(reply: (req: Recorded) => Reply) {
   return { fetch: fn as typeof fetch, requests };
 }
 
-/** Runs `pl` with captured output, an empty temp home (no profiles) and the given fetch. */
+export const TEST_API_URL = 'https://pipelines.example/';
+
+/** A temp home whose default profile is the instance at {@link TEST_API_URL}, not logged in. */
+export function homeWithInstance(): string {
+  const home = mkdtempSync(join(tmpdir(), 'pl-test-'));
+  writeFileSync(
+    join(home, '.pl'),
+    JSON.stringify({ profiles: { default: { apiUrl: TEST_API_URL } } }),
+  );
+  return home;
+}
+
+/** Runs `pl` with captured output, a temp home (by default with an instance and no login) and the given fetch. */
 export async function pl(
   argv: string[],
   options: {
@@ -104,7 +116,7 @@ export async function pl(
     onStdout?: (text: string) => void;
   } = {},
 ) {
-  const home = options.home ?? mkdtempSync(join(tmpdir(), 'pl-test-'));
+  const home = options.home ?? homeWithInstance();
   const stdout: string[] = [];
   const stderr: string[] = [];
   const io: Io = {

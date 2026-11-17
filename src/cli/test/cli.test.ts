@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { globalsLast, parseArgs, unknownOptions } from '../src/args';
 import { fakeFetch, pl } from './helpers';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('arguments', () => {
   const spec = {
@@ -97,6 +100,19 @@ describe('runner', () => {
     expect((await pl(['pipeline', 'list'], { fetch: unauthorized })).stderr).toContain(
       'Run `pl login`',
     );
+  });
+
+  test('without an instance a command asks for one and sends nothing', async () => {
+    const { fetch, requests } = fakeFetch(() => ({ body: [] }));
+    const result = await pl(['pipeline', 'list'], {
+      fetch,
+      home: mkdtempSync(join(tmpdir(), 'pl-test-')),
+    });
+    expect(result.code).toBe(1);
+    expect(result.stderr).toBe(
+      "error: No instance for profile 'default': pass --api-url <url>, set PIPELINES_API_URL, or log in with `pl login --api-url <url>`.",
+    );
+    expect(requests).toHaveLength(0);
   });
 
   test('--token and PIPELINES_API_URL decide the request; --verbose logs it', async () => {

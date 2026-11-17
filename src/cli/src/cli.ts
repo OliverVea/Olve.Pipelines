@@ -145,17 +145,21 @@ export async function run(
   let ctx: CommandContext;
   try {
     const profile = loadProfile(path, resolveProfileName(parsed, io.env));
-    const { url: apiUrl, source: urlSource } = resolveApiUrl(parsed, io.env, profile);
+    const { url, source: urlSource } = resolveApiUrl(parsed, io.env, profile);
+    const apiUrl = url ?? '';
     const resolved = resolveToken(parsed, io.env, profile, apiUrl);
-    try {
-      new URL(apiUrl);
-    } catch {
-      return fail([`Invalid API URL '${apiUrl}'.`]);
+    if (url) {
+      try {
+        new URL(url);
+      } catch {
+        return fail([`Invalid API URL '${url}'.`]);
+      }
     }
     log(
       `api: ${apiUrl} (from ${urlSource}); token: ${resolved.token ? resolved.source : 'none'}`,
     );
     const usesApi = command.usesApi ?? true;
+    if (!url && usesApi) return fail([noInstance(profile.name)]);
     if (usesApi && resolved.owned)
       await refreshIfExpiring(path, profile, { fetch: fetchFn, log, now });
 
@@ -164,7 +168,18 @@ export async function run(
       await refreshIfExpiring(path, profile, { fetch: fetchFn, log, now });
       return resolveToken(parsed, io.env, profile, apiUrl).token;
     };
-    const api = createApi({ baseUrl: apiUrl, fetch: fetchFn, log, token });
+    const apiFetch: typeof fetch = url
+      ? fetchFn
+      : Object.assign(
+          () => Promise.reject(new CliError([noInstance(profile.name)])),
+          fetchFn,
+        );
+    const api = createApi({
+      baseUrl: url ?? 'http://no-instance.invalid',
+      fetch: apiFetch,
+      log,
+      token,
+    });
     ctx = {
       args: parsed,
       json: parsed.flag('json'),
@@ -208,6 +223,10 @@ export async function run(
       io.stderr(error instanceof Error && error.stack ? error.stack : String(error));
     return fail([`${describe(error)} (--verbose for details)`]);
   }
+}
+
+function noInstance(profile: string): string {
+  return `No instance for profile '${profile}': pass --api-url <url>, set PIPELINES_API_URL, or log in with \`pl login --api-url <url>\`.`;
 }
 
 /** No browser a loopback redirect could reach: over SSH, or (Linux) without a display. */

@@ -18,7 +18,6 @@ import { CliError, describe } from './errors';
 import { refresh, type TokenSet } from './auth/oidc';
 
 export const DEFAULT_PROFILE = 'default';
-export const DEFAULT_API_URL = 'https://pipelines-private.ovea.pro';
 export const CONFIG_ENV = 'PIPELINES_CONFIG';
 export const PROFILE_ENV = 'PIPELINES_PROFILE';
 export const API_URL_ENV = 'PIPELINES_API_URL';
@@ -264,13 +263,13 @@ export function resolveApiUrl(
   args: Args | undefined,
   env: Env,
   profile: Profile,
-): { url: string; source: string } {
+): { url?: string; source: string } {
   const flag = args?.option('api-url');
   if (flag) return { url: flag, source: '--api-url' };
   if (env[API_URL_ENV]) return { url: env[API_URL_ENV]!, source: API_URL_ENV };
   if (profile.apiUrl)
     return { url: profile.apiUrl, source: `~/.pl profile '${profile.name}'` };
-  return { url: DEFAULT_API_URL, source: 'default' };
+  return { source: 'none' };
 }
 
 /** `--token`, `$PIPELINES_API_TOKEN`, or the profile's login when it is for the same server. */
@@ -284,15 +283,15 @@ export function resolveToken(
   if (flag) return { token: flag, source: '--token', owned: false };
   if (env[TOKEN_ENV]) return { token: env[TOKEN_ENV], source: TOKEN_ENV, owned: false };
   if (profile.auth?.accessToken) {
-    const profileUrl = profile.apiUrl || DEFAULT_API_URL;
-    return sameServer(baseUrl, profileUrl)
+    const profileUrl = profile.apiUrl;
+    return profileUrl && sameServer(baseUrl, profileUrl)
       ? {
           token: profile.auth.accessToken,
           source: `~/.pl profile '${profile.name}'`,
           owned: true,
         }
       : {
-          source: `none (profile '${profile.name}' is logged in to ${profileUrl})`,
+          source: `none (profile '${profile.name}' is logged in to ${profileUrl ?? 'no instance'})`,
           owned: true,
         };
   }

@@ -41,7 +41,7 @@ export const profileCommands: Command[] = [
             ['PROFILE', 'INSTANCE', 'LOGGED IN'],
             infos.map((i) => [
               (i.selected ? '* ' : '  ') + i.name,
-              i.apiUrl ?? '(default instance)',
+              i.apiUrl ?? '(no instance)',
               i.loggedIn
                 ? i.expiresAt
                   ? `yes, token until ${utc(i.expiresAt)}`

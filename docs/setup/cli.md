@@ -34,7 +34,8 @@ flow its last login forced (`--device` or `--browser`), so logging in again is `
 with the same instance and flow; a new `--api-url`, `--device` or `--browser` replaces them. Every command uses the
 selected profile; `pl profile list` shows them. `--api-url` / `PIPELINES_API_URL` override the URL per
 command (the profile's token is sent only to the server it logged in to), `--token` passes a bearer
-directly. Global flags and options (`--profile`, `--api-url`, `--token`, `--json`, `--verbose`) may come
+directly. There is no default instance: without a URL from any of them, a command that calls the API
+asks for one. Global flags and options (`--profile`, `--api-url`, `--token`, `--json`, `--verbose`) may come
 before or after the command.
 
 Exit codes: `0` success, `1` the operation failed, `2` usage error (unknown command or option, missing

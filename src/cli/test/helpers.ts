@@ -114,6 +114,8 @@ export async function pl(
     openBrowser?: (url: string) => void;
     /** Sees each write to stdout before it is captured; throwing plays a failed write. */
     onStdout?: (text: string) => void;
+    /** The pl release version (`dev` when unset, like a local build). */
+    version?: string;
   } = {},
 ) {
   const home = options.home ?? homeWithInstance();
@@ -136,6 +138,7 @@ export async function pl(
     run: options.run,
     prompt: options.prompt,
     openBrowser: options.openBrowser,
+    version: options.version,
   };
   const code = await run(argv, io);
   return { code, stdout: stdout.join(''), stderr: stderr.join('\n'), home };

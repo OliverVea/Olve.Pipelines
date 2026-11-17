@@ -420,6 +420,14 @@ What step 5 built, and where it differs from §9 and §11.
   `publish-sdk` fails when the version is already on npm with different content (it used to skip,
   so a change without a version bump never shipped: npm's 2.0.0-beta.3 is an earlier tree than the
   last commit that carried that version).
+- **The chart is published with the release.** `publish-chart`, next to `promote`, packages
+  `src/deploy/helm` and pushes it beside each `publish.server.release` repository, under `charts/`
+  (the image already owns its own name: `ghcr.io/olivervea/olve-pipelines` → chart
+  `oci://ghcr.io/olivervea/charts/olve-pipelines`), with the same login. Its version is the run's
+  version stamp in SemVer (`2026.11.17.296` → `20261117.296.0`; Helm needs three parts without
+  leading zeros), its `appVersion` the run's server image tag, which the chart's `image.tag`
+  defaults to, and its `image.repository` that release repository. `pl bootstrap` maps its own
+  version the same way, so a `pl` installs the chart and server of its own release.
 - **`pl` on GitHub Releases (2026-10-24).** With `publish.cli.github.enabled`, `promote` creates the
   release `v<version>` on the run's commit with `pl-linux-x64` and `pl-win-x64.exe` (the files
   `/download` serves, not rebuilt), using `GHCR_TOKEN` (a classic token with `repo`). The repo's install scripts fetch

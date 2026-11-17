@@ -20,6 +20,7 @@ import { buildSdk } from './steps/build-sdk';
 import { buildServer } from './steps/build-server';
 import { compileServer } from './steps/compile-server';
 import { promote } from './steps/promote';
+import { publishChart } from './steps/publish-chart';
 import { publishCli } from './steps/publish-cli';
 import { publishImages } from './steps/publish-images';
 import { publishSdk } from './steps/publish-sdk';
@@ -66,7 +67,7 @@ export { ci } from './ci';
 export default pipeline({
   name: 'Olve.Pipelines v2',
   description:
-    'Build and verify the server image, harness image, SDK, CLI and frontend once; publish them as prereleases; deploy beta if one is configured (smoke-test a helm beta, and run the real-system and browser tests on an ssh one); deploy prod; promote the same artifacts. Targets come from config (helm in-cluster, helm over SSH, or a Docker Compose deployer). deployTo=beta stops after beta.',
+    'Build and verify the server image, harness image, SDK, CLI and frontend once; publish them as prereleases; deploy beta if one is configured (smoke-test a helm beta, and run the real-system and browser tests on an ssh one); deploy prod; promote the same artifacts and publish the Helm chart. Targets come from config (helm in-cluster, helm over SSH, or a Docker Compose deployer). deployTo=beta stops after beta.',
   input: M.DeployRequest,
   retention: { keepLatestRuns: 50, minRunAgeDays: 30 },
 })
@@ -188,14 +189,17 @@ export default pipeline({
             (from) => ({ image: from['build-server'] }),
           ]),
       })
-      .stage([
-        promote,
-        (from) => ({
-          source: from.source,
-          server: from['build-server'],
-          harness: from['build-harness'],
-          sdk: from['publish-sdk'],
-          cli: from['publish-cli'],
-        }),
-      ]),
+      .stage(
+        [
+          promote,
+          (from) => ({
+            source: from.source,
+            server: from['build-server'],
+            harness: from['build-harness'],
+            sdk: from['publish-sdk'],
+            cli: from['publish-cli'],
+          }),
+        ],
+        [publishChart, (from) => ({ source: from.source, server: from['build-server'] })],
+      ),
   );

@@ -39,6 +39,8 @@ export type CommandContext = {
   prompt(text: string, options?: { hidden?: boolean }): Promise<string>;
   /** Starts child processes (bun, docker). */
   run: ProcessRunner;
+  /** This pl's release version, or `dev` for a build without one. */
+  version: string;
   /** A command's own exit code (waits and checks); 0 when unset. */
   exitCode?: number;
 };

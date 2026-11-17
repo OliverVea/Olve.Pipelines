@@ -1,0 +1,3 @@
+# Values overlays of the instances this repo deploys; a published chart carries only values.yaml and values-minimal.yaml.
+values-beta.yaml
+values-v2-*.yaml

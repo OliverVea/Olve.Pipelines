@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { CHART, chartVersion } from '../src/commands/cluster';
 import type { ProcessResult, ProcessSpec } from '../src/process';
 import { ID, fakeFetch, health, pl } from './helpers';
 
@@ -360,6 +361,100 @@ describe('bootstrap and teardown', () => {
     expect(result.stderr).toContain("'kubectl create secret' failed (exit 1): forbidden");
     expect(result.stderr).not.toContain('root-password');
     expect(cluster.lines().some((l) => l.startsWith('helm upgrade'))).toBe(false);
+  });
+
+  // The same rows as .pipelines/tests/publish-chart.test.ts: the chart version a release publishes.
+  test.each([
+    ['2026.11.17.296', '20261117.296.0'],
+    ['2026.01.05.12', '20260105.12.0'],
+    ['2027.12.31.1000', '20271231.1000.0'],
+  ])('release %s installs chart version %s', (release, chart) => {
+    expect(chartVersion(release)).toBe(chart);
+  });
+
+  /** A cluster whose `helm pull` unpacks a chart into `--untardir`. */
+  const published = () => {
+    const pulled: string[] = [];
+    const cluster = fakeCluster((spec) => {
+      if (spec.command !== 'helm' || spec.args[0] !== 'pull') return undefined;
+      const dir = join(spec.args.at(-1)!, 'olve-pipelines');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'Chart.yaml'), 'name: olve-pipelines\n');
+      pulled.push(dir);
+      return undefined;
+    });
+    return { ...cluster, pulled };
+  };
+
+  test.each([
+    ['this pl’s release by default', [], '20261117.296.0'],
+    ['the release --version names', ['--version', '2026.01.05.12'], '20260105.12.0'],
+  ])('bootstrap installs the published chart of %s', async (_, flags, version) => {
+    const cluster = published();
+    const result = await pl(['bootstrap', '-n', 'try', ...flags], {
+      run: cluster.run,
+      version: '2026.11.17.296',
+    });
+    expect(result.code).toBe(0);
+    const dir = cluster.pulled[0]!;
+    const lines = cluster.lines();
+    expect(lines).toContain(
+      `helm pull ${CHART} --version ${version} --untar --untardir ${join(dir, '..')}`,
+    );
+    const helm = lines.find((l) => l.startsWith('helm upgrade --install'))!;
+    expect(helm).toContain(
+      `olve-pipelines ${dir} -n try -f ${join(dir, 'values-minimal.yaml')}`,
+    );
+    expect(helm).not.toContain('image.tag');
+    expect(existsSync(dir)).toBe(false);
+  });
+
+  test.each([
+    [
+      'a pl without a release',
+      { version: 'dev' },
+      [],
+      'This pl (dev) is not a release, so it names no chart: pass --version <release> (one of the GitHub releases, e.g. 2026.11.17.296) or --chart <dir>.',
+    ],
+    [
+      'a --version that is no release',
+      {},
+      ['--version', '20261117.296.0'],
+      "'--version' takes a release version like 2026.11.17.296; got '20261117.296.0'.",
+    ],
+    [
+      '--chart with --version',
+      {},
+      ['--chart', '/tmp', '--version', '2026.01.05.12'],
+      "'--chart' and '--version' exclude each other.",
+    ],
+    [
+      'a release with no published chart',
+      {
+        pull: {
+          exitCode: 1,
+          stderr:
+            'Error: ghcr.io/olivervea/charts/olve-pipelines:20260105.12.0: not found',
+        },
+      },
+      ['--version', '2026.01.05.12'],
+      `Could not pull chart ${CHART} 20260105.12.0 (release 2026.01.05.12): Error: ghcr.io/olivervea/charts/olve-pipelines:20260105.12.0: not found`,
+    ],
+  ] as const)('bootstrap refuses %s', async (_, o, flags, message) => {
+    const opts = o as { version?: string; pull?: Partial<ProcessResult> };
+    const cluster = fakeCluster((spec) =>
+      spec.command === 'helm' && spec.args[0] === 'pull' ? opts.pull : undefined,
+    );
+    const result = await pl(['bootstrap', '-n', 'try', ...flags], {
+      run: cluster.run,
+      version: opts.version ?? '2026.11.17.296',
+    });
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(`error: ${message}`);
+    // Nothing in the cluster changes: a bad command line stops before any call, a missing chart after the read-only preflight.
+    const lines = cluster.lines();
+    if (opts.pull) expect(lines.at(-1)).toStartWith(`helm pull ${CHART}`);
+    else expect(lines).toEqual([]);
   });
 
   test('an unreachable cluster fails the preflight', async () => {

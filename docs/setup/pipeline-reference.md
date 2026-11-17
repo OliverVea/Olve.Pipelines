@@ -68,7 +68,7 @@ export const BuildArtifact = model("BuildArtifact", z.object({
 ## Secrets
 
 ```ts
-export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for the homelab host.");
+export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for the deploy host.");
 ```
 
 Declared by name and description only. Values are set with `pl secret set <pipelineId> <NAME>` and
@@ -314,7 +314,7 @@ config are reserved.
 
   ```ts
   export const buildFigures = steps.imageBuild({
-    name: "build-figures", description: "…", repository: "registry.ovea.pro/questionbank/figure-service",
+    name: "build-figures", description: "…", repository: "registry.example.com/app/figure-service",
     context: "services/figure-service", push: true, contentTag: true,
   });
   ```
@@ -334,7 +334,7 @@ config are reserved.
 
   ```ts
   export const deployBeta = steps.helmDeployOverSsh({
-    name: "deploy-beta", description: "…", host: "oliver@bulwark-m2", sshKey: SSH_PRIVATE_KEY,
+    name: "deploy-beta", description: "…", host: "deploy@host.example.com", sshKey: SSH_PRIVATE_KEY,
     release: "olve-slimerepublics", namespace: "apps-beta", chart: "helm",
     images: { server: "image", web: "web.image" },
     deployments: ["olve-slimerepublics-server", "olve-slimerepublics-web"],

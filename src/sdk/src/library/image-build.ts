@@ -71,7 +71,7 @@ export interface ImageBuildDef<N extends string, K extends string = never> {
   description: string;
   /**
    * Image name, e.g. `olve-pipelines-v2`; with `push`, the registry repository to push to
-   * (`registry.ovea.pro/app/api`). The tag is the run's version (see `imageTag`) unless `contentTag`.
+   * (`registry.example.com/app/api`). The tag is the run's version (see `imageTag`) unless `contentTag`.
    */
   repository: Configurable<string>;
   /** Build context: a directory of the source tree with a `Dockerfile` (default: the root). */
@@ -146,7 +146,7 @@ export const DEFAULT_REGISTRY_MAP: Readonly<Record<string, string>> = {};
 /** How long a cache registry gets to answer `GET /v2/` before the build goes without it. */
 export const CACHE_PROBE_TIMEOUT_MS = 5000;
 
-/** The registry host of an image reference or mirror prefix (`registry.ovea.pro/a/b` → `registry.ovea.pro`). */
+/** The registry host of an image reference or mirror prefix (`registry.example.com/a/b` → `registry.example.com`). */
 export function registryHost(ref: string): string {
   return ref.split('/')[0]!;
 }

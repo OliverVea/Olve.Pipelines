@@ -4,7 +4,7 @@ import { releaseName } from '../release';
 import { SSH_PRIVATE_KEY } from '../secrets';
 import deployScript from '../scripts/deploy.sh' with { type: 'file' };
 
-const URL = 'https://pipelines-beta.ovea.pro';
+const URL = 'https://pipelines-beta.example.com';
 
 export const deployBeta = implement(
   step({

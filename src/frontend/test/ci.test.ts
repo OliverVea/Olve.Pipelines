@@ -272,14 +272,14 @@ describe('a pull request preview', () => {
     ['deploying', preview('deploying'), { tone: 'run', label: 'deploying', links: [] }],
     [
       'live with one link: its host',
-      preview('live', [{ url: 'https://pr-58.trains-preview.ovea.pro/' }]),
+      preview('live', [{ url: 'https://pr-58.app-preview.example.com/' }]),
       {
         tone: 'ok',
         label: null,
         links: [
           {
-            href: 'https://pr-58.trains-preview.ovea.pro/',
-            text: 'pr-58.trains-preview.ovea.pro',
+            href: 'https://pr-58.app-preview.example.com/',
+            text: 'pr-58.app-preview.example.com',
           },
         ],
       },

@@ -96,7 +96,7 @@ One YAML document per pipeline, with one top-level key per entry:
 ```yaml
 # app.yml
 target:
-  host: oliver@bulwark-m2          # namespace takes its default
+  host: deploy@host.example.com    # namespace takes its default
 auth:
   mode: dex
   issuer: https://dex.example.com

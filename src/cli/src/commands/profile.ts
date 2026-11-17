@@ -12,7 +12,7 @@ export const profileCommands: Command[] = [
 
   A profile is one instance and its login. Pick one with --profile <name> or
   PIPELINES_PROFILE; without either, commands use 'default'. Create or refresh one with
-    pl login --profile beta --api-url https://pipelines-beta.ovea.pro`,
+    pl login --profile beta --api-url https://pipelines-beta.example.com`,
     async run(ctx) {
       const profiles = loadProfiles(ctx.configPath);
       const selected = resolveProfileName(ctx.args, ctx.env);

@@ -1,9 +1,9 @@
 # Contributing
 
 How the codebase is laid out and built. Using Olve.Pipelines: [docs/setup](docs/setup/index.md).
-Design: [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md) (spec),
-[docs/design/pipelines-v2-plan.md](docs/design/pipelines-v2-plan.md) (what was built), and
-[docs/design/roadmap.md](docs/design/roadmap.md). Agents: [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md).
+Design: [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md) (the design, with the areas that
+have their own docs beside it) and [docs/design/roadmap.md](docs/design/roadmap.md) (open gaps and
+what comes next). Agents: [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md).
 
 ## Pull requests
 

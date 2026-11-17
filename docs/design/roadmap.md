@@ -1,7 +1,7 @@
 # Olve.Pipelines v2: roadmap
 
-What is being worked on next, agreed with Oliver. The detail behind each item lives in
-[pipelines-v2-plan.md](pipelines-v2-plan.md), [pipeline-config.md](pipeline-config.md)
+What is being worked on next, agreed with Oliver, and the known gaps. The design it builds on is
+[pipelines-v2.md](pipelines-v2.md), [pipeline-config.md](pipeline-config.md)
 and [external-inputs.md](external-inputs.md). What stands between it and other people running it: [public-readiness.md](public-readiness.md).
 
 ## State
@@ -35,7 +35,15 @@ and [external-inputs.md](external-inputs.md). What stands between it and other p
 1. **Caching.** Spend less time redoing work that hasn't changed. Start from where the time goes
    (`pl run critical-path`), then:
    - **Output caching**: a step whose code hash, step version, pinned config and input match an
-     earlier succeeded attempt reuses that attempt's output and files instead of running.
+     earlier succeeded attempt reuses that attempt's output and files instead of running. Opt-in per
+     step and off by default, since deploys must always run. A key on the whole input never hits for
+     a source-based step (`sha` and `tree` change every commit), so a step can key on a mapped
+     subset, recorded as tagged mappings so the service computes it without TypeScript (e.g. content
+     hashes of path sets from `gitHubSource`). A reused attempt is a succeeded attempt that
+     references the earlier output; retention keeps runs whose files are still referenced. The
+     trade-off in "the same code": `codeHash` never reuses a stale result but clears every step's
+     cache on any code change; a step naming what it depends on keeps more hits, but a wrong list
+     reuses stale results with no error.
    - **Build caching**: `imageBuild` reuses kaniko layers from `cacheRepo` (by default next to a
      pushed image).
    - **Dependency caches are not planned.** In a gVisor step pod, downloading is the small part of
@@ -75,10 +83,29 @@ Not planned; picked up only when a need shows.
 - External inputs' open ideas (`at`, another run): [external-inputs.md](external-inputs.md).
 - Per-pipeline ServiceAccounts (steps declare their namespaces; a Role scoped to them), modelled
   permissions and roles.
-- Approval and rollback, rollback monitoring.
+- Approval and rollback, rollback monitoring: a deploy step declares what healthy means and for how
+  long (`monitor: { forSeconds, checks, onBreach: "rollback" }`, checks as typed library pieces);
+  the service runs the checks after the step succeeds, and a breach reruns the deploy with the last
+  healthy deployment's input. Builds on environments.
+- Teardown: every step states its teardown (library deploys bring theirs: `helm uninstall`, compose
+  stop), and deleting a pipeline runs them forward in stage order on the active version, each fed the
+  step's last successful output; data stays.
+- A Triggers page in the UI.
+- A default `{repo, sha}` mapping for `gitHubSource` (every pipeline writes the same mapper).
 - Docs and v1-residue cleanup (e.g. the `olve-pipelines-minio` secret name).
 - Pluggable runtimes (`kubernetes | docker | process`), Gitea / Forgejo sources.
 - Bringing crafty back: unblock `deploy` and `verify`, then run it.
+
+## Known gaps
+
+- Switching back to a version whose binary retention removed fails at launch (only a version no
+  retained run used, after the build grace).
+- A failure handler whose dispatch is lost to a crash between the run failing and its Job being
+  created is not retried (handlers are best-effort).
+- Step reliability: the failure kind is counted but not shown on an attempt; matching executions
+  across runs needs upstream files to be byte-identical, so non-deterministic artifacts (tarballs
+  with mtimes) leave later steps unmatched between runs.
+- `JobQueueService` and `JobLogService` are named after Jobs but serve attempts.
 
 ## Design rules agreed
 

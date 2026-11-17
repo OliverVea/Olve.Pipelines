@@ -1,6 +1,6 @@
 # External inputs: steps that wait for the outside world
 
-Status: built 2026-10-26 (person, callback, poll); preflight built 2026-11-11. Not built: per-input timeouts, `--reuse-input` on reruns, mappings in titles, callback HMAC secrets, poll headers. Callback URLs are `{Webhooks:PublicBaseUrl}/api/hooks/inputs/{run}/{step}/{input}/{mac}` (HMAC under an instance key kept in storage), not minted tokens; beta-test waits for the test fixture's callback step (which asks for its callback in its preflight) and poll step, answered by a signal-test service deployed next to beta.
+Status: person, callback and poll inputs and the preflight are built. Not built: per-input timeouts, `--reuse-input` on reruns, mappings in titles, callback HMAC secrets, poll headers. Callback URLs are `{Webhooks:PublicBaseUrl}/api/hooks/inputs/{run}/{step}/{input}/{mac}` (HMAC under an instance key kept in storage), not minted tokens; beta-test waits for the test fixture's callback step (which asks for its callback in its preflight) and poll step, answered by a signal-test service deployed next to beta.
 
 ## 1. Why
 

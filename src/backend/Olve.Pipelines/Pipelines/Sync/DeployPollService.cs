@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Sources;
 
@@ -36,7 +37,7 @@ public interface IPushTriggerHandler
 /// when that commit is not yet applied, reconcile it (<see cref="IConfigReconciler"/>: build/describe →
 /// validate → version → switch). A commit whose reconcile failed is not retried by the poll (only by a
 /// forced reconcile or a restart). One <see cref="PollScheduler"/> source per binding, every
-/// <see cref="ReconcileOptions.PollInterval"/>.
+/// <see cref="ReconcileOptions.PollInterval"/>. Reconcile-now also runs the binding's push check.
 /// <para><b>Config-before-run.</b> Everything runs under a per-binding lock, and every automatic run start
 /// of a bound pipeline (push, poll and webhook triggers) goes through <see cref="IConfigLock"/>: it starts
 /// only once the current config commit is applied, so a run for a commit always follows that commit's
@@ -87,9 +88,10 @@ public class DeployPollService(
         }));
 
     /// <summary>
-    /// Syncs a pipeline's config now and waits for it. <paramref name="force"/> bypasses the ETag cache and
-    /// retries a config commit whose reconcile failed; <paramref name="rebuild"/> reconciles the current commit
-    /// again even when it is applied (for a server change in how a manifest is read).
+    /// Syncs a pipeline's config now, then runs the push check the push source would make (the push of a
+    /// commit just applied starts now, not at the next poll), and waits for both. <paramref name="force"/>
+    /// bypasses the ETag cache and retries a config commit whose reconcile failed; <paramref name="rebuild"/>
+    /// reconciles the current commit again even when it is applied (for a server change in how a manifest is read).
     /// </summary>
     public async Task<Result> ReconcileNowAsync(Id<Pipeline> pipelineId, CancellationToken ct, bool force = true, bool rebuild = false)
     {
@@ -98,7 +100,26 @@ public class DeployPollService(
             return new NotFoundProblem("Pipeline '{0}' has no config binding.", pipelineId);
 
         await SyncConfigAsync(binding.Id, force, rebuild, ct);
+        await CheckPushAsync(binding.Id, ct);
         return Result.Success();
+    }
+
+    // After the binding's lock is released: the check takes it again, through IConfigLock.
+    private async Task CheckPushAsync(Id<PipelineConfigBinding> bindingId, CancellationToken ct)
+    {
+        var pushes = sp.GetService<PushTriggerService>();
+        if (pushes is null || bindings.List().FirstOrDefault(b => b.Id == bindingId) is not { } binding || !pushes.Watches(binding))
+            return;
+
+        try
+        {
+            await pushes.CheckAsync(binding.PipelineId, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Push check after reconcile-now failed for '{Repo}@{Branch}' (pipeline '{PipelineId}')",
+                binding.Repo, binding.Branch, binding.PipelineId);
+        }
     }
 
     /// <summary>

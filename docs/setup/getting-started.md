@@ -276,8 +276,9 @@ pl step logs my-app#1/test --follow
 ```
 
 From then on every push starts a run, as soon as the service sees it: within seconds with a
-webhook, otherwise at the next poll (every 15 minutes by default). `pl binding reconcile` builds a
-pushed definition at once but doesn't start the push's run; `pl wait push my-app <sha>` waits for it.
+webhook, otherwise at the next poll (every 15 minutes by default). `pl binding reconcile` doesn't
+wait for the poll: it builds a pushed definition and then starts the push's run at once.
+`pl wait push my-app <sha>` waits for it.
 
 ## Step 6 — Pull request CI
 
@@ -353,7 +354,8 @@ hundred MB (the step pod's scratch space is 1Gi). Then:
    `pl secret set <pipeline> SSH_PRIVATE_KEY < key`. Set the config with
    `pl config set <pipeline> -f app.yml`; until both are satisfied the version stays pending.
 4. Push the next commit. That push starts the first run when the service sees it (at the next poll
-   without a webhook); `pl wait push <pipeline> <sha>` waits for it.
+   without a webhook, or at once with `pl binding reconcile <pipeline>`); `pl wait push <pipeline> <sha>`
+   waits for it.
 
 Only one system should deploy a repo at a time: if something else deploys it today, stop that
 before step 2.

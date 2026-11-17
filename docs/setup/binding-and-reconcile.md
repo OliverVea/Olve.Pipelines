@@ -28,7 +28,7 @@ pipeline; every pipeline has exactly one.
 | `pl binding set-credentials <pipeline> [key]` | Set (or, with no key, clear) the token key |
 | `pl binding set-branch <pipeline> <branch>` | Move the binding to another branch of the same repo |
 | `pl binding set-polling <pipeline> on\|off` | Stop (or resume) polling GitHub for the binding |
-| `pl binding reconcile <pipeline> [--rebuild]` | Reconcile now, off the poll schedule (also retries a commit whose reconcile failed); `--rebuild` reconciles the applied commit again, for a server change in how manifests are read |
+| `pl binding reconcile <pipeline> [--rebuild]` | Reconcile now, off the poll schedule (also retries a commit whose reconcile failed), then check the branch head as the poll would, so a new push starts its run at once; `--rebuild` reconciles the applied commit again, for a server change in how manifests are read |
 
 The pipeline's name and description come from `pipeline({ name, description })` at reconcile; the
 bind seeds a provisional name from the repo.
@@ -197,6 +197,11 @@ Per binding, the deploy poll (or a webhook, or `pl binding reconcile`) does, in 
 Both steps run under one per-binding lock, so a run for a commit always starts after that commit's
 reconcile and switch (**config-before-run**). While the newest config commit is unapplied, runs are
 held.
+
+`pl binding reconcile` runs both steps at once, off the poll schedule. Step 2 then runs only where the
+poll would run it (polling on and an `onPush` in the active version), so on an instance without
+webhooks a push starts its run as soon as you reconcile it. A webhook delivery for the same push
+meanwhile starts no second run: whichever check comes second sees `lastPushSha` already at the head.
 
 - A commit that touches neither the binding path nor its local dependencies makes no version — the
   run starts on the active one.

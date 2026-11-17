@@ -10,7 +10,7 @@ namespace Olve.Pipelines.Pipelines.Triggers;
 /// <summary>
 /// Push detection for bound pipelines whose current version declares <c>onPush</c>: a
 /// <see cref="PollScheduler"/> source per such binding (every <see cref="ReconcileOptions.PollInterval"/>),
-/// nudged by the binding's GitHub webhook (<see cref="RequestCheck"/>). Each check reads the branch head,
+/// nudged by the binding's GitHub webhook (<see cref="RequestCheck"/>) and by reconcile-now. Each check reads the branch head,
 /// then runs through <see cref="IConfigLock"/> (the config commit is applied first), compares that head
 /// with <see cref="PipelineConfigBinding.LastPushSha"/> and fires the push trigger when it advanced. The
 /// head is read before the config, so a commit pushed while the config builds waits for the next check
@@ -34,7 +34,7 @@ public class PushTriggerService(
         using var scope = sp.CreateScope();
         var inputs = scope.ServiceProvider.GetRequiredService<RunInputService>();
         return bindings.List()
-            .Where(b => b.Polls && !inputs.GetTarget(b.PipelineId).TryPickProblems(out _, out var target) && target.Manifest.Triggers.OfType<PushTrigger>().Any())
+            .Where(b => Watches(b, inputs))
             .Select(b => new PollSource($"push:{b.Id}", options.PollInterval, async ct =>
             {
                 try
@@ -48,6 +48,17 @@ public class PushTriggerService(
             }))
             .ToList();
     }
+
+    /// <summary>Whether the push source checks this binding: it polls and its pipeline's current version declares <c>onPush</c>.</summary>
+    public bool Watches(PipelineConfigBinding binding)
+    {
+        using var scope = sp.CreateScope();
+        return Watches(binding, scope.ServiceProvider.GetRequiredService<RunInputService>());
+    }
+
+    private static bool Watches(PipelineConfigBinding binding, RunInputService inputs)
+        => binding.Polls && !inputs.GetTarget(binding.PipelineId).TryPickProblems(out _, out var target)
+           && target.Manifest.Triggers.OfType<PushTrigger>().Any();
 
     /// <summary>Applies the pipeline's config (<paramref name="forceConfig"/>: also retry a failed commit), then checks the branch head.
     /// <paramref name="notice"/>: the webhook delivery that asked for the check (null: a poll).</summary>

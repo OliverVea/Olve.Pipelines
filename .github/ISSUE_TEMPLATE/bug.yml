@@ -1,0 +1,30 @@
+name: Bug
+description: Something does not work as the docs say.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce it
+      description: The pipeline definition (trimmed), the commands you ran, the run's address.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Server (overview page), `pl --version`, SDK (`@olivervea/pipelines` in `.pipelines/package.json`), Kubernetes.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "`pl step logs …`, server logs. Remove secrets first."
+      render: text

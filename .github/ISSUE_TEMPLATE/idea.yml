@@ -1,0 +1,16 @@
+name: Idea
+description: Something Olve.Pipelines could do.
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: shape
+    attributes:
+      label: What it could look like
+      description: In a pipeline definition, a `pl` command or the UI.

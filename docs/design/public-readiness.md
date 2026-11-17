@@ -43,9 +43,10 @@ instance may depend on.
 - [ ] Which SDK versions a server accepts is stated, and the SDK leaves beta or says what may still
       break.
 - [ ] Release notes on the GitHub releases.
-- [ ] `SECURITY.md`: how to report a vulnerability in a service that runs other people's code.
-- [ ] Issue templates, and a contributor section in `CONTRIBUTING.md`: pull requests get CI from
-      this service, only listed authors get it, so outside pull requests wait for a maintainer.
+- [x] `SECURITY.md`: how to report a vulnerability in a service that runs other people's code.
+- [x] Issue templates.
+- [ ] A contributor section in `CONTRIBUTING.md`: pull requests get CI from this service, only listed
+      authors get it, so outside pull requests wait for a maintainer.
 - [ ] What is supported, in one place: GitHub only, the Kubernetes versions, x86-64 step images,
       gVisor optional and recommended for untrusted code.
 - [ ] Branch protection on `main` requires `olve/merge-queue` again.

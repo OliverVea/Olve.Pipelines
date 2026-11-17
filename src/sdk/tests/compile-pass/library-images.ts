@@ -8,12 +8,12 @@ const figures = steps.imageBuild({ name: "build-figures", description: "", repos
 
 // Several images: one input per key, picked by a mapper (two BuiltImage producers).
 const deploy = steps.helmDeployOverSsh({
-  name: "deploy", description: "", host: "u@h", sshKey: KEY, release: "app", namespace: "ns", chart: "helm",
+  name: "deploy", description: "", host: "u@h", hostKey: false, sshKey: KEY, release: "app", namespace: "ns", chart: "helm",
   images: { server: "image", web: "web.image" }, deployments: ["app-server", "app-web"],
 });
 // Registry images are a distinct model, so they are matched without a mapper next to tarball images.
 const deployFigures = steps.helmDeployOverSsh({
-  name: "deploy-figures", description: "", host: "u@h", sshKey: KEY, release: "figures", namespace: "ns", chart: "figures/helm", fromRegistry: true,
+  name: "deploy-figures", description: "", host: "u@h", hostKey: false, sshKey: KEY, release: "figures", namespace: "ns", chart: "figures/helm", fromRegistry: true,
 });
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -31,7 +31,7 @@ base()
 const GHCR = secret("GHCR_TOKEN", "token");
 const harness = steps.imageBuild({ name: "publish-harness", description: "", repository: "ghcr.io/o/harness", context: "harness/base", push: true, contentTag: true, registryAuth: { username: "o", password: GHCR } });
 const deployWithRefs = steps.helmDeployOverSsh({
-  name: "deploy-refs", description: "", host: "u@h", sshKey: KEY, release: "refs", namespace: "ns", chart: "helm", imageRefs: { harness: "harness.image" },
+  name: "deploy-refs", description: "", host: "u@h", hostKey: false, sshKey: KEY, release: "refs", namespace: "ns", chart: "helm", imageRefs: { harness: "harness.image" },
 });
 const _refsIn: Equal<keyof typeof deployWithRefs.input, "source" | "image" | "harness"> = true;
 const _refsModel: Equal<(typeof deployWithRefs.input)["harness"], typeof PushedImage> = true;

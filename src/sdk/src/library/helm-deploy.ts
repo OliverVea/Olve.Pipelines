@@ -25,6 +25,7 @@ import {
   type HelmImageRefFlags,
 } from './helm-deploy-ssh.ts';
 import { httpHealthCheck } from './http-health.ts';
+import type { HostKey } from './ssh.ts';
 import { HelmRelease, PushedImage, Source } from './models.ts';
 
 /** helm 3 on Alpine, for in-cluster deploys (the health check runs in the harness). */
@@ -72,6 +73,11 @@ function targetVariants<const E extends z.ZodRawShape, const K extends string>(
   const ssh = z.object({
     kind: z.literal('ssh').describe('helm runs on a k3s host over SSH.'),
     host: z.string().describe('user@host'),
+    hostKey: z
+      .union([z.string().min(1), z.literal(false)])
+      .describe(
+        "The host's public key, as `ssh-keyscan <host>` prints it (one line per key type; the host name column may be left out). false connects without verifying the host.",
+      ),
     ...common,
   });
   const compose = z.object({
@@ -173,7 +179,11 @@ interface TargetCommon {
 /** A resolved `kind: inCluster` target. */
 export type InClusterTargetValue = TargetCommon & { kind: 'inCluster' };
 /** A resolved `kind: ssh` target. */
-export type SshTargetValue = TargetCommon & { kind: 'ssh'; host: string };
+export type SshTargetValue = TargetCommon & {
+  kind: 'ssh';
+  host: string;
+  hostKey: HostKey;
+};
 /** A resolved deploy target (the output of `helmTarget()`). */
 export type HelmTargetValue = InClusterTargetValue | SshTargetValue;
 
@@ -426,6 +436,7 @@ function targetDeploy(
       await deployOverSsh(ctx, {
         host: target.host,
         key,
+        hostKey: target.hostKey,
         chartDir,
         release,
         namespace,

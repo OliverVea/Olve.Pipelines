@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AUTH, BUILD, PUBLISH, SOURCE, TARGET, TELEMETRY } from '../config';
 
+const BULWARK_M2 =
+  'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhi0sx5EmCJpVklCcvE66SJVl841eetZCOCoH9AcDs8';
 const repo = join(import.meta.dir, '../..');
 const load = (path: string) => {
   const doc = Bun.YAML.parse(readFileSync(join(repo, path), 'utf8')) as Record<
@@ -26,6 +28,7 @@ describe('config documents', () => {
     expect(c.target.beta).toMatchObject({
       kind: 'ssh',
       host: 'oliver@bulwark-m2',
+      hostKey: BULWARK_M2,
       namespace: 'apps-beta',
       release: 'olve-pipelines-v2',
       values: ['values-beta.yaml', 'values-v2-beta.yaml'],
@@ -34,6 +37,7 @@ describe('config documents', () => {
     expect(c.target.prod).toMatchObject({
       kind: 'ssh',
       host: 'oliver@bulwark-m2',
+      hostKey: BULWARK_M2,
       namespace: 'apps',
       release: 'olve-pipelines-v2',
       values: ['values-v2-prod.yaml'],
@@ -138,6 +142,7 @@ describe('config documents', () => {
     expect(c.target.beta).toMatchObject({
       kind: 'ssh',
       host: 'oliver@100.100.117.17',
+      hostKey: BULWARK_M2,
       namespace: 'apps-beta',
       release: 'olve-pipelines-v2',
       values: ['values-beta.yaml', 'values-v2-beta.yaml'],
@@ -147,6 +152,7 @@ describe('config documents', () => {
     expect(c.target.prod).toMatchObject({
       kind: 'ssh',
       host: 'oliver@100.100.117.17',
+      hostKey: BULWARK_M2,
       namespace: 'apps',
       release: 'olve-pipelines-v2',
       values: ['values-v2-prod.yaml'],

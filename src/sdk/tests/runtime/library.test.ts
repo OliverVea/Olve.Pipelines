@@ -1,7 +1,14 @@
 // Library steps used by Olve.Pipelines' own deploy: gitHubSource, imageBuild, helmDeployOverSsh, httpHealthCheck.
 // Run through testHandler with faked ctx parts; the assertions pin the exact commands they run.
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -48,6 +55,8 @@ const settingsOf = (s: AnyStep) => recordConfigRefs(s.settings);
 
 const TOKEN = secret('GITHUB_TOKEN', 'token');
 const KEY = secret('SSH_PRIVATE_KEY', 'key');
+const HOST_KEY =
+  'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKA73W7WbhYaQ5n044y8WbLY/+6OB4Q4me5HQEE/pYPM';
 
 /** ctx.retry without the waiting. */
 const fastRetry: Ctx['retry'] = async (opts, fn) => {
@@ -1432,6 +1441,7 @@ describe('steps.helmDeployOverSsh', () => {
     name: 'deploy-beta',
     description: '',
     host: 'oliver@bulwark-m2',
+    hostKey: HOST_KEY,
     sshKey: KEY,
     release: 'olve-pipelines-v2',
     namespace: 'apps-beta',
@@ -1494,7 +1504,11 @@ describe('steps.helmDeployOverSsh', () => {
     const key = join(r.dir, 'tmp', 'ssh', 'id');
     expect(readFileSync(key, 'utf8')).toBe('-----KEY-----\n');
     expect(statSync(key).mode & 0o777).toBe(0o600);
-    const o = `-i ${key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes`;
+    const known = join(r.dir, 'tmp', 'ssh', 'known_hosts');
+    expect(readFileSync(known, 'utf8')).toBe(`olve-ssh-host ${HOST_KEY}\n`);
+    const o =
+      `-i ${key} -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${known} -o GlobalKnownHostsFile=/dev/null ` +
+      `-o HostKeyAlias=olve-ssh-host -o LogLevel=ERROR -o BatchMode=yes`;
     const ssh = (remote: string) => ['ssh', ...o.split(' '), 'oliver@bulwark-m2', remote];
     const remote = '/tmp/olve-pipelines-v2-helm-apps-beta';
     expect(f.calls).toEqual([
@@ -1543,6 +1557,7 @@ describe('steps.helmDeployOverSsh', () => {
       target: {
         kind: 'ssh',
         host: 'oliver@bulwark-m2',
+        hostKey: HOST_KEY,
         namespace: 'apps-beta',
         release: 'app',
         values: [],
@@ -1557,6 +1572,54 @@ describe('steps.helmDeployOverSsh', () => {
     );
     expect(r.status).toBe('succeeded');
     expect(r.links).toEqual([{ url: 'https://app.example.com' }]);
+  });
+
+  test('the host key: required, checked when defined, and skipped only with false', async () => {
+    expect(() =>
+      steps.helmDeployOverSsh({ ...def, hostKey: undefined } as never),
+    ).toThrow(
+      "helmDeployOverSsh 'deploy-beta': hostKey is required (the host's public key, from ssh-keyscan; false skips verifying the host)",
+    );
+    expect(() => steps.helmDeployOverSsh({ ...def, hostKey: 'AAAA' })).toThrow(
+      "hostKey: 'AAAA' is not a public key; give it as ssh-keyscan prints it, e.g. 'ssh-ed25519 AAAA…'",
+    );
+    expect((steps.helmDeployOverSsh(def) as any).settings.hostKey).toBe(HOST_KEY);
+
+    const f = fakes();
+    const r = await testHandler(
+      steps.helmDeployOverSsh({ ...def, hostKey: false, healthUrl: undefined }),
+      { source, image },
+      { secrets: { SSH_PRIVATE_KEY: 'k' }, ctx: f.ctx },
+    );
+    expect(r.status).toBe('succeeded');
+    expect(f.calls[2]).toContain('StrictHostKeyChecking=no');
+    expect(existsSync(join(r.dir, 'tmp', 'ssh', 'known_hosts'))).toBe(false);
+  });
+
+  test('a target without a host key fails the step', async () => {
+    const r = await testHandler(
+      steps.helmDeployOverSsh({
+        name: 'deploy-beta',
+        description: '',
+        sshKey: KEY,
+        chart: 'helm',
+        target: {
+          kind: 'ssh',
+          host: 'u@h',
+          namespace: 'n',
+          release: 'app',
+          values: [],
+          set: {},
+        },
+      } as never) as any,
+      { source, image: { ...image, tar: undefined } },
+      { secrets: { SSH_PRIVATE_KEY: 'k' }, ctx: fakes().ctx },
+    );
+    expect(r).toMatchObject({ status: 'failed', error: { kind: 'handler' } });
+    if (r.status === 'failed')
+      expect(r.error.message).toContain(
+        "hostKey for u@h is not set: give the host's public key (ssh-keyscan <host>), or false to skip verifying the host",
+      );
   });
 
   test('remote arguments are shell-quoted', async () => {
@@ -1665,6 +1728,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
       name: 'deploy-beta',
       description: '',
       host: 'u@h',
+      hostKey: HOST_KEY,
       sshKey: KEY,
       release: 'slimes',
       namespace: 'apps-beta',
@@ -1718,6 +1782,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
       name: 'deploy-figures',
       description: '',
       host: 'u@h',
+      hostKey: HOST_KEY,
       sshKey: KEY,
       release: 'figures',
       namespace: 'apps',
@@ -1729,6 +1794,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
     expect(step.input.image.name).toBe('PushedImage');
     expect(settingsOf(step)).toEqual({
       host: 'u@h',
+      hostKey: HOST_KEY,
       sshKey: 'SSH_PRIVATE_KEY',
       release: 'figures',
       namespace: 'apps',
@@ -1773,6 +1839,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
       name: 'deploy-beta',
       description: '',
       host: 'u@h',
+      hostKey: HOST_KEY,
       sshKey: KEY,
       release: 'app',
       namespace: 'apps-beta',
@@ -1809,6 +1876,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
         name: 'd',
         description: '',
         host: 'u@h',
+        hostKey: HOST_KEY,
         sshKey: KEY,
         release: 'a',
         namespace: 'n',
@@ -1823,6 +1891,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
       name: 'deploy',
       description: '',
       host: 'u@h',
+      hostKey: HOST_KEY,
       sshKey: KEY,
       release: 'edge',
       namespace: 'apps',
@@ -1855,6 +1924,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
       name: 'deploy',
       description: '',
       host: 'u@h',
+      hostKey: HOST_KEY,
       sshKey: KEY,
       release: 'authentik',
       namespace: 'apps',
@@ -1894,6 +1964,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
       name: 'deploy',
       description: '',
       host: 'u@h',
+      hostKey: HOST_KEY,
       sshKey: KEY,
       release: 'edge',
       namespace: 'apps',
@@ -1932,6 +2003,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
         name: 'd',
         description: '',
         host: 'u@h',
+        hostKey: HOST_KEY,
         sshKey: KEY,
         release: 'x',
         namespace: 'n',
@@ -1952,6 +2024,7 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
       name: 'deploy',
       description: '',
       host: 'u@h',
+      hostKey: HOST_KEY,
       sshKey: KEY,
       release: 'app',
       namespace: 'apps',
@@ -2031,6 +2104,7 @@ describe('helm deploys: bad image config', () => {
     name: 'd',
     description: '',
     host: 'u@h',
+    hostKey: HOST_KEY,
     sshKey: KEY,
     release: 'a',
     namespace: 'n',
@@ -2045,7 +2119,7 @@ describe('helm deploys: bad image config', () => {
         description: '',
         sshKey: KEY,
         chart: 'helm',
-        target: { kind: 'ssh', host: 'u@h', ...target },
+        target: { kind: 'ssh', host: 'u@h', hostKey: HOST_KEY, ...target },
         ...e,
       } as never),
     inCluster: (e) =>
@@ -2220,6 +2294,7 @@ describe('library steps in the manifest', () => {
           name: 'deploy',
           description: '',
           host: 'u@h',
+          hostKey: HOST_KEY,
           sshKey: KEY,
           release: 'app',
           namespace: 'ns',
@@ -2251,6 +2326,7 @@ describe('library steps in the manifest', () => {
         ['SSH_PRIVATE_KEY'],
         {
           host: 'u@h',
+          hostKey: HOST_KEY,
           sshKey: 'SSH_PRIVATE_KEY',
           release: 'app',
           namespace: 'ns',
@@ -2279,7 +2355,7 @@ describe('sshSession', () => {
         }),
         tmpDir,
       } as unknown as Parameters<typeof sshSession>[0],
-      { host: 'oliver@host', key: 'k' },
+      { host: 'oliver@host', key: 'k', hostKey: false },
     );
 
     await ssh.run('true');
@@ -2303,6 +2379,55 @@ describe('sshSession', () => {
     ]);
     expect(await ssh.text("echo 'a b'")).toBe('out');
     expect(texts).toEqual([`ssh ${opts.join(' ')} oliver@host 'echo '\\''a b'\\'''`]);
+  });
+
+  const ED =
+    'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKA73W7WbhYaQ5n044y8WbLY/+6OB4Q4me5HQEE/pYPM';
+  const RSA = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCsHCKuB+sXFAqIjn3Wb0uPKzIwkHiw==';
+  const notAKey = (line: string) =>
+    `hostKey: '${line}' is not a public key; give it as ssh-keyscan prints it, e.g. 'ssh-ed25519 AAAA…'`;
+  const missing =
+    "hostKey for u@h is not set: give the host's public key (ssh-keyscan <host>), or false to skip verifying the host";
+  const empty =
+    "hostKey is empty: give the host's public key (ssh-keyscan <host>), or false to skip verifying the host";
+  test.each([
+    ['a bare key', ED, { known: `olve-ssh-host ${ED}\n` }],
+    ['a key with a comment', `${ED} root@h`, { known: `olve-ssh-host ${ED}\n` }],
+    [
+      'ssh-keyscan output, host names dropped, comments skipped',
+      `# h:22 SSH-2.0-OpenSSH_9.6\nh ${ED}\n[10.0.0.1]:2222 ${RSA}\n|1|c2FsdA==|aGFzaA== ${ED}\n`,
+      { known: `olve-ssh-host ${ED}\nolve-ssh-host ${RSA}\nolve-ssh-host ${ED}\n` },
+    ],
+    ['no key', undefined, { error: missing }],
+    ['an empty key', ' \n', { error: empty }],
+    [
+      'a fingerprint',
+      'SHA256:TyW4I3W392qb6pzEx',
+      { error: notAKey('SHA256:TyW4I3W392qb6pzEx') },
+    ],
+    ['a key type alone', 'ssh-ed25519', { error: notAKey('ssh-ed25519') }],
+    [
+      'a private key',
+      '-----BEGIN OPENSSH PRIVATE KEY-----',
+      { error: notAKey('-----BEGIN OPENSSH PRIVATE KEY-----') },
+    ],
+  ])('the host key: %s', async (_, hostKey, expected) => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'ssh-'));
+    const commands: string[][] = [];
+    const ctx = {
+      exec: async (argv: readonly string[]) => void commands.push([...argv]),
+      sh: Object.assign(async () => {}, { text: async () => '' }),
+      tmpDir,
+    } as unknown as Parameters<typeof sshSession>[0];
+    const open = sshSession(ctx, { host: 'u@h', key: 'k', hostKey: hostKey as string });
+    if ('error' in expected) {
+      await expect(open).rejects.toThrow(expected.error);
+      return;
+    }
+    await (await open).run('true');
+    const known = join(tmpDir, 'ssh', 'known_hosts');
+    expect(readFileSync(known, 'utf8')).toBe(expected.known);
+    expect(commands[0]).toContain(`UserKnownHostsFile=${known}`);
   });
 });
 

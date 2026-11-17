@@ -286,7 +286,7 @@ a step only one pipeline needs stays a custom step there.
 |---|---|---|---|
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit), `apiUrl?` (GitHub Enterprise) |
 | `steps.imageBuild` | `gcr.io/kaniko-project/executor:v1.24.0-debug`, pinned by digest | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source with the `Dockerfile`), `push?`, `contentTag?` (with `push`), `registryMap?` (base-image pull-through caches; none by default), `cacheRepo?` (layer cache: unchanged layers are reused; default `<repository>/cache` with `push`, none for a tarball, `false` = off), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
-| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`, `link?` (the public URL the step links to after the deploy); or the target form: `target` (an ssh `deployTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`, and its optional `link` the public URL the step links to), `sshKey`, `chart`, `inlineValues?`, `secrets?` (what `secretRef`s in `inlineValues` name), `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
+| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `hostKey` (the host's public key, or `false`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`, `link?` (the public URL the step links to after the deploy); or the target form: `target` (an ssh `deployTarget()` value, with `host` and `hostKey`; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`, and its optional `link` the public URL the step links to), `sshKey`, `chart`, `inlineValues?`, `secrets?` (what `secretRef`s in `inlineValues` name), `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value; its optional `link` is the public URL the step links to), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 
@@ -333,8 +333,9 @@ config are reserved.
   back); with either, `deployments` defaults to none. Two images of one chart:
 
   ```ts
+  const HOST_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA…"; // ssh-keyscan host.example.com
   export const deployBeta = steps.helmDeployOverSsh({
-    name: "deploy-beta", description: "…", host: "deploy@host.example.com", sshKey: SSH_PRIVATE_KEY,
+    name: "deploy-beta", description: "…", host: "deploy@host.example.com", hostKey: HOST_KEY, sshKey: SSH_PRIVATE_KEY,
     release: "olve-slimerepublics", namespace: "apps-beta", chart: "helm",
     images: { server: "image", web: "web.image" },
     deployments: ["olve-slimerepublics-server", "olve-slimerepublics-web"],
@@ -342,8 +343,16 @@ config are reserved.
   // two BuiltImage producers, so a mapper picks them:
   .stage([deployBeta, from => ({ source: from.source, server: from["build-server"], web: from["build-web"] })])
   ```
+- **The SSH host key.** Every SSH connection the library makes (`helmDeployOverSsh` in both forms,
+  `sshSession`) verifies the host: `hostKey` is the host's public key as `ssh-keyscan <host>` prints
+  it. Paste its output (one line per key type; the host name column may stay) or a single
+  `ssh-ed25519 AAAA…` key; on the host itself, `cat /etc/ssh/ssh_host_ed25519_key.pub` prints it.
+  Run `ssh-keyscan` over a network you trust: it records whatever answers. A host that presents
+  another key fails the step with ssh's `Host key verification failed.` `hostKey: false` connects
+  without verifying the host; nothing defaults to it. A host key is public, so it goes in config or
+  the pipeline, not in a secret.
 - **Deploying to a target from config.** `helmTarget(defaults?, extend?)` is the schema of a deploy
-  target for your config entry: a union on `kind`, `inCluster` or `ssh` (with `host`), each with
+  target for your config entry: a union on `kind`, `inCluster` or `ssh` (with `host` and `hostKey`), each with
   `namespace`, `release`, `values` (chart-relative files), `set` and `url?`. `deployTarget(options)`
   adds `kind: compose` (see below) and, with `optional: true`, `kind: none` (not deployed: give its
   `select` case no steps, `none: p => p`). `select` on it, and give each case its step: **`steps.helmDeployInCluster`** runs `helm upgrade --install --wait` in the step pod against
@@ -384,7 +393,7 @@ config are reserved.
 - **Helpers for custom handlers:** `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`;
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
   `checkSpa(ctx, url)` (the page references an `/assets/*.js` bundle served as JavaScript; returns
-  `{ html, bundle }`); `sshSession(ctx, { host, key })` (`run`, `text`, `copy`, `shell` over SSH,
+  `{ html, bundle }`); `sshSession(ctx, { host, key, hostKey })` (`run`, `text`, `copy`, `shell` over SSH,
   as `helmDeployOverSsh` uses it; installs openssh-client with apk or apt-get when the image has no `ssh`).
 
 Exact behaviour: [src/sdk/README.md "Library steps"](https://github.com/OliverVea/Olve.Pipelines/blob/main/src/sdk/README.md#library-steps).

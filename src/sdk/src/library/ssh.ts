@@ -30,13 +30,52 @@ export interface SshSession {
 }
 
 /**
+ * The host's public key, as `ssh-keyscan <host>` prints it (`<host> ssh-ed25519 AAAA…`, one line per
+ * key type; the host name column may be left out), or `false` to connect without verifying the host.
+ */
+export type HostKey = string | false;
+
+const KEY_TYPE = /^(ssh-[a-z0-9-]+|ecdsa-sha2-[a-z0-9-]+|sk-[a-z0-9@.-]+)$/;
+const KEY_DATA = /^[A-Za-z0-9+/]+={0,3}$/;
+// Every key is written under this name and ssh looks the host up by it, so `user@name`, an IP or a
+// port in `host` can't make a correct key miss.
+const HOST_KEY_ALIAS = 'olve-ssh-host';
+
+/** The `known_hosts` content for `hostKey`, or an error naming what's wrong with it. */
+export function knownHosts(hostKey: string): string {
+  const lines = hostKey
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
+  const keys = lines.map((line) => {
+    const words = line.split(/\s+/);
+    const at = words.findIndex((w) => KEY_TYPE.test(w));
+    if (at < 0 || at > 1 || !KEY_DATA.test(words[at + 1] ?? ''))
+      throw new Error(
+        `hostKey: '${line}' is not a public key; give it as ssh-keyscan prints it, e.g. 'ssh-ed25519 AAAA…'`,
+      );
+    return `${HOST_KEY_ALIAS} ${words[at]} ${words[at + 1]}`;
+  });
+  if (!keys.length)
+    throw new Error(
+      `hostKey is empty: give the host's public key (ssh-keyscan <host>), or false to skip verifying the host`,
+    );
+  return keys.join('\n') + '\n';
+}
+
+/**
  * Opens an SSH "session" to `host` (`user@host`) with a private key: installs openssh-client if needed,
- * writes the key to `<tmpDir>/ssh/id`. The host key is not verified: hosts are reached over the tailnet.
+ * writes the key to `<tmpDir>/ssh/id`. The host must present a key in `hostKey`, unless it is `false`.
  */
 export async function sshSession(
   ctx: Pick<Ctx, 'exec' | 'sh' | 'tmpDir'>,
-  opts: { host: string; key: string },
+  opts: { host: string; key: string; hostKey: HostKey },
 ): Promise<SshSession> {
+  if (opts.hostKey === undefined || opts.hostKey === null)
+    throw new Error(
+      `hostKey for ${opts.host} is not set: give the host's public key (ssh-keyscan <host>), or false to skip verifying the host`,
+    );
+  const known = opts.hostKey === false ? undefined : knownHosts(opts.hostKey);
   await ctx.sh(SSH_CLIENT_INSTALL);
   const dir = join(ctx.tmpDir, 'ssh');
   mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -46,13 +85,20 @@ export async function sshSession(
     mode: 0o600,
   });
   chmodSync(keyFile, 0o600);
+  const knownFile = join(dir, 'known_hosts');
+  if (known) writeFileSync(knownFile, known);
+  const hostOpts = known
+    ? [
+        'StrictHostKeyChecking=yes',
+        `UserKnownHostsFile=${knownFile}`,
+        'GlobalKnownHostsFile=/dev/null',
+        `HostKeyAlias=${HOST_KEY_ALIAS}`,
+      ]
+    : ['StrictHostKeyChecking=no', 'UserKnownHostsFile=/dev/null'];
   const sshOpts = [
     '-i',
     keyFile,
-    '-o',
-    'StrictHostKeyChecking=no',
-    '-o',
-    'UserKnownHostsFile=/dev/null',
+    ...hostOpts.flatMap((o) => ['-o', o]),
     '-o',
     'LogLevel=ERROR',
     '-o',

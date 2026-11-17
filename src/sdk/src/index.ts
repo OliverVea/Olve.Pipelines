@@ -142,6 +142,7 @@ export {
   type HttpHealthCheckOptions,
   sshSession,
   type SshSession,
+  type HostKey,
   serviceUrl,
   checkSpa,
 } from './library/index.ts';

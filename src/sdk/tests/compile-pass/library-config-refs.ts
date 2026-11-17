@@ -25,7 +25,7 @@ const build = steps.imageBuild({
   name: "build", description: "", repository: PUBLISH.repository, push: true, enabled: PUBLISH.push,
   registryAuth: PUBLISH.auth, secrets: [REG],
 });
-const literal = steps.helmDeployOverSsh({ name: "ssh", description: "", host: PUBLISH.repository, sshKey: KEY, release: "a", namespace: TARGET.prod.namespace, chart: "helm", values: TARGET.prod.values });
+const literal = steps.helmDeployOverSsh({ name: "ssh", description: "", host: PUBLISH.repository, hostKey: false, sshKey: KEY, release: "a", namespace: TARGET.prod.namespace, chart: "helm", values: TARGET.prod.values });
 void literal;
 const check = step({ name: "check", description: "", image: "alpine", input: { release: HelmRelease } });
 

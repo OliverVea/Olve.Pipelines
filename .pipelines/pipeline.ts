@@ -99,7 +99,7 @@ export default pipeline({
             (from) => ({ server: from['build-server'], harness: from['build-harness'] }),
           ],
         )
-        .stage(betaTest, realSystemTest(beta.host)),
+        .stage(betaTest, realSystemTest(beta.host, beta.hostKey)),
     inCluster: (p, beta) =>
       p
         .stage(

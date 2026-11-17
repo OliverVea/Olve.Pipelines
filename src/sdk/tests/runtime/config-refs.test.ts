@@ -107,7 +107,7 @@ describe('config references', () => {
     });
     expect(() => recordConfigRefs({ $config: 'x' })).toThrow('reserved');
     const cfg = {
-      target: { beta: { kind: 'ssh', host: 'u@h' } },
+      target: { beta: { kind: 'ssh', host: 'u@h', hostKey: false } },
       publish: { repository: 'r' },
     };
     expect(
@@ -156,6 +156,7 @@ describe('config references', () => {
       name: 'deploy',
       description: '',
       host: (TARGET.beta as any).nope,
+      hostKey: false,
       sshKey: KEY,
       release: 'a',
       namespace: 'n',
@@ -542,12 +543,13 @@ describe('target deploys and select', () => {
             beta: {
               kind: 'ssh',
               host: 'u@h',
+              hostKey: false,
               namespace: 'apps-beta',
               values: ['values-beta.yaml'],
               set: { 'slo.enabled': 'false' },
               url: 'https://beta.example/',
             },
-            prod: { kind: 'ssh', host: 'u@h', namespace: 'apps' },
+            prod: { kind: 'ssh', host: 'u@h', hostKey: false, namespace: 'apps' },
           },
           auth: { mode: 'none' },
         },
@@ -625,8 +627,8 @@ describe('target deploys and select', () => {
           secrets: { SSH_PRIVATE_KEY: 'k' },
           config: {
             target: {
-              beta: { kind: 'ssh', host: 'u@h', namespace: 'apps-beta' },
-              prod: { kind: 'ssh', host: 'u@h', namespace: 'apps' },
+              beta: { kind: 'ssh', host: 'u@h', hostKey: false, namespace: 'apps-beta' },
+              prod: { kind: 'ssh', host: 'u@h', hostKey: false, namespace: 'apps' },
             },
           },
         },
@@ -706,8 +708,8 @@ describe('target deploys and select', () => {
       });
     const config_ = {
       target: {
-        beta: { kind: 'ssh', host: 'u@h', namespace: 'apps-beta' },
-        prod: { kind: 'ssh', host: 'u@h', namespace: 'apps' },
+        beta: { kind: 'ssh', host: 'u@h', hostKey: false, namespace: 'apps-beta' },
+        prod: { kind: 'ssh', host: 'u@h', hostKey: false, namespace: 'apps' },
       },
       ai: { apiKey: { secret: 'AI_KEY' } },
     };

@@ -14,6 +14,7 @@ target:
   beta:
     kind: ssh
     host: oliver@bulwark-m2
+    hostKey: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhi0sx5EmCJpVklCcvE66SJVl841eetZCOCoH9AcDs8   # ssh-keyscan bulwark-m2
     namespace: apps-beta
     release: olve-pipelines-v2
     values: [values-beta.yaml, values-v2-beta.yaml]
@@ -28,6 +29,7 @@ target:
   prod:
     kind: ssh
     host: oliver@bulwark-m2
+    hostKey: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhi0sx5EmCJpVklCcvE66SJVl841eetZCOCoH9AcDs8   # ssh-keyscan bulwark-m2
     namespace: apps
     release: olve-pipelines-v2
     values: [values-v2-prod.yaml]

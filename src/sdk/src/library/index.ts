@@ -36,7 +36,7 @@ export {
   type InClusterTargetValue,
   type SshTargetValue,
 } from './helm-deploy.ts';
-export { sshSession, type SshSession } from './ssh.ts';
+export { sshSession, type HostKey, type SshSession } from './ssh.ts';
 export { serviceUrl, checkSpa } from './checks.ts';
 export { httpHealthCheck, type HttpHealthCheckOptions } from './http-health.ts';
 

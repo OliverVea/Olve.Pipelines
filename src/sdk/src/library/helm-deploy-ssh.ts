@@ -15,7 +15,7 @@ import { step, type LiteralName, type Step } from '../core/steps.ts';
 import type { Simplify } from '../core/types.ts';
 import { httpHealthCheck, type HttpHealthCheckOptions } from './http-health.ts';
 import { BuiltImage, HelmRelease, PushedImage, Source } from './models.ts';
-import { shq, sshSession } from './ssh.ts';
+import { type HostKey, knownHosts, shq, sshSession } from './ssh.ts';
 import {
   helmDeployOverSshTarget,
   type HelmDeploySshTargetDef,
@@ -63,6 +63,11 @@ export interface HelmDeployOverSshDef<
   description: string;
   /** SSH target, `user@host`. The user needs passwordless sudo for nerdctl, and helm/kubectl with a kubeconfig. */
   host: Configurable<string>;
+  /**
+   * The host's public key, as `ssh-keyscan <host>` prints it (one or more lines; the host name column
+   * may be left out). `false` connects without verifying the host.
+   */
+  hostKey: Configurable<HostKey>;
   /** Private key for `host`. */
   sshKey: Secret<K>;
   /** Helm release name. */
@@ -268,6 +273,7 @@ export async function deployOverSsh(
   o: {
     host: string;
     key: string;
+    hostKey: HostKey;
     chartDir: string;
     release: string;
     namespace: string;
@@ -281,7 +287,7 @@ export async function deployOverSsh(
     secretFiles?: readonly string[];
   },
 ): Promise<void> {
-  const ssh = await sshSession(ctx, { host: o.host, key: o.key });
+  const ssh = await sshSession(ctx, { host: o.host, key: o.key, hostKey: o.hostKey });
   for (const image of o.hostImages) {
     if (image.tar) {
       ctx.log('importing image', {
@@ -395,6 +401,11 @@ function helmDeployOverSshLiteral(
       throw new Error(
         `helmDeployOverSsh '${def.name}': '${key}' is both in images and imageRefs`,
       );
+  if (def.hostKey === undefined)
+    throw new Error(
+      `helmDeployOverSsh '${def.name}': hostKey is required (the host's public key, from ssh-keyscan; false skips verifying the host)`,
+    );
+  if (typeof def.hostKey === 'string') knownHosts(def.hostKey);
   const imageModel = fromRegistry ? PushedImage : BuiltImage;
   const input = {
     source: Source,
@@ -404,6 +415,7 @@ function helmDeployOverSshLiteral(
   const isDefaultImages = imageEntries.length === 1 && images.image === 'image';
   const configurable = {
     host: def.host,
+    hostKey: def.hostKey,
     release: def.release,
     namespace: def.namespace,
     values: def.values ?? [],
@@ -423,6 +435,7 @@ function helmDeployOverSshLiteral(
     timeoutSeconds: def.timeoutSeconds,
     settings: {
       host: def.host,
+      hostKey: def.hostKey,
       sshKey: def.sshKey.name,
       release: def.release,
       namespace: def.namespace,
@@ -449,6 +462,7 @@ function helmDeployOverSshLiteral(
     > & { source: { tree: FileRef } };
     const d = resolveConfigRefs(configurable, ctx.config ?? {}) as {
       host: string;
+      hostKey: HostKey;
       release: string;
       namespace: string;
       values: string[];
@@ -484,6 +498,7 @@ function helmDeployOverSshLiteral(
     await deployOverSsh(ctx, {
       host: d.host,
       key: ctx.secrets[def.sshKey.name]!,
+      hostKey: d.hostKey,
       chartDir,
       release: d.release,
       namespace: d.namespace,

@@ -21,7 +21,7 @@ export function smokeTest<const N extends string>(def: { name: LiteralName<N>; d
 }
 
 const SITE = config("site", "", z.object({ healthPath: z.string() }));
-const deploy = steps.helmDeployOverSsh({ name: "deploy", description: "", host: "u@h", sshKey: { kind: "secret", name: "K", description: "" } as never, release: "a", namespace: "n", chart: "helm", images: {} });
+const deploy = steps.helmDeployOverSsh({ name: "deploy", description: "", host: "u@h", hostKey: false, sshKey: { kind: "secret", name: "K", description: "" } as never, release: "a", namespace: "n", chart: "helm", images: {} });
 base()
   .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(deploy)

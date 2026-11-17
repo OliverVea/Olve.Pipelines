@@ -1,5 +1,6 @@
 import {
   type ConfigRef,
+  type HostKey,
   implement,
   resolveConfigRefs,
   Source,
@@ -8,7 +9,7 @@ import {
 } from '@olivervea/pipelines';
 import { SSH_PRIVATE_KEY } from '../config';
 
-export const realSystemTest = (host: ConfigRef) =>
+export const realSystemTest = (host: ConfigRef, hostKey: ConfigRef) =>
   implement(
     step({
       name: 'real-system-test',
@@ -17,17 +18,19 @@ export const realSystemTest = (host: ConfigRef) =>
       image: 'alpine:3.22',
       input: { source: Source },
       secrets: [SSH_PRIVATE_KEY],
-      settings: { host },
+      settings: { host, hostKey },
       timeoutSeconds: 1800,
     }),
     async ({ source }, ctx) => {
-      const { host: address } = resolveConfigRefs({ host }, ctx.config ?? {}) as {
+      const target = resolveConfigRefs({ host, hostKey }, ctx.config ?? {}) as {
         host: string;
+        hostKey: HostKey;
       };
       const tree = await ctx.files.fetch(source.tree);
       const ssh = await sshSession(ctx, {
-        host: address,
+        host: target.host,
         key: ctx.secrets.SSH_PRIVATE_KEY,
+        hostKey: target.hostKey,
       });
       const remote = `.cache/olve-gate/${source.sha}`;
       await ssh.run(`rm -rf ${remote} && mkdir -p ${remote}`);

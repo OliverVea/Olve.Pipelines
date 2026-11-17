@@ -8,7 +8,7 @@ instance may depend on.
 
 - [x] `pl` has no default instance: `DEFAULT_API_URL` (`src/cli/src/profiles.ts`) is gone and a
       profile without a URL asks for `--api-url`.
-- [ ] `helmDeployOverSsh` verifies the host key: it takes a known host key, and skipping the check
+- [x] `helmDeployOverSsh` verifies the host key: it takes a known host key, and skipping the check
       is an explicit opt-out.
 - [x] Examples use placeholders (`registry.example.com`, `pipelines.example.com`), not `ovea.pro`
       hosts, in `docs/setup`, the SDK library and examples, the frontend and the chart. Design docs and
@@ -55,8 +55,7 @@ instance may depend on.
 
 - [ ] npm's `latest` tag of `@olivervea/pipelines` points at a current release (it is at
       `2.0.0-beta.1`, so `bun add @olivervea/pipelines` without a version gets that).
-- [ ] `src/sdk/README.md`'s development section describes `main` (it still says "until v2 reaches
-      prod" and "push to `v2`").
+- [x] `src/sdk/README.md`'s development section describes `main`.
 
 ## 4. Project hygiene
 

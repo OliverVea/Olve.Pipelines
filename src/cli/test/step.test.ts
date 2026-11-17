@@ -75,17 +75,27 @@ describe('step', () => {
     expect(result.stdout).toBe('boom\n');
   });
 
-  test('rerun passes --continue and rejects an attempt in the address', async () => {
+  test.each([
+    ['Failed', true, ' (run continues downstream)'],
+    ['Cancelled', true, ' (run continues downstream)'],
+    ['Succeeded', false, ''],
+  ])('rerun in a %s run: continue %p', async (status, cont, suffix) => {
     const { fetch, requests } = fakeFetch((req) =>
       req.path === '/api/pipelines'
         ? { body: [alpha] }
-        : { body: attempt(2, 'scheduled', { submissionAttempts: 0 }) },
+        : req.method === 'GET'
+          ? { body: { status } }
+          : { body: attempt(2, 'scheduled', { submissionAttempts: 0 }) },
     );
-    const result = await pl(['step', 'rerun', 'alpha#15/build', '--continue'], { fetch });
+    const result = await pl(['step', 'rerun', 'alpha#15/build'], { fetch });
     expect(result.code).toBe(0);
-    expect(requests.at(-1)!.body).toEqual({ continue: true });
-    expect(result.stdout).toBe(
-      'alpha#15/build@2  scheduled (run continues downstream)\n',
+    expect(requests.at(-1)!.body).toEqual({ continue: cont });
+    expect(result.stdout).toBe(`alpha#15/build@2  scheduled${suffix}\n`);
+  });
+
+  test('rerun rejects an attempt in the address', async () => {
+    const { fetch } = fakeFetch((req) =>
+      req.path === '/api/pipelines' ? { body: [alpha] } : { body: {} },
     );
     const bad = await pl(['step', 'rerun', 'alpha#15/build@1'], { fetch });
     expect(bad.code).toBe(1);

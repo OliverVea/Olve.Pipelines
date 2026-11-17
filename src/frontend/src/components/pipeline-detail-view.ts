@@ -408,7 +408,7 @@ export class PipelineDetailView extends LitElement {
           : nothing}
         ${st?.retryable
           ? html`<button class="btn small" @click=${() => this._retry(step)}>
-              Rerun and continue
+              Rerun
             </button>`
           : nothing}
         <button class="btn small" @click=${() => this._setBlocked(step, !st?.blocked)}>

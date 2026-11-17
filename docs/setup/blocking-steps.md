@@ -33,7 +33,7 @@ A held step shows as `held` in the run view (`pl run get` shows `held` / `blocke
   the stage barrier keeps later stages waiting.
 - `blocked` is independent of results: a step can have succeeded last time *and* be blocked now.
 - Every run that reaches the step is held, however it started: push, poll, webhook, manual trigger,
-  continue or rerun-and-continue. An explicit `pl step rerun` of the blocked step itself is refused.
+  continue or a step rerun that continues the run. An explicit `pl step rerun` of the blocked step itself is refused.
 - Unblock when you're done. A forgotten block silently holds every later deploy; `pl pipeline
   list` shows blocked steps per pipeline.
 

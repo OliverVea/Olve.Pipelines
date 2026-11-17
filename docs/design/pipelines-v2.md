@@ -445,7 +445,8 @@ The service never executes TypeScript itself.
   before `build` starts.
 - A step's outcome is `Succeeded`, `Failed`, `Skipped` (with reason), `Cancelled`, `Obsolete`. A failed step halts the run at its stage barrier.
 - **Explicit reruns are attempts.** Rerunning a step adds an attempt in the same run with the same
-  pinned version and pool input; the operator chooses *rerun only* or *rerun and continue*. Later
+  pinned version and pool input. In a failed or cancelled run the rerun continues the run; in a
+  succeeded run only the step reruns (the API's `continue` flag; the UI and `pl` choose it). Later
   stages consume the **latest successful attempt**; earlier attempts stay in history. Rerunning a
   whole run creates a new run with the same input, linked to the original; that input is
   re-validated against the version the rerun binds to (defaults filled in).

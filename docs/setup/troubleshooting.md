@@ -72,7 +72,7 @@ reconcile; `pl binding status --json` lists them.
   rootfs" (a stalled base-image pull); `steps.imageBuild`'s stall watchdog fails it after 300 s of
   silence. The stall is kaniko under gVisor pulling from mcr.microsoft.com; a pull-through cache in
   `imageBuild`'s `registryMap` avoids it (a log line says when a cache was unreachable and skipped). To recover by hand: `pl run cancel <pipeline>#<n>` then `pl run rerun <pipeline>#<n>`, or
-  `pl step rerun <pipeline>#<n>/<step> --continue` for just the failed step.
+  `pl step rerun <pipeline>#<n>/<step>` for just the failed step.
 
 ## A run is `Superseded`
 

@@ -3,7 +3,7 @@
 Agent-facing context for **building, structuring, deploying, and cold-boot-installing**
 Olve.Pipelines. For design patterns and conventions see [CLAUDE.md](CLAUDE.md); for the
 codebase see [CONTRIBUTING.md](CONTRIBUTING.md); for the product/usage reference the running instance's `/docs` (source
-under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](docs/operations).
+under [docs/setup](docs/setup)).
 
 ## How it's built
 
@@ -40,7 +40,7 @@ namespaces, registries, auth and telemetry are the pipeline's config on the inst
 [docs/design/prod-config.example.yaml](docs/design/prod-config.example.yaml)). The binding reconciles `.pipelines/` commits into versions and starts a run per push that goes beta, then
 prod (no manual promotion; block the `deploy-prod` gate only in special circumstances). `deploy-prod` restarts the pod running the run,
 and the new pod reattaches to the Job. The chart is `helm upgrade`d imperatively — **helm values
-are NOT GitOps-reconciled; only the pipeline definition is.** Skills: `/deploy`, `/setup-pipeline`.
+are NOT GitOps-reconciled; only the pipeline definition is.**
 
 ### Two-tier model
 
@@ -63,8 +63,7 @@ source of truth, never rotated on re-run), chart from a GitHub tarball (`--ref`)
 `pl teardown` reverses it (helm uninstall + delete the credentials Secret; the Garage data PVCs are
 retained unless `--purge-data`; the namespace is never deleted).
 
-See [docs/operations/environment-setup.md](docs/operations/environment-setup.md) and the design
-specs under `docs/superpowers/specs/` (`pl-cli-self-installation`, `self-bootstrap-architecture`).
+See [docs/setup/self-hosting.md](docs/setup/self-hosting.md).
 
 ## `pl` CLI distribution
 

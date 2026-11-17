@@ -1,7 +1,6 @@
 # Olve.Pipelines v2 — implementation plan
 
-Companion to [pipelines-v2.md](pipelines-v2.md) (the spec) and
-[pipelines-v2-spikes.md](pipelines-v2-spikes.md) (spike findings). Work happens on the `v2` branch;
+Companion to [pipelines-v2.md](pipelines-v2.md) (the spec). Work happens on the `v2` branch;
 v2 deploys itself from this branch's `.pipelines/pipeline.ts` since milestone M4 (2026-10-21): the
 pipeline lives on v2 prod (`pipelines-v2-private.ovea.pro`) since 2026-10-22, pushes deploy v2 beta
 (`pipelines-v2-beta.ovea.pro`) and promotion deploys v2 prod; the v1 pipeline "Olve.Pipelines v2"

@@ -18,20 +18,19 @@ instance may depend on.
 
 ## 2. My workspace is apart from the product
 
-- [ ] Working notes leave the repo (deleted, or moved somewhere private), once Oliver has approved the
-      list: `docs/superpowers/`, `docs/operations/`, `docs/design/review-2026-10-24.md`,
+- [x] Working notes leave the repo: `docs/superpowers/`, `docs/operations/`, `docs/design/review-2026-10-24.md`,
       `docs/design/test-audit.md`, `docs/design/quality-inventory.md`,
       `docs/design/pipelines-v2-spikes.md`.
 - [ ] `docs/design/pipelines-v2-plan.md`'s still-true parts move into the design docs it backs.
-- [ ] `.claude/`: personal commands, skills and `settings.local.json` are untracked; the project's
+- [x] `.claude/`: personal commands, skills and `settings.local.json` are untracked; the project's
       conventions (`CLAUDE.md`, `AGENTS.md`) stay, and the agent playbook is optional for contributors.
 - [ ] `.pipelines-test/` and `tools/real-system/` assume nothing about one machine.
 - [x] `TestResults/` is ignored.
 
 ## 3. Installing is real
 
-- [ ] The Helm chart is published to ghcr as an OCI chart; `pl bootstrap` installs it without a
-      checkout.
+- [ ] The Helm chart is published to ghcr as a versioned OCI chart, so an install pins a release, not
+      a git ref (`pl bootstrap` fetches it from a GitHub tarball of `--ref` today).
 - [ ] A quickstart for a first real instance: a GitHub OAuth app for Dex, the allow-list, an Ingress
       with TLS, webhooks or polling. `pl bootstrap` asks for them, or one documented `values.yaml`
       holds them.

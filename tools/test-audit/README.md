@@ -1,6 +1,6 @@
 # Test audit scripts
 
-Analysis scripts behind [docs/design/test-audit.md](../../docs/design/test-audit.md). Run Stryker first (see that document); `<report>` is a `StrykerOutput/<timestamp>/reports/mutation-report.json`.
+Analysis scripts for a Stryker mutation-testing audit of the unit suite. Run Stryker first; `<report>` is a `StrykerOutput/<timestamp>/reports/mutation-report.json`.
 
 ```bash
 python3 analyze.py <full-report> <repeat-report> analysis.pkl   # scores, repeatability, redundancy

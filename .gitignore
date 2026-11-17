@@ -498,3 +498,8 @@ memory/
 
 # Test reports
 TestResults/
+
+# Personal agent tooling
+.claude/commands/
+.claude/skills/
+.claude/settings.local.json

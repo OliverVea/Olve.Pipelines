@@ -6,14 +6,15 @@ instance may depend on.
 
 ## 1. My setup is no default
 
-- [ ] `pl` has no default instance: `DEFAULT_API_URL` (`src/cli/src/profiles.ts`) is gone and a
+- [x] `pl` has no default instance: `DEFAULT_API_URL` (`src/cli/src/profiles.ts`) is gone and a
       profile without a URL asks for `--api-url`.
 - [ ] `helmDeployOverSsh` verifies the host key: it takes a known host key, and skipping the check
       is an explicit opt-out.
-- [ ] Examples use placeholders (`registry.example.com`, `pipelines.example.com`), not `ovea.pro`
+- [x] Examples use placeholders (`registry.example.com`, `pipelines.example.com`), not `ovea.pro`
       hosts, in `docs/setup`, the SDK library and examples, the frontend and the chart. Design docs and
-      the repo's own `.pipelines/` describe this instance and keep them.
-- [ ] The README and the GitHub description say what it is (typed GitOps CI/CD on Kubernetes), with
+      the repo's own `.pipelines/` describe this instance and keep them. The server has no default
+      OIDC authority.
+- [x] The README and the GitHub description say what it is (typed GitOps CI/CD on Kubernetes), with
       the homelab as where it comes from.
 
 ## 2. My workspace is apart from the product
@@ -24,7 +25,8 @@ instance may depend on.
 - [ ] `docs/design/pipelines-v2-plan.md`'s still-true parts move into the design docs it backs.
 - [x] `.claude/`: personal commands, skills and `settings.local.json` are untracked; the project's
       conventions (`CLAUDE.md`, `AGENTS.md`) stay, and the agent playbook is optional for contributors.
-- [ ] `.pipelines-test/` and `tools/real-system/` assume nothing about one machine.
+- [ ] `.pipelines-test/`, `tools/real-system/` and `src/harness/validate/` assume nothing about one
+      machine or cluster.
 - [x] `TestResults/` is ignored.
 
 ## 3. Installing is real

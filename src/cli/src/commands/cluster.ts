@@ -1,15 +1,15 @@
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { CliError, describe } from '../errors';
+import { CliError } from '../errors';
 import { diagnostic, succeeded, type ProcessResult } from '../process';
 import type { Command, CommandContext } from '../registry';
 
 export const PROD_NAMESPACE = 'apps';
 const DEFAULT_RELEASE = 'olve-pipelines';
 const DEFAULT_BUCKET = 'olve-pipelines';
-const CHART_REPO = 'OliverVea/Olve.Pipelines';
+export const CHART = 'oci://ghcr.io/olivervea/charts/olve-pipelines';
 // The name predates Garage; kept so existing installs converge.
 const STORAGE_SECRET = 'olve-pipelines-minio';
 const STORAGE_ACCESS_KEY = 'olve-pipelines';
@@ -108,48 +108,61 @@ async function ensureStorageSecret(ctx: CommandContext, ns: string): Promise<voi
   ]);
 }
 
-/** The chart: a local directory, or `src/deploy/helm` of the repo at `ref` from GitHub. */
-async function resolveChart(
-  ctx: CommandContext,
-  local: string | undefined,
-  ref: string,
-): Promise<{ dir: string; temp?: string }> {
+/** The chart version a release published: its version stamp as SemVer (2026.01.05.12 → 20260105.12.0). */
+export function chartVersion(release: string): string | undefined {
+  const m = /^(\d{4})\.(\d{2})\.(\d{2})\.(\d+)$/.exec(release);
+  return m ? `${m[1]}${m[2]}${m[3]}.${Number(m[4])}.0` : undefined;
+}
+
+type ChartSource = { dir: string } | { release: string; version: string };
+
+/** The chart: a local directory, or the published chart of a release (`--version`, else this pl's). */
+function chartSource(ctx: CommandContext): ChartSource {
+  const local = ctx.args.option('chart');
+  const pinned = ctx.args.option('version')?.trim();
   if (local !== undefined) {
+    if (pinned) throw new CliError("'--chart' and '--version' exclude each other.");
     const dir = resolve(local);
     if (!existsSync(dir)) throw new CliError(`Chart directory '${dir}' does not exist.`);
     if (!existsSync(join(dir, 'Chart.yaml')))
       throw new CliError(`'${dir}' is not a helm chart (no Chart.yaml).`);
     return { dir };
   }
-  const url = `https://github.com/${CHART_REPO}/archive/${ref}.tar.gz`;
+  const release = pinned || ctx.version;
+  const version = chartVersion(release);
+  if (!version)
+    throw new CliError(
+      pinned
+        ? `'--version' takes a release version like 2026.11.17.296; got '${pinned}'.`
+        : `This pl (${release}) is not a release, so it names no chart: pass --version <release> (one of the GitHub releases, e.g. 2026.11.17.296) or --chart <dir>.`,
+    );
+  return { release, version };
+}
+
+async function fetchChart(
+  ctx: CommandContext,
+  source: ChartSource,
+): Promise<{ dir: string; temp?: string }> {
+  if ('dir' in source) return source;
+  const { release, version } = source;
+  step(ctx, `Pulling chart ${CHART} ${version} (release ${release})`);
   const temp = mkdtempSync(join(tmpdir(), 'pl-chart-'));
   try {
-    let response: Response;
-    try {
-      response = await ctx.fetch(url, {
-        headers: { 'user-agent': 'olve-pipelines-pl-cli' },
-        signal: ctx.signal,
-      });
-    } catch (error) {
-      throw new CliError(`Failed to fetch chart from ${url}: ${describe(error)}`);
-    }
-    if (!response.ok)
-      throw new CliError(
-        `Failed to download chart from ${url}: HTTP ${response.status}. Check the --ref exists on '${CHART_REPO}'.`,
-      );
-    const archive = join(temp, 'chart.tar.gz');
-    writeFileSync(archive, new Uint8Array(await response.arrayBuffer()));
-    await checked(ctx, 'tar', ['-xzf', archive, '-C', temp]);
-    // The archive unpacks to one top-level directory (Olve.Pipelines-<sha>/).
-    for (const entry of readdirSync(temp, { withFileTypes: true }))
-      if (
-        entry.isDirectory() &&
-        existsSync(join(temp, entry.name, 'src/deploy/helm/Chart.yaml'))
-      )
-        return { dir: join(temp, entry.name, 'src/deploy/helm'), temp };
-    throw new CliError(
-      `Downloaded archive from ${url} did not contain the chart directory (src/deploy/helm).`,
+    const pull = await ctx.run(
+      {
+        command: 'helm',
+        args: ['pull', CHART, '--version', version, '--untar', '--untardir', temp],
+      },
+      ctx.signal,
     );
+    if (!succeeded(pull))
+      throw new CliError(
+        `Could not pull chart ${CHART} ${version} (release ${release}): ${diagnostic(pull)}`,
+      );
+    const dir = join(temp, 'olve-pipelines');
+    if (!existsSync(join(dir, 'Chart.yaml')))
+      throw new CliError(`Pulling ${CHART} ${version} gave no chart directory.`);
+    return { dir, temp };
   } catch (error) {
     rmSync(temp, { recursive: true, force: true });
     throw error;
@@ -183,8 +196,8 @@ export const clusterCommands: Command[] = [
       'image-repository',
       'image-tag',
       'namespace',
-      'ref',
       'release',
+      'version',
     ],
     flags: ['allow-prod'],
     aliases: { n: 'namespace' },
@@ -193,32 +206,29 @@ export const clusterCommands: Command[] = [
   -n, --namespace <ns>     Target namespace (required)
   --release <name>         Helm release name (default: olve-pipelines)
   --bucket <name>          Storage bucket name (default: olve-pipelines)
-  --image-tag <tag>        Controller image tag (default: latest)
+  --version <release>      Release whose published chart to install, e.g. 2026.11.17.296 (default: this pl's)
+  --chart <path>           Install a local chart directory instead (a checkout's src/deploy/helm)
+  --image-tag <tag>        Controller image tag (default: the chart's release; latest for a checkout)
   --image-repository <r>   Controller image repository (default: chart value)
   --image-pull-policy <p>  Controller image pull policy, e.g. Never (default: chart value)
-  --ref <git-ref>          Chart git ref to pull from GitHub (default: main)
-  --chart <path>           Use a local chart directory instead of pulling from GitHub
   --allow-prod             Permit installing into the prod namespace 'apps'`,
     async run(ctx) {
       const ns = targetNamespace(ctx, 'bootstrap into');
       const release = ctx.args.optionOr('release', DEFAULT_RELEASE);
       const bucket = ctx.args.optionOr('bucket', DEFAULT_BUCKET);
+      const source = chartSource(ctx);
       await preflight(ctx);
-      const nsGet = await ctx.run(
-        { command: 'kubectl', args: ['get', 'namespace', ns] },
-        ctx.signal,
-      );
-      if (!succeeded(nsGet)) {
-        step(ctx, `Creating namespace '${ns}'`);
-        await checked(ctx, 'kubectl', ['create', 'namespace', ns]);
-      }
-      await ensureStorageSecret(ctx, ns);
-      const chart = await resolveChart(
-        ctx,
-        ctx.args.option('chart'),
-        ctx.args.optionOr('ref', 'main'),
-      );
+      const chart = await fetchChart(ctx, source);
       try {
+        const nsGet = await ctx.run(
+          { command: 'kubectl', args: ['get', 'namespace', ns] },
+          ctx.signal,
+        );
+        if (!succeeded(nsGet)) {
+          step(ctx, `Creating namespace '${ns}'`);
+          await checked(ctx, 'kubectl', ['create', 'namespace', ns]);
+        }
+        await ensureStorageSecret(ctx, ns);
         step(ctx, `Deploying release '${release}' (minimal profile) into '${ns}'`);
         const args = [
           'upgrade',
@@ -237,9 +247,9 @@ export const clusterCommands: Command[] = [
           `config.Kubernetes__Namespace=${ns}`,
           '--set',
           `garage.bucket=${bucket}`,
-          '--set',
-          `image.tag=${ctx.args.optionOr('image-tag', 'latest')}`,
         ];
+        const tag = ctx.args.option('image-tag')?.trim();
+        if (tag) args.push('--set', `image.tag=${tag}`);
         const repository = ctx.args.option('image-repository')?.trim();
         if (repository) args.push('--set', `image.repository=${repository}`);
         const pullPolicy = ctx.args.option('image-pull-policy')?.trim();

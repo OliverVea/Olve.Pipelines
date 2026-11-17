@@ -43,6 +43,7 @@ export type Io = {
   stdinIsTerminal?: boolean;
   prompt?(text: string, options?: { hidden?: boolean }): Promise<string>;
   run?: ProcessRunner;
+  version?: string;
 };
 
 /** Runs one invocation and returns the exit code. Never calls process.exit. */
@@ -205,6 +206,7 @@ export async function run(
       stdinIsTerminal: io.stdinIsTerminal ?? false,
       prompt: io.prompt ?? (async () => ''),
       run: io.run ?? runProcess,
+      version: io.version ?? VERSION,
     };
   } catch (error) {
     if (error instanceof CliError) return fail(error.problems);

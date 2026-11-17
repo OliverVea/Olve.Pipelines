@@ -35,7 +35,8 @@ to `main`, path `.pipelines`: `source` → `spec` → `compile-server` ∥ `buil
 tag) ∥ `publish-cli` → `deploy-beta` (`helmDeployOverSsh`, `helmDeployInCluster` or `composeDeploy`,
 selected by `target.beta.kind`; beta in `apps-beta`) ∥ `publish-images` (prerelease tag) →
 `beta-test` (→ `real-system-test` on an ssh beta) → when `deployTo: "prod"`: `deploy-prod` →
-`promote` (release tags and npm dist-tag; prod's `/download` serves the promoted `pl`). Hosts,
+`promote` (release tags and npm dist-tag; prod's `/download` serves the promoted `pl`) ∥ `publish-chart`
+(the release's Helm chart to `oci://ghcr.io/olivervea/charts/olve-pipelines`). Hosts,
 namespaces, registries, auth and telemetry are the pipeline's config on the instance (`pl config get "Olve.Pipelines v2"`;
 [docs/design/prod-config.example.yaml](docs/design/prod-config.example.yaml)). The binding reconciles `.pipelines/` commits into versions and starts a run per push that goes beta, then
 prod (no manual promotion; block the `deploy-prod` gate only in special circumstances). `deploy-prod` restarts the pod running the run,
@@ -55,7 +56,8 @@ bundled Dex (GitHub), served under `/dex` on the instance's host.
 `pl bootstrap` is an idempotent cold install of the controller + its private Garage store via
 kubectl/helm shell-out (the operator's kubeconfig): preflight + prod guard, namespace,
 generate-if-absent storage credentials Secret (`olve-pipelines-minio`; the cluster Secret is the
-source of truth, never rotated on re-run), chart from a GitHub tarball (`--ref`) or `--chart`,
+source of truth, never rotated on re-run), the published chart of `pl`'s own release (`helm pull
+oci://ghcr.io/olivervea/charts/olve-pipelines`; `--version <release>` picks another) or `--chart <dir>`,
 `helm upgrade` of the **minimal profile** (`src/deploy/helm/values-minimal.yaml`: Ingress off,
 `Auth__Disable=true`, no OIDC/OTel secrets, ServiceAccount/RBAC on), then readiness waits for Garage
 (which creates its key and bucket at startup) and the controller.

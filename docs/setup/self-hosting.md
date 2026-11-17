@@ -38,20 +38,32 @@ repo's own pipeline (`.pipelines/`) does, configured per instance ([Pipeline Con
 
 ## Installing on a cluster
 
-Released images are public: the server at `ghcr.io/olivervea/olve-pipelines` (`latest`, `next`
-and one tag per release, e.g. `2026.10.24.59`) and the step pods' init image at
-`ghcr.io/olivervea/olve-pipelines-harness-base`. The chart defaults to the server's `latest`.
+Releases are public. Each one (e.g. `2026.11.17.296`, the version `pl --version` prints and the
+[GitHub release](https://github.com/OliverVea/Olve.Pipelines/releases) is named after) has:
 
-`pl bootstrap` (`pl` from the latest [release](cli.md#installing)), run from a checkout of the repo, installs the chart's minimal profile: the server
-and its Garage, with no ingress and auth off. It is idempotent, and `pl teardown` removes it (the
-Garage data is kept unless `--purge-data`).
+- the server image `ghcr.io/olivervea/olve-pipelines:<release>` (`latest` and `next` follow the
+  newest release and prerelease), and the step pods' init image at
+  `ghcr.io/olivervea/olve-pipelines-harness-base`;
+- the Helm chart `oci://ghcr.io/olivervea/charts/olve-pipelines`, versioned as the release in SemVer
+  (`2026.11.17.296` → `20261117.296.0`), whose default server image is that release's.
+
+`pl bootstrap` (`pl` from the latest [release](cli.md#installing)) installs the chart's minimal
+profile: the server and its Garage, with no ingress and auth off. It installs the chart of the
+release it belongs to, or of `--version <release>`. It is idempotent, and `pl teardown` removes it
+(the Garage data is kept unless `--purge-data`).
 
 ```bash
-pl bootstrap -n <namespace> --chart helm                 # --image-tag <release> pins a version
+pl bootstrap -n <namespace>                              # --version <release> installs another release
 ```
 
-To run your own build instead, `docker build -t <registry>/olve-pipelines:<tag> .`, push it, and
-pass `--image-repository <registry>/olve-pipelines --image-tag <tag>`.
+Helm alone installs it too (`helm upgrade --install olve-pipelines
+oci://ghcr.io/olivervea/charts/olve-pipelines --version <chart version>`), with `auth` set and the
+Secrets it reads created first: [A First Real Instance](first-instance.md) does that.
+
+From a checkout, `--chart src/deploy/helm` installs the checkout's chart; it runs the server's `latest`
+unless `--image-tag` names another. To run your own build, `docker build -t
+<registry>/olve-pipelines:<tag> .`, push it, and pass `--chart src/deploy/helm --image-repository
+<registry>/olve-pipelines --image-tag <tag>`.
 
 For anything beyond trying it, set `auth` (the chart refuses to render without it; `mode: dex` runs
 the [bundled Dex](#bundled-dex)) and whatever else differs through `config.*` (the
@@ -285,6 +297,7 @@ against itself: one instance that redeploys itself, with no beta. Only the confi
   pipeline) with the image the run built. The deployer waits for `/api/ready` and puts the old
   container back if the new one doesn't come up.
 - Images go to the compose registry (`registry:5000`); `next` and `latest` are tags moved there.
+  There are no release repositories, so `publish-chart` publishes no chart.
   npm publishing is off, so `publish-sdk` is skipped and `promote` moves no dist-tag. No step talks
   to npm's registry for publishing, or to ghcr.io.
 - `auth: none` and `telemetry: none` for the deployed instance.

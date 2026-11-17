@@ -31,8 +31,8 @@ instance may depend on.
 
 ## 3. Installing is real
 
-- [ ] The Helm chart is published to ghcr as a versioned OCI chart, so an install pins a release, not
-      a git ref (`pl bootstrap` fetches it from a GitHub tarball of `--ref` today).
+- [x] The Helm chart is published to ghcr as a versioned OCI chart, so an install pins a release, not
+      a git ref.
 - [x] A quickstart for a first real instance: a GitHub OAuth app for Dex, the allow-list, an Ingress
       with TLS, webhooks or polling. `pl bootstrap` asks for them, or one documented `values.yaml`
       holds them (`docs/setup/first-instance.md`).

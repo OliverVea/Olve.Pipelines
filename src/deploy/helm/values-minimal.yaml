@@ -1,5 +1,5 @@
 # The profile `pl bootstrap` installs: the controller, its Garage, auth off. Layered over values.yaml;
 # pl bootstrap adds the namespace-derived values (config.Storage__Endpoint, config.Storage__Bucket,
-# config.Kubernetes__Namespace, garage.bucket, image.tag) with --set.
+# config.Kubernetes__Namespace, garage.bucket) with --set.
 config:
   Auth__Disable: "true"

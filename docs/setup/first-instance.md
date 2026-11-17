@@ -136,11 +136,13 @@ another branch, so pull request CI, the merge queue and previews don't follow Gi
 
 ## 5. Install and log in
 
-The chart installs from a checkout of the release's tag:
+Each [release](https://github.com/OliverVea/Olve.Pipelines/releases) publishes its chart, which runs
+that release's server. Its version is the release's in SemVer: release `2026.11.17.297` is chart
+version `20261117.297.0`.
 
 ```bash
-git clone --depth 1 --branch v2026.11.17.297 https://github.com/OliverVea/Olve.Pipelines
-helm upgrade --install olve-pipelines Olve.Pipelines/src/deploy/helm -n pipelines -f values.yaml
+helm upgrade --install olve-pipelines oci://ghcr.io/olivervea/charts/olve-pipelines \
+  --version <chart version> -n pipelines -f values.yaml
 kubectl -n pipelines rollout status deploy/olve-pipelines
 ```
 

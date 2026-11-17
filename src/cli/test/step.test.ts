@@ -23,7 +23,7 @@ const attempt = (number: number, type: string, extra: Record<string, unknown> = 
 });
 
 describe('step', () => {
-  test('logs --follow prints the log as it grows and stops when the log is complete', async () => {
+  test('logs --follow prints the log as it grows, without the result envelope, and stops when the log is complete', async () => {
     let polls = 0;
     const { fetch, requests } = fakeFetch((req) => {
       if (req.path === '/api/pipelines') return { body: [alpha] };
@@ -38,7 +38,12 @@ describe('step', () => {
             attempt: 1,
             status: polls < 3 ? 'in-progress' : 'succeeded',
             complete: polls >= 3,
-            text: polls < 2 ? 'a\n' : 'a\nb\n',
+            text:
+              polls < 2
+                ? 'a\n'
+                : polls < 3
+                  ? 'a\nb\n---OLVE-RESULT-BEGIN---\n{"out'
+                  : 'a\nb\n---OLVE-RESULT-BEGIN---\n{"output":{}}\n---OLVE-RESULT-END---\n',
           },
         };
       }
@@ -50,7 +55,7 @@ describe('step', () => {
     expect(requests.filter((r) => r.path.endsWith('/attempts'))).toHaveLength(1);
   });
 
-  test('logs prints the text of the latest attempt', async () => {
+  test('logs prints the text of the latest attempt without the result envelope', async () => {
     const { fetch } = fakeFetch((req) =>
       req.path === '/api/pipelines'
         ? { body: [alpha] }
@@ -61,7 +66,7 @@ describe('step', () => {
               attempt: 2,
               status: 'failed',
               complete: true,
-              text: 'boom',
+              text: 'boom\n---OLVE-RESULT-BEGIN---\n{"error":{}}\n---OLVE-RESULT-END---',
             },
           },
     );

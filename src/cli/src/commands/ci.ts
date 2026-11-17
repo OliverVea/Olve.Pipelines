@@ -33,7 +33,7 @@ import {
 } from '../address';
 import { call, downloadStepFile, streamError } from '../api';
 import { CliError, describe } from '../errors';
-import { duration, indented, json, short, time } from '../format';
+import { duration, indented, json, short, time, withoutEnvelope } from '../format';
 import { Output, table } from '../output';
 import type { Command, CommandContext } from '../registry';
 import { size } from './step';
@@ -214,7 +214,14 @@ async function followLog(
   addr: Awaited<ReturnType<typeof resolveStep>>,
 ): Promise<void> {
   const path = { pipelineId: addr.id, number: addr.address.run, step: addr.address.step };
+  let raw = '';
   let printed = '';
+  const show = (text: string) => {
+    if (text.startsWith(printed)) ctx.out.write(text.slice(printed.length));
+    // The source changed (init container -> step container, or the stored log replaced the live one).
+    else ctx.out.write((printed && !printed.endsWith('\n') ? '\n' : '') + text);
+    printed = text;
+  };
   for (;;) {
     let ended = false;
     try {
@@ -225,13 +232,11 @@ async function followLog(
         addr.address.attempt,
       )) {
         if (event.type === 'log') {
-          const text = event.reset ? event.text : printed + event.text;
           if (event.reset && !event.text) continue; // a reconnect opens with an empty reset
-          if (text.startsWith(printed)) ctx.out.write(text.slice(printed.length));
-          // The source changed (init container -> step container, or the stored log replaced the live one).
-          else ctx.out.write((printed && !printed.endsWith('\n') ? '\n' : '') + text);
-          printed = text;
+          raw = event.reset ? event.text : raw + event.text;
+          show(withoutEnvelope(raw, true));
         } else if (event.type === 'end') {
+          show(withoutEnvelope(raw));
           if (printed && !printed.endsWith('\n')) ctx.out.write('\n');
           ctx.log(`attempt ${event.status}`);
           ended = true;
@@ -549,9 +554,8 @@ export const ciCommands: Command[] = [
           query: { attempt: addr.address.attempt },
         }),
       );
-      ctx.out.write(
-        log.text.length === 0 || log.text.endsWith('\n') ? log.text : log.text + '\n',
-      );
+      const text = withoutEnvelope(log.text);
+      ctx.out.write(text.length === 0 || text.endsWith('\n') ? text : text + '\n');
     },
   },
   {

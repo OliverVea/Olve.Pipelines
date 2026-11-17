@@ -17,7 +17,7 @@ import {
 import { formatAddress, parseStepRef, resolvePipeline, resolveStep } from '../address';
 import { call, downloadStepFile } from '../api';
 import { CliError, describe } from '../errors';
-import { duration, indented, time } from '../format';
+import { duration, indented, time, withoutEnvelope } from '../format';
 import { table } from '../output';
 import type { Command, CommandContext } from '../registry';
 
@@ -204,9 +204,8 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
             query: { attempt: addr.address.attempt },
           }),
         );
-        ctx.out.write(
-          log.text.length === 0 || log.text.endsWith('\n') ? log.text : log.text + '\n',
-        );
+        const text = withoutEnvelope(log.text);
+        ctx.out.write(text.length === 0 || text.endsWith('\n') ? text : text + '\n');
         return;
       }
       const seconds = Number(ctx.args.optionOr('interval', '2'));
@@ -240,13 +239,14 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
           const log = await call(
             runStepsLogs({ client: ctx.api, path, query: { attempt } }),
           );
-          if (log.text.startsWith(printed)) ctx.out.write(log.text.slice(printed.length));
+          const text = withoutEnvelope(log.text, !log.complete);
+          if (text.startsWith(printed)) ctx.out.write(text.slice(printed.length));
           // The source changed (init container -> step container, or the stored log replaced the live one).
           else
             ctx.out.write(
-              (printed.length > 0 && !printed.endsWith('\n') ? '\n' : '') + log.text,
+              (printed.length > 0 && !printed.endsWith('\n') ? '\n' : '') + text,
             );
-          printed = log.text;
+          printed = text;
           if (log.complete) {
             if (printed.length > 0 && !printed.endsWith('\n')) ctx.out.write('\n');
             ctx.log(`attempt @${log.attempt} ${log.status}`);

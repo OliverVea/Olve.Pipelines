@@ -23,7 +23,8 @@ pl dev validate [--json]       # describe, then the service's reconcile checks; 
 ```
 
 `pl dev describe` evaluates the entry point and what it imports (never running handlers) exactly
-like the build Job and prints the input model, secrets, triggers, stages, `when` blocks and failure handlers.
+like the build Job and prints the input model, secrets, triggers, stages, `when` blocks, failure handlers
+and the CI checks.
 `--json` prints the canonical manifest. For this repo's fixture:
 
 ```text

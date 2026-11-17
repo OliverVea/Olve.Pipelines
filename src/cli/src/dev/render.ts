@@ -83,6 +83,29 @@ export function renderManifest(o: (line: string) => void, m: DevManifest): void 
   );
   o('');
   o('stages:');
+  renderStages(o, m.stages, '  ');
+  if (m.failureHandlers.length) {
+    o('');
+    o('failure handlers:');
+    for (const { step, scope } of m.failureHandlers)
+      o(`  ${step.name.padEnd(22)} on ${scope ? scope.join(', ') : 'any step'}`);
+  }
+  if (m.ci) {
+    o('');
+    o(m.ci.description ? `ci — ${m.ci.description}` : 'ci:');
+    if (m.ci.inputModel)
+      o(`  input:    ${m.ci.inputModel} { ${inputFields(m.ci.inputSchema).join(', ')} }`);
+    o(`  secrets:  ${m.ci.secrets.length ? m.ci.secrets.join(', ') : 'none'}`);
+    o('  stages:');
+    renderStages(o, m.ci.stages, '    ');
+    if (m.ci.onClose.length) {
+      o('  on close:');
+      for (const step of m.ci.onClose) o(`        ${stepLine(step)}`);
+    }
+  }
+}
+
+function renderStages(o: (line: string) => void, stages: StageNode[], indent: string) {
   let stage = 0;
   const nodes = (list: StageNode[], ind: string) => {
     for (const node of list) {
@@ -107,13 +130,7 @@ export function renderManifest(o: (line: string) => void, m: DevManifest): void 
       }
     }
   };
-  nodes(m.stages, '  ');
-  if (m.failureHandlers.length) {
-    o('');
-    o('failure handlers:');
-    for (const { step, scope } of m.failureHandlers)
-      o(`  ${step.name.padEnd(22)} on ${scope ? scope.join(', ') : 'any step'}`);
-  }
+  nodes(stages, indent);
 }
 
 function stepLine(step: DevStep): string {

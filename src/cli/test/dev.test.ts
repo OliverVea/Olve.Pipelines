@@ -317,6 +317,52 @@ describe('pl dev', () => {
     expect(failed.stderr).toContain('step src: image is empty');
   });
 
+  test("describe's summary ends with the pipeline's CI checks", async () => {
+    const manifest = JSON.parse(demoText);
+    const step = (name: string, image: string) => ({
+      name,
+      kind: 'custom',
+      image,
+      output: null,
+      secrets: [],
+      input: {},
+      inputTypes: {},
+    });
+    manifest.models.CiReq = {
+      input: { type: 'object', properties: { pr: { type: 'number' } }, required: ['pr'] },
+    };
+    manifest.ci = {
+      description: 'Checks a pull request.',
+      input: 'CiReq',
+      secrets: ['TOKEN'],
+      stages: [
+        { steps: [step('lint', 'bun'), step('test', 'bun')] },
+        { when: { pr: [1] }, stages: [{ steps: [step('preview', 'helm')] }] },
+      ],
+      onClose: { steps: [step('remove-preview', 'helm')] },
+    };
+    const p = pipelineDir();
+    const h = fakeHarness(JSON.stringify(manifest));
+    const human = await dev(['describe'], h, p);
+    expect(human.code).toBe(0);
+    expect(human.stdout.slice(human.stdout.indexOf('\nci '))).toBe(
+      [
+        '',
+        'ci — Checks a pull request.',
+        '  input:    CiReq { pr* }',
+        '  secrets:  TOKEN',
+        '  stages:',
+        '    1.  lint                 bun',
+        '        test                 bun',
+        '    when pr in [1]:',
+        '      2.  preview              helm',
+        '  on close:',
+        '        remove-preview       helm',
+        '',
+      ].join('\n'),
+    );
+  });
+
   test('a missing package.json or SDK says what to do', async () => {
     const p = pipelineDir();
     const h = fakeHarness(demoText);

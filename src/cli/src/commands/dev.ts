@@ -391,9 +391,9 @@ export const devCommands: Command[] = [
     detail: `pl dev describe [--dir <path>] [--json]
 
   Runs the SDK's describe on the pipeline source (Bun, no compile) and prints a summary of
-  the manifest: input model, secrets, triggers, stages, \`when\` blocks, failure handlers.
-  It uses the SDK the pipeline's package.json pins (run \`bun install\` in the pipeline
-  directory first). Describe-time problems are printed and the command exits 78.
+  the manifest: input model, secrets, triggers, stages, \`when\` blocks, failure handlers and
+  the CI checks. It uses the SDK the pipeline's package.json pins (run \`bun install\` in the
+  pipeline directory first). Describe-time problems are printed and the command exits 78.
 
 ${dirOption}
   --json         Print the raw manifest (canonical JSON) instead`,

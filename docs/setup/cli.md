@@ -71,7 +71,7 @@ pl step output <pipeline>#<run>/<step>[@<attempt>]
 pl step files <pipeline>#<run>/<step>[@<attempt>]
 pl step file <pipeline>#<run>/<step>[@<attempt>] <path> [-o <file>]
 pl step logs <pipeline>#<run>/<step>[@<attempt>] [--follow] [--interval <seconds>]
-pl step rerun <pipeline>#<run>/<step> [--continue]      # a cell reruns alone; a matrix step's name reruns every cell
+pl step rerun <pipeline>#<run>/<step>                 # a cell reruns alone; a matrix step's name reruns every cell
 pl step cancel <pipeline>#<run>/<step>                 # the run ends Cancelled once the stage settles; a matrix step's name cancels its cells in flight
 pl step history <pipeline>/<step> [--limit <n>]
 

@@ -143,7 +143,7 @@ src/frontend/
   one top to bottom. `when` blocks are dashed brackets labelled with their condition. Hovering a
   step outlines where its inputs come from and what reads it. Clicking a step opens its details in
   a bottom sheet (`?step=`): status, reason, latest attempt, recent runs, what it reads and what
-  reads it, its definition, and the actions (logs, cancel, rerun and continue, block / unblock,
+  reads it, its definition, and the actions (logs, cancel, rerun, block / unblock,
   the step's runs).
 - **Run** (`/pipeline/:id/run/:n?step=&attempt=`): a one-line header (run, status, duration,
   rerun of / superseded by / held at, Cancel while running, Trigger again), a status card (version,

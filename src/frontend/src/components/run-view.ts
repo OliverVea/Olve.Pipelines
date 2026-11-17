@@ -786,16 +786,9 @@ export class RunView extends LitElement {
         <button
           class="btn small"
           ?disabled=${this._busy || !continuable}
-          @click=${() => this._rerunStep(false)}
+          @click=${this._rerunStep}
         >
-          Rerun step
-        </button>
-        <button
-          class="btn small"
-          ?disabled=${this._busy || !continuable}
-          @click=${() => this._rerunStep(true)}
-        >
-          Rerun and continue
+          Rerun
         </button>
         <a
           class="btn small"
@@ -951,18 +944,20 @@ export class RunView extends LitElement {
           this._selectStep(cellAddress(this._step, e.detail.cell))}
         @cell-rerun=${(e: CustomEvent<{ cell: Cell }>) => {
           this._step = cellAddress(this._step, e.detail.cell);
-          this._rerunStep(false);
+          this._rerunStep();
         }}
       ></matrix-cells>`;
   }
 
-  private _rerunStep = (cont: boolean) =>
+  /** A rerun in a failed or cancelled run continues the run; in a succeeded one it reruns the step only. */
+  private _rerunStep = () =>
     this._act(async () => {
       const step = this._step;
+      const status = this._detail?.status;
       const { data: a } = await runStepsRerun({
         client: api,
         path: { ...this._path, step },
-        body: { continue: cont },
+        body: { continue: status === 'Failed' || status === 'Cancelled' },
       });
       await this._load();
       this._selectStep(step, a?.number ?? null);

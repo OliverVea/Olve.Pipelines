@@ -77,7 +77,7 @@ shows the latest attempt whatever its status; output and files use the latest su
 | Cancel | `pl run cancel <pipeline>#<run>` | Run view → Cancel |
 | Rerun the whole run | `pl run rerun <pipeline>#<run>` | Run view → Trigger again: the pipeline's trigger form, filled in with the run's input |
 | Continue with changed input | `pl run continue <pipeline>#<run> --field deployTo=prod` | — |
-| Rerun one step | `pl step rerun <pipeline>#<run>/<step> [--continue]` | Run view → step → Rerun |
+| Rerun one step | `pl step rerun <pipeline>#<run>/<step>` | Run view → step → Rerun |
 | Answer a waiting step | `pl input answer <pipeline>#<run>/<step> [--field k=v …\|--value json]`, `pl input decline … [--comment]`, `pl input list` | Run view → the answer form above the stages; a "waiting for input" chip in the pipeline list |
 | Output, files, logs | `pl step output\|files\|file\|logs <address>` (`logs --follow`) | Run view → step |
 | A step's history | `pl step history <pipeline>/<step>` | `/pipeline/<id>/step/<name>/runs` |
@@ -103,13 +103,13 @@ shows the latest attempt whatever its status; output and files use the latest su
   merged over the stored input and validated against the run's pinned input model. A field a
   completed step already consumed (e.g. `sha`) can't change — this is "promote what you tested".
 - **Rerun step** adds an attempt with the same pinned version and current pool input. Allowed when
-  the run has finished, or when that step's latest attempt failed or was cancelled. *Rerun only*
-  leaves the rest of the run alone; `--continue` re-opens the run, and later stages run again where
-  their input changed.
+  the run has finished, or when that step's latest attempt failed or was cancelled. In a failed or
+  cancelled run the rerun continues the run: later stages run once the step succeeds. In a
+  succeeded run only the step reruns, and the run stays Succeeded.
 - **Cancel step** (`pl step cancel <pipeline>#<run>/<step>`) cancels that step's scheduled or
   in-progress attempt (its Job is deleted). A cancelled attempt is treated like any other: the other
   steps of its stage keep running, and once the stage settles the run ends Cancelled. To carry on,
-  `pl step rerun <address> --continue`.
+  `pl step rerun <address>`.
 - **Answer** gives a step's [external input](pipeline-reference.md#steps): a step with external
   inputs gets a `Waiting` attempt when its stage starts, and runs once every input is answered. The
   value is validated against the input's model; `--field` values are typed by it. The answer and who

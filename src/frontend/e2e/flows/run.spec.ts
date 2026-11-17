@@ -77,7 +77,7 @@ test('a failed step says why, and rerunning it after the fix finishes the run', 
   await page.goBack();
   await page.goBack();
   await expect(page.locator('step-sheet h3')).toHaveText('consume');
-  await page.getByRole('button', { name: 'Rerun and continue' }).click();
+  await page.getByRole('button', { name: 'Rerun', exact: true }).click();
   await expect(runStatus(page)).toHaveText('succeeded', runTimeout);
   await expect(page.getByRole('tab', { name: '@1 failed' })).toBeVisible();
   await expect(page.getByRole('tab', { name: '@2 succeeded' })).toBeVisible();
@@ -101,7 +101,7 @@ test('a blocked step holds a run until it is unblocked', async ({ page, api }) =
   await expect(runStatus(page)).toHaveText('running');
 
   await page.locator('[data-step="consume"]').click();
-  await page.getByRole('button', { name: 'Rerun step' }).click();
+  await page.getByRole('button', { name: 'Rerun', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText(
     "Step 'consume' is blocked; unblock it first.",
   );

@@ -262,13 +262,12 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
     noun: 'step',
     verb: 'rerun',
     operands: 1,
-    flags: ['continue'],
-    summary: 'Rerun one step as a new attempt (--continue re-opens the run downstream)',
-    detail: `pl step rerun <pipeline>#<run>/<step> [--continue]
+    summary: 'Rerun one step as a new attempt (a failed or cancelled run continues)',
+    detail: `pl step rerun <pipeline>#<run>/<step>
 
-  Adds an attempt in the same run (same pinned version, current pool input). Rerun only by
-  default; --continue also continues the run downstream of the step. A matrix cell reruns on
-  its own ('olve-pipelines#412/build-cli[os=linux,arch=x64]', quoted for the shell); the
+  Adds an attempt in the same run (same pinned version, current pool input). In a failed or
+  cancelled run the run continues downstream of the step; in a succeeded run only the step
+  reruns. A matrix cell reruns on its own ('olve-pipelines#412/build-cli[os=linux,arch=x64]', quoted for the shell); the
   matrix step's own name reruns every cell.`,
     async run(ctx) {
       const addr = await resolveStep(ctx.api, ctx.args.operand(0)!);
@@ -276,7 +275,13 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
         throw new CliError(
           `A rerun creates a new attempt; drop the @${addr.address.attempt} from the address.`,
         );
-      const cont = ctx.args.flag('continue');
+      const run = await call(
+        runsGet({
+          client: ctx.api,
+          path: { pipelineId: addr.id, number: addr.address.run },
+        }),
+      );
+      const cont = run.status === 'Failed' || run.status === 'Cancelled';
       const attempt = await call(
         runStepsRerun({
           client: ctx.api,
@@ -304,7 +309,7 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
 
   Cancels the step's scheduled or in-progress attempt (its K8s Job is deleted). Like any
   cancelled attempt, the other steps of its stage keep running and the run ends Cancelled
-  once the stage settles. \`pl step rerun <address> --continue\` re-opens the run. A cell
+  once the stage settles. \`pl step rerun <address>\` re-opens the run. A cell
   address cancels that cell; the matrix step's own name cancels every cell in flight.`,
     async run(ctx) {
       const addr = await resolveStep(ctx.api, ctx.args.operand(0)!);

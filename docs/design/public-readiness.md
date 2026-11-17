@@ -45,6 +45,11 @@ instance may depend on.
       reach still gets pull request CI, the merge queue and previews.
 - [x] Webhook registration uses `GitHub:ApiUrl`, for GitHub Enterprise.
 
+- [ ] npm's `latest` tag of `@olivervea/pipelines` points at a current release (it is at
+      `2.0.0-beta.1`, so `bun add @olivervea/pipelines` without a version gets that).
+- [ ] `src/sdk/README.md`'s development section describes `main` (it still says "until v2 reaches
+      prod" and "push to `v2`").
+
 ## 4. Project hygiene
 
 - [x] Which SDK versions a server accepts is stated, and the SDK leaves beta or says what may still

@@ -47,7 +47,7 @@ instance may depend on.
 - [ ] Release notes on the GitHub releases.
 - [x] `SECURITY.md`: how to report a vulnerability in a service that runs other people's code.
 - [x] Issue templates.
-- [ ] A contributor section in `CONTRIBUTING.md`: pull requests get CI from this service, only listed
+- [x] A contributor section in `CONTRIBUTING.md`: pull requests get CI from this service, only listed
       authors get it, so outside pull requests wait for a maintainer.
 - [ ] What is supported, in one place: GitHub only, the Kubernetes versions, x86-64 step images,
       gVisor optional and recommended for untrusted code.

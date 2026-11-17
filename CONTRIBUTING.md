@@ -5,6 +5,18 @@ Design: [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md) (spec),
 [docs/design/pipelines-v2-plan.md](docs/design/pipelines-v2-plan.md) (what was built), and
 [docs/design/roadmap.md](docs/design/roadmap.md). Agents: [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md).
 
+## Pull requests
+
+- Open an issue first for anything bigger than a fix, so the shape is agreed before the code.
+- A pull request's checks run on this project's own instance of Olve.Pipelines (`olve/ci`), and only
+  for authors on its `Ci:Authors` list. A pull request from anyone else gets no checks until a
+  maintainer has read it and runs them; until then, run `tools/check.sh` yourself (below).
+- Pull requests land through the merge queue (`olve/merge-queue`), rebased onto `main`; history
+  stays linear.
+- A change to the API contract (`src/spec/`) is agreed on its own before the code behind it.
+- Docs describe the system as it is: change them with the code, and never add a history note.
+- Report security issues privately ([SECURITY.md](SECURITY.md)), not in a pull request.
+
 ## Project structure
 
 ```

@@ -11,9 +11,8 @@ repo's own pipeline (`.pipelines/`) does, configured per instance ([Pipeline Con
 ## Requirements
 
 - **GitHub.** Bindings and pull request CI work with GitHub only. Bindings read `github.com` or,
-  through `GitHub:ApiUrl`, a GitHub Enterprise API; webhook registration always goes to
-  `api.github.com`. The bundled Dex logs people in with GitHub; any other OIDC provider works through
-  `Auth:Authority`.
+  through `GitHub:ApiUrl`, a GitHub Enterprise API, which webhook registration uses too. The
+  bundled Dex logs people in with GitHub; any other OIDC provider works through `Auth:Authority`.
 - **Kubernetes.** The compose stack runs k3s `v1.31.4-k3s1`. The chart needs:
   - a default StorageClass (or `garage.*StorageClass`, `dex.storageClass`) for three ReadWriteOnce
     volumes: Garage's metadata (5Gi) and data (20Gi), and Dex's (1Gi);
@@ -105,7 +104,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Kubernetes:StepServiceAccount` | — | ServiceAccount (in the runner namespace) whose token steps that declare `clusterAccess` get (`steps.helmDeploy` in-cluster); empty = no step pod gets a token. CI steps can't declare `clusterAccess` |
 | `Harness:HarnessBaseImage` | `ghcr.io/olivervea/olve-pipelines-harness-base:src-…` (`HarnessImage.cs`) | Step-pod init image (pinned, never `latest`). The chart sets it from `harness.image`, which the deploy fills from the `publish-harness` step |
 | `Harness:BunImage` | `oven/bun:1.4.3-slim` | Build/describe Job image (glibc, never alpine) |
-| `GitHub:ApiUrl` / `GitHub:CodeloadUrl` | `https://api.github.com` / `https://codeload.github.com` | Where bindings read config cursors and the build Job fetches tarballs (GitHub Enterprise, or a local stand-in for tests) |
+| `GitHub:ApiUrl` / `GitHub:CodeloadUrl` | `https://api.github.com` / `https://codeload.github.com` | Where bindings read config cursors, register webhooks and the build Job fetches tarballs (GitHub Enterprise, or a local stand-in for tests) |
 | `Harness:DefaultStepTimeoutSeconds` / `MaxStepTimeoutSeconds` / `StartupGraceSeconds` | `3600` / `21600` / `120` | Step Job `activeDeadlineSeconds` = min(timeout, max) + grace |
 | `Harness:UrlExpiryGraceSeconds` | `600` | Added to the deadline for step pre-signed URLs |
 | `Harness:ScratchSizeLimit` | `1Gi` | `sizeLimit` of the step pod's `/olve` emptyDir |
@@ -144,8 +143,9 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 
 The chart can run [Dex](https://dexidp.io) as the instance's OIDC provider, with GitHub as the
 upstream (`dex.enabled: true`, `dex.issuer: https://<host>/dex`). It stores its keys and refresh
-tokens in sqlite on a small PVC that survives `helm uninstall`. Route `<host>/dex` to the
-`<release>-dex` Service (port 5556); the rest of the host stays on the server.
+tokens in sqlite on a small PVC that survives `helm uninstall`. The chart's Ingress routes
+`<host>/dex` to the `<release>-dex` Service (port 5556) and the rest of the host to the server;
+without it, route them the same way.
 
 1. Create a GitHub OAuth app with the callback `https://<host>/dex/callback`.
 2. Store its credentials as the Secret `olve-pipelines-dex` (keys `github-client-id`,
@@ -154,9 +154,7 @@ tokens in sqlite on a small PVC that survives `helm uninstall`. Route `<host>/de
    and an `allow` list. GitHub lets anyone sign in to Dex, so the chart refuses `dex` without one.
 
 Dex has one public client, `olve-pipelines`, for the web UI and `pl`. It accepts only the UI's
-`https://<host>/callback`, the device flow and `pl login`'s loopback ports. The chart's Ingress
-routes the host to the server only; [A First Real Instance](first-instance.md#3-valuesyaml) adds
-the `/dex` route through `extraObjects`.
+`https://<host>/callback`, the device flow and `pl login`'s loopback ports.
 
 A login lasts `dex.tokenLifetime` (default `168h`). Renewing a token re-checks the user with
 GitHub, which stops accepting the token Dex keeps for that within about a day, so in practice this

@@ -103,7 +103,7 @@ internal sealed class FakeGitHub : IPullRequestSource
         Pulls[answers[0].Number] = new Queue<GitHubPullRequest>(answers);
 
     public Task<Result<IReadOnlyList<GitHubPullRequest>>> ListOpenAsync(PipelineConfigBinding binding, CancellationToken ct = default) =>
-        Task.FromResult(Result.Success<IReadOnlyList<GitHubPullRequest>>([.. Pulls.Values.Select(q => q.Peek())]));
+        Task.FromResult(Result.Success<IReadOnlyList<GitHubPullRequest>>([.. Pulls.Values.Select(q => q.Peek()).Where(p => p.State == "open")]));
 
     public Task<Result<GitHubPullRequest?>> GetAsync(PipelineConfigBinding binding, int number, CancellationToken ct = default)
     {

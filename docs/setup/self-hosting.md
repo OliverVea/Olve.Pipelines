@@ -34,7 +34,8 @@ repo's own pipeline (`.pipelines/`) does, configured per instance ([Pipeline Con
   must exist, the chart doesn't create it. The chart installs no NetworkPolicy either.
 - **Previews.** Nothing beyond what the app's own deploy needs: a preview is whatever the pull
   request's CI steps deploy. CI steps never get `clusterAccess`, so they reach their target with a
-  pipeline secret (a kubeconfig, an SSH key), and pull request CI needs `ci.authors` and webhooks.
+  pipeline secret (a kubeconfig, an SSH key), and pull request CI needs `ci.authors`. Webhooks are
+  optional: without them, pull requests are polled.
 
 ## Installing on a cluster
 
@@ -117,9 +118,9 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Jobs:MaxConcurrentCi` | `12` | Ceiling on CI step Jobs running at once, within `Jobs:MaxConcurrent` (3 while the cluster can't be read). Set it as `Jobs__MaxConcurrentCi` |
 | `Jobs:NodeReserve:Cpu` / `Memory` | `1` / `4Gi` | Kept free on every node that isn't a helper, beyond what its pods request, for the apps and the host; steps never use it |
 | `Jobs:CiCapacityShare` | `0.6` | Share of the usable capacity (CPU and memory, after the reserve) CI's pods may request at once, so a deploy always finds room. CI's build Jobs don't wait for room, but their requests count |
-| `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
+| `Reconcile:PollIntervalSeconds` | `900` | Poll interval per binding: its config, its branch head and, when `Ci:Authors` is set, its open pull requests |
 | `Ci:Authors` | — | GitHub logins whose pull requests get CI, on every binding; a pull request by anyone else is ignored like one from a fork. Empty = no pull request gets CI. The chart sets it from `ci.authors` |
-| `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes). Changing it repoints the registered hooks |
+| `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push and pull request webhooks to; empty = no webhook registration (the poll still notices pushes and pull requests). Changing it repoints the registered hooks |
 | `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the links the instance hands out: commit statuses' links to CI runs, the run/log links in a failure handler's `FailureContext` |
 | `ExternalInputs:Poll:AllowedHosts` | — | Host names `poll()` inputs may reach although they resolve to private addresses (e.g. an in-cluster test service); empty = public addresses only. The server holds cluster and storage credentials, so list only hosts you trust |
 | `Retention:Enabled` / `Retention:DryRun` | `true` / `true` | Retention sweeps; **dry run by default** (logs only) — set `Retention__DryRun=false` to delete |

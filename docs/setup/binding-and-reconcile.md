@@ -57,13 +57,13 @@ from the binding's; fetching a private repository needs Contents: Read-only.
 ### How changes are noticed
 
 The service polls every binding's branch every 15 minutes (an unchanged branch costs a free
-conditional request). When the instance has `Webhooks:PublicBaseUrl` set and the binding has a
+conditional request) and, when `Ci:Authors` is set, lists its open pull requests (one request). When the instance has `Webhooks:PublicBaseUrl` set and the binding has a
 `credentialsSecret` token that may manage webhooks ([The GitHub token](#the-github-token)), it also registers a GitHub hook for `push` and
 `pull_request` events, so changes are picked up within seconds; deliveries are authenticated by an
 HMAC secret the binding generates.
 A binding with polling off (`pl binding set-polling <pipeline> off`) never polls: it syncs only on
-`pl binding reconcile` (`POST …/binding/reconcile`) or its webhook, and its push trigger fires only
-from the webhook. Use it for a pipeline something else drives, such as a test fixture another
+`pl binding reconcile` (`POST …/binding/reconcile`) or its webhook, its push trigger fires only
+from the webhook, and its pull requests follow the webhook alone. Use it for a pipeline something else drives, such as a test fixture another
 pipeline reconciles and triggers. When `Webhooks:PublicBaseUrl` changes, the registered hooks
 are pointed at the new URL (a hook deleted on GitHub is registered again); clearing it deletes them.
 
@@ -71,8 +71,10 @@ The binding also keeps track of its repository's pull requests into its branch b
 `Ci:Authors` (not those from forks),
 whether or not the pipeline declares CI: `GET /api/pipelines/{id}/ci/pulls` lists them, open or
 closed. The `pull_request` deliveries keep them current, and the service reads the open ones from
-GitHub at startup, when a binding is created or its branch changes, and when its hook is registered,
-so a delivery it missed is caught up. Reading them needs no more access than the binding already has.
+GitHub at every poll, at startup, when a binding is created or its branch changes, and when its hook
+is registered, so a delivery it missed, or an instance GitHub can't reach, is caught up. A pull
+request tracked as open that the list no longer has is read on its own, which notices a merge or a
+close. Reading them needs no more access than the binding already has.
 
 When the pipeline declares CI (`export const ci = checks(…)` next to the pipeline), an open pull
 request gets a CI run once its head has been still for 60 seconds: a burst of pushes makes one run,

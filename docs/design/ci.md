@@ -38,7 +38,9 @@ its own runs, scheduling and tab in the UI. What they share is the SDK and the e
 
 ## Runs of a pull request
 
-- **Trigger:** the binding's GitHub webhook also subscribes to `pull_request`:
+- **Trigger:** the binding's GitHub webhook also subscribes to `pull_request`, and every poll interval
+  the binding's open pull requests are read from GitHub (one list, plus one read of each pull request
+  that left it), so an instance without webhooks sees the same changes later:
   - `opened`, `reopened`, `synchronize`: a run (after the debounce);
   - `ready_for_review`, `converted_to_draft`: the PR's priority;
   - `edited` with a changed base: a PR retargeted away from `main` loses CI and leaves the queue,
@@ -226,7 +228,7 @@ changes that never went through CI, such as pushes straight to `main`.
 ## Entities
 
 - **PullRequest** (pipeline, number): title, head branch, head commit, draft, state (open, merged,
-  closed), mergeable, last push time. Kept current from the webhook. `stale` is a query (the latest
+  closed), mergeable, last push time. Kept current from the webhook and the poll. `stale` is a query (the latest
   run's `main` against `main`'s head), not stored.
 - **CiRun**: numbered per pipeline in CI's own sequence. Kind `pull` (one PR), `queue` (an ordered
   list of PRs) or `close` (removes a PR's preview with the definition and commit of the run that

@@ -1,12 +1,13 @@
 using System.Threading.Channels;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Sources;
 
 namespace Olve.Pipelines.Pipelines.Ci;
 
 /// <summary>
-/// Brings a binding's tracked pull requests level with GitHub, for deliveries the webhook missed: every open pull
-/// request into the branch is observed, and one tracked as open that GitHub no longer lists is read on its own.
+/// Brings a binding's tracked pull requests level with GitHub, for deliveries the webhook missed or never got: every open
+/// pull request into the branch is observed, and one tracked as open that GitHub no longer lists is read on its own.
 /// </summary>
 public class PullRequestCatchUp(IPullRequestSource source, PullRequestService pulls, TimeProvider time)
 {
@@ -91,4 +92,25 @@ public class PullRequestCatchUpService(
             }
         }
     }
+}
+
+/// <summary>
+/// Catches up each polling binding every <see cref="ReconcileOptions.PollInterval"/>, so pull requests stay current
+/// without a webhook. Skipped while <see cref="CiOptions.Authors"/> is empty: no pull request would be tracked.
+/// </summary>
+public class PullRequestPollService(
+    EntityStore<PipelineConfigBinding> bindings,
+    ReconcileOptions options,
+    CiOptions ci,
+    IServiceProvider sp,
+    ILogger<PullRequestPollService> logger) : IPollSourceProvider
+{
+    public IEnumerable<PollSource> Sources() => ci.Authors.Count == 0
+        ? []
+        : bindings.List().Where(b => b.Polls).Select(binding => new PollSource($"pulls:{binding.Id}", options.PollInterval, async ct =>
+        {
+            var result = await sp.GetRequiredService<PullRequestCatchUp>().CatchUpAsync(binding, ct);
+            if (result.TryPickProblems(out var problems))
+                logger.LogProblems(LogLevel.Warning, problems, "Could not read the pull requests of '{Repo}@{Branch}'", binding.Repo, binding.Branch);
+        }));
 }

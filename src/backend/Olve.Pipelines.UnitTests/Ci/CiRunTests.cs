@@ -1,7 +1,12 @@
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines.Ci;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Shared.Persistence;
+using Olve.Pipelines.Sources;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Results.TUnit;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
@@ -55,6 +60,58 @@ public class CiRunTests
         await s.SettleAsync();
 
         await Assert.That(s.Run(7).HeadSha).IsEqualTo(B);
+    }
+
+    // Catches: an instance GitHub can't reach never seeing a pull request opened, pushed or merged.
+    [Test]
+    public async Task Without_a_webhook_the_poll_finds_a_pull_request_opened_pushed_and_merged()
+    {
+        await using var s = new CiScenario();
+        var interval = s.Get<ReconcileOptions>().PollInterval;
+        var scheduler = new PollScheduler([s.Provider.GetServices<IPollSourceProvider>().OfType<PullRequestPollService>().Single()],
+            new PersistenceReadiness(), null!, s.Clock, NullLogger<PollScheduler>.Instance);
+        async Task Poll()
+        {
+            scheduler.Tick(CancellationToken.None);
+            await scheduler.WhenIdle();
+        }
+
+        s.GitHub.Answer(PullRequestFixtures.Pull(7, headSha: A, mergeable: true, mergeCommitSha: CiScenario.Merge(A), updatedAt: s.Clock.GetUtcNow()));
+        await Poll();
+        await s.SettleAsync();
+        var first = await Single(s, 7);
+        await Assert.That(first.HeadSha).IsEqualTo(A);
+
+        s.GitHub.Answer(PullRequestFixtures.Pull(7, headSha: B, mergeable: true, mergeCommitSha: CiScenario.Merge(B), updatedAt: s.Clock.GetUtcNow()));
+        s.Clock.Advance(interval - CiTriggerService.Debounce - TimeSpan.FromSeconds(1));
+        await Poll();
+        await Assert.That(s.Get<PullRequestService>().TryGet(s.Pipeline.Id, 7, out var held) ? held.HeadSha : null).IsEqualTo(A);
+
+        s.Clock.Advance(TimeSpan.FromSeconds(1));
+        await Poll();
+        await s.SettleAsync();
+        await Assert.That(s.Run(7).HeadSha).IsEqualTo(B);
+        await Assert.That(s.Get(first).Status).IsEqualTo(RunStatus.Superseded);
+
+        s.GitHub.Answer(PullRequestFixtures.Pull(7, headSha: B, state: "closed", merged: true, updatedAt: s.Clock.GetUtcNow()));
+        s.Clock.Advance(interval);
+        await Poll();
+        await Assert.That(s.Run(7).Status).IsEqualTo(RunStatus.Cancelled);
+        await Assert.That(s.Run(7).CancelReason).IsEqualTo(CiCancelReason.Merged);
+    }
+
+    [Test]
+    [Arguments(true, true, 1)]
+    [Arguments(false, true, 0)]
+    [Arguments(true, false, 0)]
+    public async Task Pull_requests_are_polled_for_a_polling_binding_once_CI_has_authors(bool polls, bool authors, int sources)
+    {
+        await using var s = new CiScenario();
+        TestRunDomain.Pick(s.Get<PipelineConfigBindingService>().SetPolls(s.Pipeline.Id, polls));
+        var poll = new PullRequestPollService(s.Get<Olve.Utilities.Stores.EntityStore<PipelineConfigBinding>>(), new ReconcileOptions(),
+            new CiOptions(authors ? [PullRequestFixtures.Author] : []), s.Provider, NullLogger<PullRequestPollService>.Instance);
+
+        await Assert.That(poll.Sources().Select(source => source.Key)).IsEquivalentTo(Enumerable.Repeat($"pulls:{s.Binding.Id}", sources));
     }
 
     [Test]

@@ -26,7 +26,7 @@ public class DeployPollServiceTests
         /// <summary>When set, a reconcile holds here until the test completes it.</summary>
         public TaskCompletionSource? Held { get; set; }
 
-        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Entered { get; set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public async Task<Result<ReconcileReport>> ReconcileAsync(PipelineConfigBinding binding, string commitSha, CancellationToken ct)
         {
@@ -75,7 +75,7 @@ public class DeployPollServiceTests
         var push = new FakePush();
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<TimeProvider>(new ManualClock()); // never advanced: no poll interval passes
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         services.AddPipelineServices();
         services.AddSingleton<IConfigSource>(source);
@@ -129,10 +129,7 @@ public class DeployPollServiceTests
     public async Task APollingBinding_GetsAPushSource_OnlyWhenThePipelineHasOnPush(bool onPush, int sources)
     {
         await using var c = Build();
-        var manifest = SchedulerScenario.Mutated(r => { if (!onPush) r["triggers"]!.AsArray().RemoveAt(0); });
-        var version = Pick(c.Provider.GetRequiredService<PipelineVersionService>().Add(
-            c.Binding.PipelineId, manifest, "sha256:x", null, new Dictionary<string, int>(), new Dictionary<string, int>()));
-        Pick(c.Provider.GetRequiredService<SwitchService>().Switch(c.Binding.PipelineId, version.Id));
+        SwitchInVersion(c, onPush);
 
         await Assert.That(c.Pushes.Sources().Select(source => source.Key)).IsEquivalentTo(Enumerable.Repeat($"push:{c.Binding.Id}", sources));
     }
@@ -407,20 +404,59 @@ public class DeployPollServiceTests
         await Assert.That(c.Reconciler.Calls).IsEmpty();
     }
 
+    private static void SwitchInVersion(Ctx c, bool onPush)
+    {
+        var manifest = SchedulerScenario.Mutated(r => { if (!onPush) r["triggers"]!.AsArray().RemoveAt(0); });
+        var version = Pick(c.Provider.GetRequiredService<PipelineVersionService>().Add(
+            c.Binding.PipelineId, manifest, "sha256:x", null, new Dictionary<string, int>(), new Dictionary<string, int>()));
+        Pick(c.Provider.GetRequiredService<SwitchService>().Switch(c.Binding.PipelineId, version.Id));
+    }
+
+    // Catches: on an instance without webhooks, a push whose definition reconcile-now applied starting
+    // only at the next poll. Reconcile-now checks the branch only where the push source would.
     [Test]
-    public async Task ConfigSync_AppliesTheConfig_ButNeverFiresThePushTrigger()
+    [Arguments(true, true, new[] { "head-1" })]
+    [Arguments(false, true, new string[0])]
+    [Arguments(true, false, new string[0])]
+    public async Task ReconcileNow_FiresThePushOfANewHead_WhereThePushSourceWouldCheck(bool polls, bool onPush, string[] fired)
     {
         await using var c = Build();
+        SwitchInVersion(c, onPush);
         c.Source.ConfigSha = "cfg-1";
-        c.Source.BranchHeadSha = "head-0";
-        await c.Run(); // seeds the push cursor
+        await c.Run(); // seeds the push cursor at head-0
+        Pick(c.Bindings.SetPolls(c.Binding.PipelineId, polls));
         c.Source.ConfigSha = "cfg-2";
+        c.Source.ConfigETag = "etag-2";
         c.Source.BranchHeadSha = "head-1";
 
         await Assert.That(await c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None)).Succeeded();
 
         await Assert.That(c.Current.LastReconciledSha).IsEqualTo("cfg-2");
-        await Assert.That(c.Current.LastPushSha).IsEqualTo("head-0");
-        await Assert.That(c.Push.Fired).IsEmpty();
+        await Assert.That(c.Push.Fired).IsEquivalentTo(fired);
+        await Assert.That(c.Current.LastPushSha).IsEqualTo(fired.Length == 0 ? "head-0" : "head-1");
+    }
+
+    // Catches: a webhook delivery and reconcile-now for the same push each starting a run.
+    [Test]
+    public async Task WebhookAndReconcileNow_ForOnePush_FireItOnce()
+    {
+        await using var c = Build();
+        SwitchInVersion(c, onPush: true);
+        await c.Run(); // seeds the push cursor at head-0
+        c.Source.ConfigSha = "cfg-1";
+        c.Source.ConfigETag = "etag-1";
+        c.Source.BranchHeadSha = "head-1";
+        c.Reconciler.Held = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        c.Reconciler.Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var reconcileNow = c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None);
+        await c.Reconciler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var webhook = c.Pushes.CheckAsync(c.Binding.PipelineId, CancellationToken.None,
+            notice: new PushNotice(DateTimeOffset.UnixEpoch, new AnnouncedPush("head-1", null)));
+        c.Reconciler.Held.SetResult();
+        await Task.WhenAll(reconcileNow, webhook).WaitAsync(TimeSpan.FromSeconds(5));
+
+        await Assert.That(c.Reconciler.Calls.Count(s => s == "cfg-1")).IsEqualTo(1);
+        await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1" });
     }
 }

@@ -340,8 +340,8 @@ run on a fresh stack also pulls the build images. The redeployed instance keeps 
 same container config and the same Garage, only the image changes.
 
 - The deploy poll checks the branch every 15 minutes (`Reconcile:PollIntervalSeconds`), and webhooks
-  are off in the stack: after a push, `pl binding reconcile` builds the new definition at once, but
-  the push's run starts only at the next poll; `pl trigger` starts one now.
+  are off in the stack: after a push, `pl binding reconcile` builds the new definition and starts
+  the push's run at once.
 - The run survives the redeploy: the new server reattaches to the run's Jobs, as on prod.
 - `docker compose up` names `olve-pipelines-v2:local` again, so it can put the locally built image
   back over a deployed one.

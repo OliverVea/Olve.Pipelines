@@ -13,6 +13,11 @@ export const CHART = 'oci://ghcr.io/olivervea/charts/olve-pipelines';
 // The name predates Garage; kept so existing installs converge.
 const STORAGE_SECRET = 'olve-pipelines-minio';
 const STORAGE_ACCESS_KEY = 'olve-pipelines';
+// Every Job the server starts carries both labels.
+const SERVER_JOBS = 'app=olve-pipelines,olve-role';
+// The server's Secrets have no labels: its pipelines' secret values and its Jobs' URL Secrets.
+const SERVER_SECRET =
+  /^olve-pipeline-[0-9a-f]{32}$|^olve-urls-[0-9a-f]{32}(-preflight)?$|^olve-(ci|build|map|fh)-[a-z0-9-]+-urls$/;
 
 const step = (ctx: CommandContext, message: string) => ctx.out.line(`==> ${message}`);
 
@@ -272,11 +277,13 @@ export const clusterCommands: Command[] = [
     options: ['namespace', 'release'],
     flags: ['allow-prod', 'purge-data'],
     aliases: { n: 'namespace' },
-    summary: 'Remove an installation (release + storage creds; data PVCs retained)',
+    summary: 'Remove an installation (release + storage creds; its data retained)',
     detail: `pl teardown -n <namespace> [options]   Remove an installation
   -n, --namespace <ns>   Target namespace (required)
   --release <name>       Helm release name (default: olve-pipelines)
-  --purge-data           Also delete the storage data PVCs (full wipe)`,
+  --purge-data           Also delete its data (full wipe): the storage data PVCs, the
+                         pipelines' Secrets (olve-pipeline-<id>, their secret values) and
+                         the server's step, build and CI Jobs with their URL Secrets`,
     async run(ctx) {
       const ns = targetNamespace(ctx, 'tear down');
       const release = ctx.args.optionOr('release', DEFAULT_RELEASE);
@@ -303,6 +310,40 @@ export const clusterCommands: Command[] = [
         '--ignore-not-found',
       ]);
       if (purge) {
+        step(ctx, `Deleting the server's Jobs in '${ns}'`);
+        await checked(ctx, 'kubectl', [
+          'delete',
+          'jobs',
+          '-l',
+          SERVER_JOBS,
+          '-n',
+          ns,
+          '--ignore-not-found',
+        ]);
+        // Names only: any other output format would print the values.
+        const listed = await checked(ctx, 'kubectl', [
+          'get',
+          'secrets',
+          '-n',
+          ns,
+          '-o',
+          'name',
+        ]);
+        const secrets = listed.stdout
+          .split('\n')
+          .map((line) => line.trim().replace(/^secret\//, ''))
+          .filter((name) => SERVER_SECRET.test(name));
+        if (secrets.length) {
+          step(ctx, `Deleting ${secrets.length} pipeline and Job Secrets`);
+          await checked(ctx, 'kubectl', [
+            'delete',
+            'secret',
+            ...secrets,
+            '-n',
+            ns,
+            '--ignore-not-found',
+          ]);
+        }
         const pvcs = [`${release}-garage-meta`, `${release}-garage-data`];
         step(ctx, `Purging storage data volumes ${pvcs.join(', ')}`);
         await checked(ctx, 'kubectl', [
@@ -316,7 +357,7 @@ export const clusterCommands: Command[] = [
       }
       step(
         ctx,
-        `Done. Release '${release}' removed from '${ns}'${purge ? ' (storage data purged).' : ' (storage data PVCs retained).'}`,
+        `Done. Release '${release}' removed from '${ns}'${purge ? ' (data purged).' : " (data retained: storage PVCs, pipeline Secrets and the server's Jobs)."}`,
       );
     },
   },

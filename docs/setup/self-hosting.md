@@ -49,10 +49,13 @@ Releases are public. Each one (e.g. `2026.11.17.296`, the version `pl --version`
 
 `pl bootstrap` (`pl` from the latest [release](cli.md#installing)) installs the chart's minimal
 profile: the server and its Garage, with no ingress and auth off. It installs the chart of the
-release it belongs to, or of `--version <release>`. It is idempotent, and `pl teardown` removes it
-(the Garage data is kept unless `--purge-data`). Teardown leaves the namespace and what the server
-created in it: the pipelines' Secrets (`olve-pipeline-<id>`, which hold their secret values) and
-finished step and build Jobs. Delete the namespace to remove those too.
+release it belongs to, or of `--version <release>`. It is idempotent, and `pl teardown` removes it.
+Teardown keeps the instance's data unless `--purge-data`: the Garage volumes, the pipelines' Secrets
+(`olve-pipeline-<id>`, which hold their secret values), and the step, build and CI Jobs the server
+started, with their URL Secrets. `--purge-data` deletes those in the namespace it is given, picking
+the Jobs by the server's labels and the Secrets by the server's names, so other workloads in a shared
+namespace stay. The namespace itself stays, and so does a separate runner namespace
+(`Kubernetes__Namespace`).
 
 ```bash
 pl bootstrap -n <namespace>                              # --version <release> installs another release

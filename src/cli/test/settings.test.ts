@@ -467,21 +467,56 @@ describe('bootstrap and teardown', () => {
     expect(result.stderr).toContain('Cluster is not reachable: connection refused');
   });
 
-  test('teardown uninstalls, deletes the credentials, and purges the data volumes only with --purge-data', async () => {
-    const cluster = fakeCluster();
-    expect((await pl(['teardown', '-n', 'try'], { run: cluster.run })).code).toBe(0);
-    expect(cluster.lines().slice(-2)).toEqual([
+  test('teardown keeps the data; --purge-data also deletes the volumes and only the Jobs and Secrets the server made', async () => {
+    const secrets = [
+      'secret/olve-pipelines-minio',
+      'secret/sh.helm.release.v1.olve-pipelines.v1',
+      'secret/olve-pipeline-0123456789abcdef0123456789abcdef',
+      'secret/olve-pipeline-not-a-pipeline-id',
+      'secret/olve-urls-fedcba9876543210fedcba9876543210',
+      'secret/olve-urls-fedcba9876543210fedcba9876543210-preflight',
+      'secret/olve-ci-00112233445566778899aabbccddeeff-urls',
+      'secret/olve-build-0123456789ab-abcdef012345-urls',
+      'secret/olve-map-0123456789abcdef0123456789abcdef-urls',
+      'secret/other-app-urls',
+      'secret/other-app',
+    ].join('\n');
+    const answer = (spec: ProcessSpec) =>
+      spec.args[0] === 'get' && spec.args[1] === 'secrets'
+        ? { stdout: secrets }
+        : undefined;
+    const kept = fakeCluster(answer);
+    const result = await pl(['teardown', '-n', 'try'], { run: kept.run });
+    expect(result.code).toBe(0);
+    expect(kept.lines().slice(-2)).toEqual([
       'helm uninstall olve-pipelines -n try',
       'kubectl delete secret olve-pipelines-minio -n try --ignore-not-found',
     ]);
+    expect(result.stdout).toContain(
+      "Done. Release 'olve-pipelines' removed from 'try' (data retained: storage PVCs, pipeline Secrets and the server's Jobs).",
+    );
+
     const gone = fakeCluster((spec) =>
-      spec.args[0] === 'status' ? { exitCode: 1 } : undefined,
+      spec.args[0] === 'status' ? { exitCode: 1 } : answer(spec),
     );
     const purged = await pl(['teardown', '-n', 'try', '--purge-data'], { run: gone.run });
     expect(purged.stdout).toContain('already removed');
     expect(gone.lines().some((l) => l.startsWith('helm uninstall'))).toBe(false);
-    expect(gone.lines().at(-1)).toBe(
+    expect(gone.lines().slice(-5)).toEqual([
+      'kubectl delete secret olve-pipelines-minio -n try --ignore-not-found',
+      'kubectl delete jobs -l app=olve-pipelines,olve-role -n try --ignore-not-found',
+      'kubectl get secrets -n try -o name',
+      'kubectl delete secret olve-pipeline-0123456789abcdef0123456789abcdef olve-urls-fedcba9876543210fedcba9876543210 olve-urls-fedcba9876543210fedcba9876543210-preflight olve-ci-00112233445566778899aabbccddeeff-urls olve-build-0123456789ab-abcdef012345-urls olve-map-0123456789abcdef0123456789abcdef-urls -n try --ignore-not-found',
       'kubectl delete pvc olve-pipelines-garage-meta olve-pipelines-garage-data -n try --ignore-not-found',
+    ]);
+    expect(purged.stdout).toContain(
+      "Done. Release 'olve-pipelines' removed from 'try' (data purged).",
     );
+
+    const empty = fakeCluster();
+    await pl(['teardown', '-n', 'try', '--purge-data'], { run: empty.run });
+    expect(empty.lines().filter((l) => l.startsWith('kubectl delete secret'))).toEqual([
+      'kubectl delete secret olve-pipelines-minio -n try --ignore-not-found',
+    ]);
   });
 });

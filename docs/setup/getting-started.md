@@ -14,7 +14,30 @@ A pipeline imports the SDK, published to npm as
 "dependencies": { "@olivervea/pipelines": "2.0.0-beta.42" }
 ```
 
-Until v2 reaches prod, releases are `2.0.0-beta.N` on the `beta` dist-tag; pin an exact version.
+Releases are `2.0.0-beta.N` on the `beta` dist-tag; pin an exact version. Each GitHub release of
+the server names the SDK version released with it: use that one or an older one.
+
+### Which SDK versions a server accepts
+
+The server checks no SDK version. It checks what the SDK produces:
+
+- **The manifest**, when it reconciles a commit. Its `apiVersion` must be `"2.0"`, and every object
+  in it is closed: a property, trigger kind or external input source the server doesn't know is
+  refused (`manifest-unknown-property`, `manifest-invalid-value` or `manifest-wrong-type`). So a pipeline that uses an SDK
+  feature newer than the server fails reconcile: no version is made, the active one stays, and
+  `pl binding status` names the property. Upgrade the server first, then the pipeline.
+- **The step's result**, when an attempt ends. The envelope (`status`, `output`, `reason`,
+  `error {kind, message}`, `links`) is closed too, so a result the server doesn't understand fails
+  the attempt.
+
+An older SDK keeps working as long as the server still knows everything it writes and requires
+nothing it doesn't. That is how releases have gone so far, but it is not tested across versions.
+
+While the SDK is in beta, any server or SDK release may still break a pipeline: a new required
+manifest field makes older SDKs fail reconcile, a renamed or removed field also stops versions
+already made from scheduling, and the authoring API (step options, library step settings) may
+change. Such a change is a `feat!`/`fix!` commit and shows under **Breaking changes** in the release
+notes.
 
 The service's build Job fetches the repo tarball at the commit, runs `bun install --frozen-lockfile`
 in the binding path, then `bunx olve-build`. A local

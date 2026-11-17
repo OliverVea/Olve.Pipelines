@@ -235,6 +235,21 @@ rejects hand-built `/api/` URLs.
 
 ## Versioning
 
+The server, `pl`, the images and the Helm chart share one version, the deploy run's stamp
+(`yyyy.MM.dd.<run>`, chart `yyyyMMdd.<run>.0`); prod's `promote` step makes a GitHub release of it,
+with the commits since the previous release grouped by conventional-commit type as its notes. The
+SDK has its own `2.0.0-beta.N`, bumped by hand in `src/sdk/package.json`; `publish-sdk` publishes a
+version npm doesn't have yet.
+
+No version range ties the two. A server accepts a pipeline when it can read its manifest
+(`apiVersion: "2.0"`, closed objects: `ManifestParser`, then `ManifestValidator`) and, at run time,
+its result envelope (`HarnessEnvelope`). So an SDK feature the manifest records needs the server
+change released first (CLAUDE.md, "Server first"), and a server change keeps older SDKs working
+only if it adds optional fields: a new required field, or a removed or renamed one, breaks
+pipelines on older SDKs, and `RunPlan` re-reads the stored manifests of versions already made. Mark
+such a change `!` in its commit. While the SDK is `beta` that may happen; the user docs say so
+(`docs/setup/getting-started.md`, "Which SDK versions a server accepts").
+
 ```bash
 dotnet run tools/version.cs                                          # 0.0.0-dev+cb9a99b
 dotnet run tools/version.cs -- --ci --run-number 42                  # 2026.3.28.42+cb9a99b

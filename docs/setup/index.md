@@ -62,8 +62,9 @@ continuing, blocking a step, switching versions, setting secret values — go th
 7. **[The `pl` CLI](cli.md)** — installing `pl`, profiles, every command.
 8. **The API** — the contract (`src/spec/*.tsp`) describes every operation, its auth, the error
    model and the event stream; an instance serves it as OpenAPI at `/docs/openapi.json`.
-9. **[Running an Instance](self-hosting.md)** — server configuration, logging, a local instance
-   with Docker Compose.
+9. **[Running an Instance](self-hosting.md)** — requirements, server configuration, logging, a
+   local instance with Docker Compose. **[A First Real Instance](first-instance.md)** installs one
+   on a cluster: Dex with GitHub, the allow-list, an Ingress with TLS, webhooks.
 10. **[Deploying to Docker Compose](compose-deploy.md)** — the compose deployer, `deployTarget()`
    and `steps.composeDeploy`.
 11. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on

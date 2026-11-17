@@ -6,6 +6,35 @@ An instance is the server (one container), its own Garage (S3-compatible storage
 namespace where it runs build and step Jobs. The Helm chart in `src/deploy/helm/` installs all of it
 (`src/deploy/helm/values-minimal.yaml` is the smallest profile). An instance can also deploy itself: the
 repo's own pipeline (`.pipelines/`) does, configured per instance ([Pipeline Config](configuration.md)).
+[A First Real Instance](first-instance.md) walks through a complete install.
+
+## Requirements
+
+- **GitHub.** Bindings and pull request CI work with GitHub only. Bindings read `github.com` or,
+  through `GitHub:ApiUrl`, a GitHub Enterprise API; webhook registration always goes to
+  `api.github.com`. The bundled Dex logs people in with GitHub; any other OIDC provider works through
+  `Auth:Authority`.
+- **Kubernetes.** The compose stack runs k3s `v1.31.4-k3s1`. The chart needs:
+  - a default StorageClass (or `garage.*StorageClass`, `dex.storageClass`) for three ReadWriteOnce
+    volumes: Garage's metadata (5Gi) and data (20Gi), and Dex's (1Gi);
+  - rights to create RBAC: a Role in the runner namespace (Jobs, Pods, their logs, Secrets) and a
+    ClusterRole that lists nodes and pods;
+  - the runner namespace, when `config.Kubernetes__Namespace` isn't the release namespace: the chart
+    creates the Role in it but not the namespace;
+  - an Ingress controller for the UI, and cert-manager or a TLS Secret for its certificate (or route to
+    the Service another way).
+- **x86-64 nodes.** The released images are linux/amd64, and steps run through the harness's x86-64
+  loader: a step image is any x86-64 image. Step pods set no architecture selector, so every node they
+  may land on must be x86-64.
+- **Network.** The server reaches the GitHub API and the cluster API; step and build pods reach their
+  image registries, GitHub, npm (the build Job's `bun install`) and the Garage endpoint
+  (`Storage:InClusterEndpoint`).
+- **gVisor, optional.** `Kubernetes:RuntimeClassName` runs step and build pods under a RuntimeClass,
+  such as gVisor's `runsc`. Recommended when the instance runs code you don't trust; the RuntimeClass
+  must exist, the chart doesn't create it. The chart installs no NetworkPolicy either.
+- **Previews.** Nothing beyond what the app's own deploy needs: a preview is whatever the pull
+  request's CI steps deploy. CI steps never get `clusterAccess`, so they reach their target with a
+  pipeline secret (a kubeconfig, an SSH key), and pull request CI needs `ci.authors` and webhooks.
 
 ## Installing on a cluster
 
@@ -79,7 +108,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
 | `Ci:Authors` | — | GitHub logins whose pull requests get CI, on every binding; a pull request by anyone else is ignored like one from a fork. Empty = no pull request gets CI. The chart sets it from `ci.authors` |
 | `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes). Changing it repoints the registered hooks |
-| `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the run/log links in a failure handler's `FailureContext` |
+| `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the links the instance hands out: commit statuses' links to CI runs, the run/log links in a failure handler's `FailureContext` |
 | `ExternalInputs:Poll:AllowedHosts` | — | Host names `poll()` inputs may reach although they resolve to private addresses (e.g. an in-cluster test service); empty = public addresses only. The server holds cluster and storage credentials, so list only hosts you trust |
 | `Retention:Enabled` / `Retention:DryRun` | `true` / `true` | Retention sweeps; **dry run by default** (logs only) — set `Retention__DryRun=false` to delete |
 | `Retention:KeepLatestRuns` / `Retention:MinRunAgeDays` | `20` / `183` | A run is deleted only when beyond the latest N **and** older than this; a pipeline's `retention` overrides both for its runs |
@@ -112,7 +141,9 @@ tokens in sqlite on a small PVC that survives `helm uninstall`. Route `<host>/de
    and an `allow` list. GitHub lets anyone sign in to Dex, so the chart refuses `dex` without one.
 
 Dex has one public client, `olve-pipelines`, for the web UI and `pl`. It accepts only the UI's
-`https://<host>/callback` and the device flow, so sign in with `pl login --device`.
+`https://<host>/callback`, the device flow and `pl login`'s loopback ports. The chart's Ingress
+routes the host to the server only; [A First Real Instance](first-instance.md#3-valuesyaml) adds
+the `/dex` route through `extraObjects`.
 
 A login lasts `dex.tokenLifetime` (default `168h`). Renewing a token re-checks the user with
 GitHub, which stops accepting the token Dex keeps for that within about a day, so in practice this

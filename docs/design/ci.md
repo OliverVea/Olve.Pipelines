@@ -287,5 +287,5 @@ CI uses the binding's credentials secret. A fine-grained token on the repo needs
 | Webhooks | read and write | the binding hook, with the `pull_request` event added |
 | Workflows | write | only if PRs change `.github/workflows/`: pushing the batch branch |
 
-A classic token needs `repo` and `admin:repo_hook`. Without write access the binding still gets PR
+A classic token needs `repo` and `admin:repo_hook`, and `workflow` when PRs change workflow files. Without write access the binding still gets PR
 runs, but no statuses and no queue; the binding's health says so.

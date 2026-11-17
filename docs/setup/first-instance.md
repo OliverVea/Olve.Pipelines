@@ -68,43 +68,17 @@ config:
   Webhooks__PublicBaseUrl: "https://pipelines.example.com"
   Links__BaseUrl: "https://pipelines.example.com"
   # Kubernetes__RuntimeClassName: "gvisor"      # only if the cluster has this RuntimeClass
-
-# Dex is served under /dex of the same host. The chart's Ingress routes the host to the server
-# only, so this one routes /dex to the Dex Service (<release>-dex, port 5556).
-extraObjects:
-  - apiVersion: networking.k8s.io/v1
-    kind: Ingress
-    metadata:
-      name: olve-pipelines-dex
-    spec:
-      tls:
-        - secretName: olve-pipelines-tls
-          hosts: [pipelines.example.com]
-      rules:
-        - host: pipelines.example.com
-          http:
-            paths:
-              - path: /dex
-                pathType: Prefix
-                backend:
-                  service:
-                    name: olve-pipelines-dex
-                    port:
-                      number: 5556
 ```
 
 - **Allow-list.** GitHub lets anyone sign in to Dex, so the chart refuses `dex` without
   `auth.allow`. `users` are GitHub logins, `orgs` are orgs or `org:team` (GitHub then asks each user
   for `read:org`). A login can be renamed and taken by someone else; subjects can't
   ([`Auth:Allow:*`](self-hosting.md#server-configuration)).
-- **Ingress.** The chart's Ingress names no IngressClass, so the cluster's default class serves it;
-  set another through `ingress.annotations`. It always carries the
-  `external-dns.alpha.kubernetes.io/target` annotation, from `ingress.externalDnsTarget` (empty by
+- **Ingress.** The chart's Ingress routes `/dex` to Dex and the rest of the host to the server. It
+  names no IngressClass, so the cluster's default class serves it; set another through
+  `ingress.annotations`. It always carries the `external-dns.alpha.kubernetes.io/target` annotation, from `ingress.externalDnsTarget` (empty by
   default). Without cert-manager, leave `clusterIssuer` empty and create the TLS Secret
-  `olve-pipelines-tls` yourself (`kubectl -n pipelines create secret tls …`). The extra Ingress
-  carries no issuer annotation: it reuses the certificate of the chart's.
-- **Names.** `extraObjects` is not templated: with another release name, change `olve-pipelines-dex`
-  to `<release>-dex`.
+  `olve-pipelines-tls` yourself (`kubectl -n pipelines create secret tls …`).
 
 ## 4. Webhooks or polling
 

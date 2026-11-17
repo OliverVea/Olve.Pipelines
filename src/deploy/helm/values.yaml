@@ -44,8 +44,9 @@ service:
 container:
   port: 5000
 
-# Optional Ingresses for the instance (off: route to the Service however your cluster does).
-# The private one serves the UI, API and /dex; the public one only the webhook receivers.
+# Optional Ingresses for the instance (off: route to the Services however your cluster does).
+# The private one serves the UI, API and, with dex.enabled, /dex; the public one only the webhook
+# receivers.
 ingress:
   enabled: false
   host: ""
@@ -99,9 +100,9 @@ garage:
       cpu: 500m
       memory: 512Mi
 
-# Bundled Dex (OIDC with a GitHub upstream), served under /dex on the instance's host: the edge
-# routes <host>/dex to the <release>-dex Service. GitHub app credentials come from githubSecret
-# (keys github-client-id, github-client-secret).
+# Bundled Dex (OIDC with a GitHub upstream), served under /dex on the instance's host: the chart's
+# Ingress routes <host>/dex to the <release>-dex Service (port 5556); without it, the edge must.
+# GitHub app credentials come from githubSecret (keys github-client-id, github-client-secret).
 dex:
   enabled: false
   image: "dexidp/dex:v2.43.1"

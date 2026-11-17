@@ -33,10 +33,10 @@ public class GitHubClient : IGitHubClient, IDisposable
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubClient>? _logger;
 
-    public GitHubClient(ILogger<GitHubClient>? logger = null)
+    public GitHubClient(IConfiguration configuration, ILogger<GitHubClient>? logger = null)
     {
         _logger = logger;
-        _httpClient = new HttpClient { BaseAddress = new Uri("https://api.github.com/") };
+        _httpClient = new HttpClient { BaseAddress = new Uri(GitHubEndpoints.ApiUrl(configuration) + "/") };
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("olve-pipelines");
         _httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");

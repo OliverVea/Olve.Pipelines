@@ -1,7 +1,7 @@
 namespace Olve.Pipelines.GitHub;
 
 /// <summary>
-/// Where GitHub is: <c>GitHub:ApiUrl</c> (config cursors, branch heads, private tarballs) and
+/// Where GitHub is: <c>GitHub:ApiUrl</c> (config cursors, branch heads, private tarballs, webhook registration) and
 /// <c>GitHub:CodeloadUrl</c> (public tarballs). Defaults are github.com; a GitHub Enterprise host or a
 /// local stand-in for tests goes here.
 /// </summary>

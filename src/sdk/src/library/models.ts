@@ -65,7 +65,7 @@ export const MirroredCommit = model(
   z.object({ repository: z.string(), commit: z.string() }),
 );
 
-/** A Cloudflare Pages deploy of a site: the project and the URL its production deploys are served at. */
+/** A Cloudflare Pages deploy of a site: the project and the URL the deploy is served at (its branch alias for a preview). */
 export const PagesDeployment = model(
   'PagesDeployment',
   z.object({ project: z.string(), url: z.string() }),

@@ -290,7 +290,7 @@ a step only one pipeline needs stays a custom step there.
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value; its optional `link` is the public URL the step links to), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 | `steps.mirrorToRepo` | `debian:bookworm-slim` | `{ snapshot: Snapshot }`, plus `source: Source` with `rules` → `MirroredCommit { repository, commit }` | `repository` (`owner/name` on GitHub), `deployKey: Secret` (a deploy key with write access), `author: { name, email }`, `hostKey?` (default GitHub's published ed25519 key), `base?` (a branch of the repository whose files go under the snapshot's), `rules?` (a gitleaks TOML in the source tree), `canaries?` (rule id → a sample line that must trip it; needs `rules`) |
-| `steps.staticSite` | kaniko (`image`), `alpine/helm:3.16.2` (deploys, previews), `node:22-bookworm-slim` (`pages`) | `{ site: Site }` → `PushedImage`; `{ image: PushedImage }` → `HelmRelease`; previews also read `CiInput`; `pages`: `{ site: Site }` → `PagesDeployment` | `name` (step name prefix), `repository?` (needed by `image`), `registryMap?`, `registryAuth?`, `secrets?`, `wasm?`, `spa?`, `dir?`; then `deploy({ name, target, sshKey?, ingress?, healthPath?, … })`, `preview({ kubeconfig, namespace, domain, tlsSecret?, className?, annotations?, release? })` and `pages({ name, accountId, project, apiToken, link? })` |
+| `steps.staticSite` | kaniko (`image`), `alpine/helm:3.16.2` (deploys, previews), `node:22-bookworm-slim` (`pages`) | `{ site: Site }` → `PushedImage`; `{ image: PushedImage }` → `HelmRelease`; previews also read `CiInput`; `pages`: `{ site: Site }` → `PagesDeployment` | `name` (step name prefix), `repository?` (needed by `image`), `registryMap?`, `registryAuth?`, `secrets?`, `wasm?`, `spa?`, `dir?`; then `deploy({ name, target, sshKey?, ingress?, healthPath?, … })`, `preview({ kubeconfig, namespace, domain, tlsSecret?, className?, annotations?, release? })` and `pages({ name, accountId, project, apiToken, link?, branch? })` |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
 output take a config reference instead of a literal (`repository: PUBLISH.server.repository`); `push`,
@@ -465,6 +465,10 @@ config are reserved.
   `apiToken` is a secret holding a Cloudflare API token with Account → Cloudflare Pages → Edit; the step
   checks the project's `pages.dev` URL answers and links `link` (the custom domain, attached to the
   project in Cloudflare) or that URL. Pages clears its cache on every deploy.
+  `branch` (default `main`, the production branch) deploys a preview instead: Pages serves the newest
+  deploy of a branch at its alias `https://<branch>.<the project's pages.dev host>`, which the step checks and links
+  (`link` stays the production site's). The branch must be a DNS label of at most 28 characters, the
+  length of an alias; a longer one is refused when the pipeline is described.
   Hosts, namespaces, accounts and certificate names come from config:
 
   ```ts

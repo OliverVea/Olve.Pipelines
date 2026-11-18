@@ -134,7 +134,7 @@ export interface SitePreviewDef<K extends string> {
   timeoutSeconds?: number;
 }
 
-/** A deploy to Cloudflare Pages: the site's files are uploaded as the project's production deploy. */
+/** A deploy to Cloudflare Pages: the site's files are uploaded as the project's production deploy, or a branch's preview. */
 export interface SitePagesDef<D extends string, K extends string> {
   name: LiteralName<D>;
   /** What the step does, shown in the UI. Default: a sentence about the deploy. */
@@ -147,6 +147,12 @@ export interface SitePagesDef<D extends string, K extends string> {
   apiToken: Secret<K>;
   /** The site's public URL (its custom domain), linked from the step; unset = the project's `pages.dev` URL. */
   link?: Configurable<string | undefined>;
+  /**
+   * The Pages branch deployed to. Default `main`, the project's production branch. Another branch is a
+   * preview at its alias `https://<branch>.<project subdomain>`, which the step checks and links (`link`
+   * is the production site's, so it is not used). A DNS label of at most 28 characters.
+   */
+  branch?: string;
   timeoutSeconds?: number;
 }
 
@@ -454,11 +460,19 @@ export function staticSite<const N extends string, const K extends string = neve
   };
 
   const pages = (p: SitePagesDef<string, string>) => {
+    const branch = p.branch ?? PAGES_PRODUCTION_BRANCH;
+    if (branch.length > PAGES_BRANCH_MAX || !DNS_LABEL.test(branch))
+      throw new Error(
+        `staticSite '${def.name}': pages branch '${branch}' must be a DNS label (a-z, 0-9, '-') of at most ${PAGES_BRANCH_MAX} characters`,
+      );
+    const production = branch === PAGES_PRODUCTION_BRANCH;
     const contract = step({
       name: p.name,
       description:
         p.description ??
-        "Uploads the site to Cloudflare Pages as the project's production deploy.",
+        (production
+          ? "Uploads the site to Cloudflare Pages as the project's production deploy."
+          : `Uploads the site to Cloudflare Pages as the preview of branch ${branch}.`),
       kind: 'pagesDeploy',
       image: PAGES_IMAGE,
       input: { site: Site },
@@ -471,6 +485,7 @@ export function staticSite<const N extends string, const K extends string = neve
         project: p.project,
         apiToken: p.apiToken.name,
         ...(p.link !== undefined ? { link: p.link } : {}),
+        ...(production ? {} : { branch }),
         site: { ...(dir ? { dir } : {}), wasm, spa },
       },
     });
@@ -507,7 +522,7 @@ export function staticSite<const N extends string, const K extends string = neve
 
       const project = await ensurePagesProject(ctx, v.accountId, v.project, token);
       const home = join(ctx.tmpDir, 'pages-home');
-      ctx.log('wrangler pages deploy', { project: v.project });
+      ctx.log('wrangler pages deploy', { project: v.project, branch });
       await ctx.exec(
         [
           'npx',
@@ -519,7 +534,7 @@ export function staticSite<const N extends string, const K extends string = neve
           '--project-name',
           v.project,
           '--branch',
-          PAGES_PRODUCTION_BRANCH,
+          branch,
           '--commit-dirty=true',
         ],
         {
@@ -535,9 +550,10 @@ export function staticSite<const N extends string, const K extends string = neve
           idleTimeoutSeconds: 300,
         },
       );
-      const url = `https://${project.subdomain}`;
+      const url = `https://${production ? '' : `${branch}.`}${project.subdomain}`;
       await httpHealthCheck(ctx, url);
-      ctx.link(v.link ?? url, 'site');
+      if (production) ctx.link(v.link ?? url, 'site');
+      else ctx.link(url, `preview (${branch})`);
       return { project: v.project, url };
     });
   };
@@ -561,8 +577,11 @@ export const PAGES_IMAGE =
 /** The wrangler the step runs with npx. */
 export const WRANGLER_VERSION = '4.156.0';
 
-/** The branch a deploy is made on, which is the project's production branch. */
+/** The project's production branch, and the branch a deploy is made on by default. */
 export const PAGES_PRODUCTION_BRANCH = 'main';
+
+/** Pages truncates a branch alias to 28 characters; a longer branch would get an alias the step can't predict. */
+const PAGES_BRANCH_MAX = 28;
 
 const CLOUDFLARE_API = 'https://api.cloudflare.com/client/v4';
 

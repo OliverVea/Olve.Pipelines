@@ -83,6 +83,7 @@ ${tryFiles}	file_server {
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
 		Cross-Origin-Opener-Policy same-origin
+		Cache-Control no-cache
 		Content-Security-Policy "default-src 'self'; script-src ${scriptSrc}; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
 	}
 }

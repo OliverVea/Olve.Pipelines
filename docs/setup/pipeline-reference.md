@@ -442,7 +442,8 @@ config are reserved.
   `site` when the root is a source tree) and the SDK brings the rest: `site.image` (`<name>-image`)
   builds an image of the Caddy binary (pinned by digest) on `scratch`, running as 65532 on port 8080,
   with a generated Caddyfile (no admin API, precompressed `br`/`gzip` files, `X-Content-Type-Options`,
-  `Referrer-Policy`, `Cross-Origin-Opener-Policy` and a CSP; `wasm: true` adds `'wasm-unsafe-eval'` to
+  `Referrer-Policy`, `Cross-Origin-Opener-Policy`, a CSP and `Cache-Control: no-cache`, so browsers and
+  CDNs revalidate every file and a deploy shows on the next load; `wasm: true` adds `'wasm-unsafe-eval'` to
   `script-src`, `spa: true` answers unknown paths with `/index.html`), and pushes it like
   `imageBuild` with `push`. `site.deploy(…)` installs the bundled chart (a Deployment, a Service, a
   NetworkPolicy that admits traefik and step pods, and an Ingress when `ingress.host` is set) on a

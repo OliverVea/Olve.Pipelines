@@ -34,7 +34,12 @@ export interface CaddyfileOptions {
   spa: boolean;
 }
 
-/** The Caddyfile: static files from /srv, precompressed variants, security headers and a CSP. */
+/**
+ * The Caddyfile: static files from /srv, precompressed variants, security headers and a CSP.
+ * `Cache-Control: no-cache` makes browsers and CDNs revalidate every file (a 304 when unchanged), so a
+ * deploy shows on the next load: without it a CDN such as Cloudflare adds its own max-age and serves
+ * the previous build's unfingerprinted files (index.html, main.js, dotnet.js) for hours.
+ */
 export function siteCaddyfile(o: CaddyfileOptions): string {
   const scriptSrc = o.wasm ? "'self' 'wasm-unsafe-eval'" : "'self'";
   const csp = [
@@ -67,6 +72,7 @@ ${o.spa ? '\ttry_files {path} {path}/ /index.html\n' : ''}\tfile_server {
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
 		Cross-Origin-Opener-Policy same-origin
+		Cache-Control no-cache
 		Content-Security-Policy "${csp}"
 	}
 }

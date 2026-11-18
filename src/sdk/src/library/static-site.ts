@@ -44,8 +44,11 @@ import {
 export interface StaticSiteDef<N extends string, K extends string = never> {
   /** Prefix of the step names: `<name>-image`, `<name>-preview`, `<name>-preview-remove`. */
   name: LiteralName<N>;
-  /** Registry repository the image is pushed to (`registry.example.com/web`); deploys pin it by digest. */
-  repository: Configurable<string>;
+  /**
+   * Registry repository the image is pushed to (`registry.example.com/web`); deploys pin it by digest. Needed by
+   * `image`; a site published only with `pages` has none.
+   */
+  repository?: Configurable<string>;
   /** kaniko `--registry-map` for the Caddy base image, as in `imageBuild`. */
   registryMap?: Configurable<Record<string, string> | undefined>;
   /** Login for the registry of `repository`, as in `imageBuild`. */
@@ -241,48 +244,53 @@ export function staticSite<const N extends string, const K extends string = neve
   const dir = checkDir(def.name, def.dir ?? '');
   const wasm = def.wasm === true;
   const spa = def.spa === true;
-  const builder = imageBuilder({
-    name: `${def.name}-image`,
-    repository: def.repository,
-    push: true,
-    ...(def.registryMap !== undefined ? { registryMap: def.registryMap } : {}),
-    ...(def.registryAuth !== undefined ? { registryAuth: def.registryAuth } : {}),
-    ...(def.secrets !== undefined ? { secrets: def.secrets } : {}),
-  });
-  const imageContract = step({
-    name: `${def.name}-image` as LiteralName<`${N}-image`>,
-    description:
-      "Builds the site's image (Caddy on an empty image, with the site) with kaniko and pushes it.",
-    kind: 'imageBuild',
-    image: KANIKO_IMAGE,
-    input: { site: Site },
-    output: PushedImage,
-    secrets: builder.secrets as readonly Secret<K>[],
-    timeoutSeconds: def.timeoutSeconds,
-    retries: DEFAULT_RETRIES,
-    settings: {
-      ...builder.settings,
-      site: { ...(dir ? { dir } : {}), wasm, spa },
-    },
-  });
-  const image = implement(
-    imageContract,
-    async ({ site }, ctx: Ctx) =>
-      builder.build(ctx, async () => {
-        const root = await ctx.files.fetch(site.root);
-        const from = dir ? join(root, dir) : root;
-        if (!existsSync(from) || !statSync(from).isDirectory())
-          throw new Error(`'${dir}' is not a directory of the site root`);
-        if (!existsSync(join(from, 'index.html')))
-          throw new Error(`the site has no index.html${dir ? ` (in '${dir}')` : ''}`);
-        mkdirSync(ctx.tmpDir, { recursive: true });
-        const context = mkdtempSync(join(ctx.tmpDir, 'site-'));
-        writeFileSync(join(context, 'Dockerfile'), siteDockerfile());
-        writeFileSync(join(context, 'Caddyfile'), siteCaddyfile({ wasm, spa }));
-        cpSync(from, join(context, 'wwwroot'), { recursive: true });
-        return context;
-      }) as never,
-  ) as never;
+  const makeImage = (repository: Configurable<string>) => {
+    const builder = imageBuilder({
+      name: `${def.name}-image`,
+      repository: repository,
+      push: true,
+      ...(def.registryMap !== undefined ? { registryMap: def.registryMap } : {}),
+      ...(def.registryAuth !== undefined ? { registryAuth: def.registryAuth } : {}),
+      ...(def.secrets !== undefined ? { secrets: def.secrets } : {}),
+    });
+    const imageContract = step({
+      name: `${def.name}-image` as LiteralName<`${N}-image`>,
+      description:
+        "Builds the site's image (Caddy on an empty image, with the site) with kaniko and pushes it.",
+      kind: 'imageBuild',
+      image: KANIKO_IMAGE,
+      input: { site: Site },
+      output: PushedImage,
+      secrets: builder.secrets as readonly Secret<K>[],
+      timeoutSeconds: def.timeoutSeconds,
+      retries: DEFAULT_RETRIES,
+      settings: {
+        ...builder.settings,
+        site: { ...(dir ? { dir } : {}), wasm, spa },
+      },
+    });
+    const image = implement(
+      imageContract,
+      async ({ site }, ctx: Ctx) =>
+        builder.build(ctx, async () => {
+          const root = await ctx.files.fetch(site.root);
+          const from = dir ? join(root, dir) : root;
+          if (!existsSync(from) || !statSync(from).isDirectory())
+            throw new Error(`'${dir}' is not a directory of the site root`);
+          if (!existsSync(join(from, 'index.html')))
+            throw new Error(`the site has no index.html${dir ? ` (in '${dir}')` : ''}`);
+          mkdirSync(ctx.tmpDir, { recursive: true });
+          const context = mkdtempSync(join(ctx.tmpDir, 'site-'));
+          writeFileSync(join(context, 'Dockerfile'), siteDockerfile());
+          writeFileSync(join(context, 'Caddyfile'), siteCaddyfile({ wasm, spa }));
+          cpSync(from, join(context, 'wwwroot'), { recursive: true });
+          return context;
+        }) as never,
+    ) as never;
+    return image;
+  };
+  const image =
+    def.repository === undefined ? undefined : (makeImage(def.repository) as never);
 
   const deploy = (d: SiteDeployCommon<string> & { target: unknown; sshKey?: Secret }) =>
     targetDeploy(
@@ -534,7 +542,16 @@ export function staticSite<const N extends string, const K extends string = neve
     });
   };
 
-  return { image, deploy, preview, pages } as never;
+  return {
+    get image() {
+      if (image === undefined)
+        throw new Error(`staticSite '${def.name}': image needs repository`);
+      return image;
+    },
+    deploy,
+    preview,
+    pages,
+  } as never;
 }
 
 /** Node on Debian (wrangler's workerd is built for glibc), pinned by digest. */

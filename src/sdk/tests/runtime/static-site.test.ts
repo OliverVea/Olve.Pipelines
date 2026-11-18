@@ -952,6 +952,15 @@ describe('steps.staticSite: Cloudflare Pages', () => {
     expect(f.checked).toEqual(['https://web-3x7.pages.dev']);
   });
 
+  test('a site published only to Pages needs no repository; its image needs one', () => {
+    const s = steps.staticSite({ name: 'web' });
+    expect(
+      s.pages({ name: 'publish-web', accountId: 'a', project: 'p', apiToken: TOKEN })
+        .name,
+    ).toBe('publish-web');
+    expect(() => s.image).toThrow("staticSite 'web': image needs repository");
+  });
+
   test('a missing project is created with main as production; a single-page app gets no 404 page', async () => {
     const f = fakes({ 'index.html': 'page' }, [
       { status: 404, body: { success: false } },

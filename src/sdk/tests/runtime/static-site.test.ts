@@ -813,13 +813,17 @@ describe('steps.staticSite: Cloudflare Pages', () => {
     'Where the site is published.',
     z.object({ accountId: z.string(), project: z.string(), link: z.string().optional() }),
   );
-  const pagesStep = (o: { wasm?: boolean; spa?: boolean } = {}) =>
+  const pagesStep = ({
+    branch,
+    ...o
+  }: { wasm?: boolean; spa?: boolean; branch?: string } = {}) =>
     site(o).pages({
       name: 'publish-web',
       accountId: PAGES.accountId,
       project: PAGES.project,
       apiToken: TOKEN,
       link: PAGES.link,
+      ...(branch !== undefined ? { branch } : {}),
     });
   type Answer = { status: number; body: unknown };
   const fakes = (layout: Record<string, string>, answers: Answer[]) => {
@@ -862,7 +866,7 @@ describe('steps.staticSite: Cloudflare Pages', () => {
   };
   const run = (
     f: ReturnType<typeof fakes>,
-    o: { wasm?: boolean; spa?: boolean } = {},
+    o: { wasm?: boolean; spa?: boolean; branch?: string } = {},
     pages: Record<string, string> = { accountId: 'acct-1', project: 'web' },
   ) =>
     testHandler(
@@ -950,6 +954,37 @@ describe('steps.staticSite: Cloudflare Pages', () => {
       CLOUDFLARE_ACCOUNT_ID: 'acct-1',
     });
     expect(f.checked).toEqual(['https://web-3x7.pages.dev']);
+  });
+
+  test('a branch other than main is a preview: deployed on that branch, checked and linked at its alias, not at link', async () => {
+    const s = pagesStep({ branch: 'preview' });
+    expect(s.description).toBe(
+      'Uploads the site to Cloudflare Pages as the preview of branch preview.',
+    );
+    expect(recordConfigRefs(s.settings)).toMatchObject({ branch: 'preview' });
+    const f = fakes({ 'index.html': 'page' }, [project]);
+    const r = await run(
+      f,
+      { branch: 'preview' },
+      { accountId: 'acct-1', project: 'web', link: 'https://www.example.com' },
+    );
+    expect(r).toMatchObject({
+      status: 'succeeded',
+      output: { project: 'web', url: 'https://preview.web-3x7.pages.dev' },
+      links: [{ url: 'https://preview.web-3x7.pages.dev', label: 'preview (preview)' }],
+    });
+    expect(f.calls[0]!.argv.slice(8, 10)).toEqual(['--branch', 'preview']);
+    expect(f.checked).toEqual(['https://preview.web-3x7.pages.dev']);
+  });
+
+  test.each([
+    ['Preview', "pages branch 'Preview'"],
+    ['feature/synth', "pages branch 'feature/synth'"],
+    ['a-branch-name-longer-than-28c', "pages branch 'a-branch-name-longer-than-28c'"],
+  ])('refuses the branch %s', (branch, start) => {
+    expect(() => pagesStep({ branch })).toThrow(
+      `staticSite 'web': ${start} must be a DNS label (a-z, 0-9, '-') of at most 28 characters`,
+    );
   });
 
   test('a site published only to Pages needs no repository; its image needs one', () => {

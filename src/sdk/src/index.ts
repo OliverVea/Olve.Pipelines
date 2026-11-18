@@ -122,6 +122,7 @@ export {
   FailureContext,
   Snapshot,
   MirroredCommit,
+  PagesDeployment,
   type MirrorToRepoDef,
   type GitHubSourceDef,
   type ImageBuildDef,

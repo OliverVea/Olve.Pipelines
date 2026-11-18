@@ -35,12 +35,14 @@ export interface CaddyfileOptions {
 }
 
 /**
- * The Caddyfile: static files from /srv, precompressed variants, security headers and a CSP.
- * `Cache-Control: no-cache` makes browsers and CDNs revalidate every file (a 304 when unchanged), so a
- * deploy shows on the next load: without it a CDN such as Cloudflare adds its own max-age and serves
- * the previous build's unfingerprinted files (index.html, main.js, dotnet.js) for hours.
+ * The headers every response of the site carries, wherever it is served (the Caddyfile, Cloudflare Pages'
+ * `_headers`). `Cache-Control: no-cache` makes browsers and CDNs revalidate every file (a 304 when unchanged), so
+ * a deploy shows on the next load: without it a CDN such as Cloudflare adds its own max-age and serves the previous
+ * build's unfingerprinted files (index.html, main.js, dotnet.js) for hours.
  */
-export function siteCaddyfile(o: CaddyfileOptions): string {
+export function siteHeaders(o: {
+  wasm: boolean;
+}): readonly (readonly [string, string])[] {
   const scriptSrc = o.wasm ? "'self' 'wasm-unsafe-eval'" : "'self'";
   const csp = [
     "default-src 'self'",
@@ -51,6 +53,20 @@ export function siteCaddyfile(o: CaddyfileOptions): string {
     "base-uri 'none'",
     "frame-ancestors 'none'",
   ].join('; ');
+  return [
+    ['X-Content-Type-Options', 'nosniff'],
+    ['Referrer-Policy', 'no-referrer'],
+    ['Cross-Origin-Opener-Policy', 'same-origin'],
+    ['Cache-Control', 'no-cache'],
+    ['Content-Security-Policy', csp],
+  ];
+}
+
+/** The Caddyfile: static files from /srv, precompressed variants and {@link siteHeaders}. */
+export function siteCaddyfile(o: CaddyfileOptions): string {
+  const headers = siteHeaders(o)
+    .map(([name, value]) => `\t\t${name} ${/[\s;]/.test(value) ? `"${value}"` : value}\n`)
+    .join('');
   return `{
 	admin off
 	persist_config off
@@ -69,15 +85,24 @@ ${o.spa ? '\ttry_files {path} {path}/ /index.html\n' : ''}\tfile_server {
 	}
 	header {
 		-Server
-		X-Content-Type-Options nosniff
-		Referrer-Policy no-referrer
-		Cross-Origin-Opener-Policy same-origin
-		Cache-Control no-cache
-		Content-Security-Policy "${csp}"
-	}
+${headers}\t}
 }
 `;
 }
+
+/** Cloudflare Pages' `_headers` file: {@link siteHeaders} on every path. */
+export function pagesHeaders(o: { wasm: boolean }): string {
+  return `/*\n${siteHeaders(o)
+    .map(([name, value]) => `  ${name}: ${value}\n`)
+    .join('')}`;
+}
+
+/**
+ * The `404.html` a site that isn't a single-page app gets on Cloudflare Pages: without one, Pages answers unknown
+ * paths with `/index.html` and a 200, so a missing script arrives as HTML instead of a 404.
+ */
+export const PAGES_NOT_FOUND =
+  '<!doctype html>\n<title>Not found</title>\n<p>Not found.</p>\n';
 
 /** The chart's name and files (path → content). */
 export const SITE_CHART_NAME = 'static-site';

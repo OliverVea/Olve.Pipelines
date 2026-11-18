@@ -8,7 +8,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { CiInput } from '../builder/checks.ts';
 import type { Ctx } from '../ctx/types.ts';
@@ -30,8 +30,11 @@ import {
   type RegistryAuth,
   type RegistryAuthConfig,
 } from './image-build.ts';
-import { HelmRelease, PushedImage, Site } from './models.ts';
+import { httpHealthCheck } from './http-health.ts';
+import { HelmRelease, PagesDeployment, PushedImage, Site } from './models.ts';
 import {
+  PAGES_NOT_FOUND,
+  pagesHeaders,
   SITE_CHART_NAME,
   siteCaddyfile,
   siteDockerfile,
@@ -128,6 +131,22 @@ export interface SitePreviewDef<K extends string> {
   timeoutSeconds?: number;
 }
 
+/** A deploy to Cloudflare Pages: the site's files are uploaded as the project's production deploy. */
+export interface SitePagesDef<D extends string, K extends string> {
+  name: LiteralName<D>;
+  /** What the step does, shown in the UI. Default: a sentence about the deploy. */
+  description?: string;
+  /** The Cloudflare account that owns the project. */
+  accountId: Configurable<string>;
+  /** The Pages project; created on the first deploy when it doesn't exist. */
+  project: Configurable<string>;
+  /** A Cloudflare API token with Account → Cloudflare Pages → Edit on the account. */
+  apiToken: Secret<K>;
+  /** The site's public URL (its custom domain), linked from the step; unset = the project's `pages.dev` URL. */
+  link?: Configurable<string | undefined>;
+  timeoutSeconds?: number;
+}
+
 type SiteImageInput = { readonly site: typeof Site };
 type SiteDeployInput = { readonly image: typeof PushedImage };
 type PreviewInput = { readonly image: typeof PushedImage; readonly ci: typeof CiInput };
@@ -152,6 +171,10 @@ export interface StaticSite<N extends string, K extends string> {
   ): Implementation<Step<D, SiteDeployInput, typeof HelmRelease, S>>;
   /** A pull request's preview and its removal, for `checks()`. */
   preview<const P extends string>(def: SitePreviewDef<P>): SitePreview<N, P>;
+  /** Uploads the site to Cloudflare Pages with wrangler: `Site` in, `PagesDeployment` out. No image is built. */
+  pages<const D extends string, const P extends string>(
+    def: SitePagesDef<D, P>,
+  ): Implementation<Step<D, SiteImageInput, typeof PagesDeployment, P>>;
 }
 
 /** Default `rolloutTimeoutSeconds` of a preview. */
@@ -422,7 +445,154 @@ export function staticSite<const N extends string, const K extends string = neve
     return { deploy, remove } as never;
   };
 
-  return { image, deploy, preview } as never;
+  const pages = (p: SitePagesDef<string, string>) => {
+    const contract = step({
+      name: p.name,
+      description:
+        p.description ??
+        "Uploads the site to Cloudflare Pages as the project's production deploy.",
+      kind: 'pagesDeploy',
+      image: PAGES_IMAGE,
+      input: { site: Site },
+      output: PagesDeployment,
+      secrets: [p.apiToken],
+      timeoutSeconds: p.timeoutSeconds ?? 900,
+      retries: DEFAULT_RETRIES,
+      settings: {
+        accountId: p.accountId,
+        project: p.project,
+        apiToken: p.apiToken.name,
+        ...(p.link !== undefined ? { link: p.link } : {}),
+        site: { ...(dir ? { dir } : {}), wasm, spa },
+      },
+    });
+    return implement(contract, async ({ site }, ctx: Ctx) => {
+      const v = resolveConfigRefs(
+        { accountId: p.accountId, project: p.project, link: p.link },
+        ctx.config ?? {},
+      ) as { accountId: string; project: string; link?: string };
+      const token = (ctx.secrets as Record<string, string | undefined>)[p.apiToken.name];
+      if (!token?.trim())
+        throw new Error(`secret ${p.apiToken.name} (apiToken) is not set`);
+
+      const root = await ctx.files.fetch(site.root);
+      const from = dir ? join(root, dir) : root;
+      if (!existsSync(from) || !statSync(from).isDirectory())
+        throw new Error(`'${dir}' is not a directory of the site root`);
+      if (!existsSync(join(from, 'index.html')))
+        throw new Error(`the site has no index.html${dir ? ` (in '${dir}')` : ''}`);
+      if (existsSync(join(from, '_headers')))
+        throw new Error(
+          "the site has its own _headers: the step writes it (set the headers with the step's options)",
+        );
+      mkdirSync(ctx.tmpDir, { recursive: true });
+      const upload = join(mkdtempSync(join(ctx.tmpDir, 'pages-')), 'site');
+      // Pages compresses on its own; the precompressed copies Caddy serves would only add files.
+      cpSync(from, upload, {
+        recursive: true,
+        filter: (src) =>
+          !(/\.(br|gz)$/.test(src) && existsSync(src.replace(/\.(br|gz)$/, ''))),
+      });
+      writeFileSync(join(upload, '_headers'), pagesHeaders({ wasm }));
+      if (!spa && !existsSync(join(upload, '404.html')))
+        writeFileSync(join(upload, '404.html'), PAGES_NOT_FOUND);
+
+      const project = await ensurePagesProject(ctx, v.accountId, v.project, token);
+      const home = join(ctx.tmpDir, 'pages-home');
+      ctx.log('wrangler pages deploy', { project: v.project });
+      await ctx.exec(
+        [
+          'npx',
+          '--yes',
+          `wrangler@${WRANGLER_VERSION}`,
+          'pages',
+          'deploy',
+          upload,
+          '--project-name',
+          v.project,
+          '--branch',
+          PAGES_PRODUCTION_BRANCH,
+          '--commit-dirty=true',
+        ],
+        {
+          cwd: dirname(upload),
+          env: {
+            CLOUDFLARE_API_TOKEN: token,
+            CLOUDFLARE_ACCOUNT_ID: v.accountId,
+            HOME: home,
+            npm_config_cache: join(home, 'npm'),
+            WRANGLER_SEND_METRICS: 'false',
+            CI: 'true',
+          },
+          idleTimeoutSeconds: 300,
+        },
+      );
+      const url = `https://${project.subdomain}`;
+      await httpHealthCheck(ctx, url);
+      ctx.link(v.link ?? url, 'site');
+      return { project: v.project, url };
+    });
+  };
+
+  return { image, deploy, preview, pages } as never;
+}
+
+/** Node on Debian (wrangler's workerd is built for glibc), pinned by digest. */
+export const PAGES_IMAGE =
+  'node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee';
+
+/** The wrangler the step runs with npx. */
+export const WRANGLER_VERSION = '4.156.0';
+
+/** The branch a deploy is made on, which is the project's production branch. */
+export const PAGES_PRODUCTION_BRANCH = 'main';
+
+const CLOUDFLARE_API = 'https://api.cloudflare.com/client/v4';
+
+/** Reads the Pages project, creating it with {@link PAGES_PRODUCTION_BRANCH} as production when it doesn't exist. */
+async function ensurePagesProject(
+  ctx: Pick<Ctx, 'http' | 'log'>,
+  accountId: string,
+  name: string,
+  token: string,
+): Promise<{ subdomain: string }> {
+  const base = `${CLOUDFLARE_API}/accounts/${encodeURIComponent(accountId)}/pages/projects`;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+  const call = async (what: string, url: string, init: RequestInit) => {
+    const res = await ctx.http.fetch(url, { ...init, headers });
+    const body = (await res.json().catch(() => ({}))) as {
+      result?: { subdomain?: string };
+      errors?: { message?: string }[];
+    };
+    return {
+      res,
+      body,
+      fail: () => {
+        const reason = body.errors
+          ?.map((e) => e.message)
+          .filter(Boolean)
+          .join('; ');
+        return new Error(
+          `Cloudflare Pages: ${what} '${name}' failed with ${res.status}${reason ? `: ${reason}` : ''}`,
+        );
+      },
+    };
+  };
+  let r = await call('reading project', `${base}/${encodeURIComponent(name)}`, {
+    method: 'GET',
+  });
+  if (r.res.status === 404) {
+    ctx.log('creating Pages project', { project: name });
+    r = await call('creating project', base, {
+      method: 'POST',
+      body: JSON.stringify({ name, production_branch: PAGES_PRODUCTION_BRANCH }),
+    });
+  }
+  if (!r.res.ok || !r.body.result?.subdomain) throw r.fail();
+  return { subdomain: r.body.result.subdomain };
 }
 
 const kubeconfigOf = (ctx: Pick<Ctx, 'secrets'>, secret: Secret): string =>

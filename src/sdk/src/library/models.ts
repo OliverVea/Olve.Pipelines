@@ -65,6 +65,12 @@ export const MirroredCommit = model(
   z.object({ repository: z.string(), commit: z.string() }),
 );
 
+/** A Cloudflare Pages deploy of a site: the project and the URL its production deploys are served at. */
+export const PagesDeployment = model(
+  'PagesDeployment',
+  z.object({ project: z.string(), url: z.string() }),
+);
+
 /** One failed step of a run, as seen by a failure handler. */
 export const FailedStep = z.object({
   step: z.string(),

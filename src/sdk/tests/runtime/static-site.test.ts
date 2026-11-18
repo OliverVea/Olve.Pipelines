@@ -33,11 +33,18 @@ import { SERVICE_ACCOUNT_TOKEN } from '../../src/library/helm-deploy.ts';
 import { KANIKO_IMAGE } from '../../src/library/image-build.ts';
 import {
   CADDY_IMAGE,
+  PAGES_NOT_FOUND,
+  pagesHeaders,
   SITE_CHART,
   siteCaddyfile,
+  siteHeaders,
   siteDockerfile,
 } from '../../src/library/static-site-assets.ts';
-import { defaultPreviewPrefix } from '../../src/library/static-site.ts';
+import {
+  defaultPreviewPrefix,
+  PAGES_IMAGE,
+  WRANGLER_VERSION,
+} from '../../src/library/static-site.ts';
 import { testFileRef, testHandler } from '../../src/testing/index.ts';
 import { tmp, removeTmpDirs } from './helpers.ts';
 
@@ -795,5 +802,194 @@ describe('steps.staticSite in the manifest', () => {
         { namespace: { $config: 'preview.namespace' } },
       ],
     ]);
+  });
+});
+
+describe('steps.staticSite: Cloudflare Pages', () => {
+  const TOKEN = secret('CLOUDFLARE_API_TOKEN', 'token');
+  const API = 'https://api.cloudflare.com/client/v4/accounts/acct-1/pages/projects';
+  const PAGES = config(
+    'pages',
+    'Where the site is published.',
+    z.object({ accountId: z.string(), project: z.string(), link: z.string().optional() }),
+  );
+  const pagesStep = (o: { wasm?: boolean; spa?: boolean } = {}) =>
+    site(o).pages({
+      name: 'publish-web',
+      accountId: PAGES.accountId,
+      project: PAGES.project,
+      apiToken: TOKEN,
+      link: PAGES.link,
+    });
+  type Answer = { status: number; body: unknown };
+  const fakes = (layout: Record<string, string>, answers: Answer[]) => {
+    const root = tmp('pages-root');
+    for (const [path, text] of Object.entries(layout)) {
+      mkdirSync(join(root, path, '..'), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    const requests: string[] = [];
+    const checked: string[] = [];
+    let uploaded: Record<string, string> = {};
+    const calls: { argv: string[]; env: Record<string, string> }[] = [];
+    const exec: Ctx['exec'] = async (argv, opts) => {
+      calls.push({ argv: [...argv], env: { ...opts?.env } });
+      const dir = argv[5]!;
+      uploaded = Object.fromEntries(
+        readdirSync(dir, { recursive: true, encoding: 'utf8' })
+          .filter((p) => statSync(join(dir, p)).isFile())
+          .sort()
+          .map((p) => [p, readFileSync(join(dir, p), 'utf8')]),
+      );
+    };
+    const http = {
+      fetch: async (url: string, init?: RequestInit) => {
+        requests.push(`${init?.method} ${url}${init?.body ? ` ${init.body}` : ''}`);
+        const a = answers.shift()!;
+        return new Response(JSON.stringify(a.body), { status: a.status });
+      },
+      expectOk: async (url: string) => (checked.push(url), new Response('ok')),
+    } as unknown as Ctx['http'];
+    const files = { fetch: async () => root };
+    const retry: Ctx['retry'] = async (_o, fn) => fn(1);
+    return {
+      requests,
+      checked,
+      calls,
+      uploaded: () => uploaded,
+      ctx: { exec, http, files, retry },
+    };
+  };
+  const run = (
+    f: ReturnType<typeof fakes>,
+    o: { wasm?: boolean; spa?: boolean } = {},
+    pages: Record<string, string> = { accountId: 'acct-1', project: 'web' },
+  ) =>
+    testHandler(
+      pagesStep(o),
+      { site: { root: testFileRef({ step: 'build', path: 'site/' }) } },
+      {
+        ctx: f.ctx,
+        secrets: { CLOUDFLARE_API_TOKEN: 'tok' },
+        config: { pages },
+      },
+    );
+  const project = { status: 200, body: { result: { subdomain: 'web-3x7.pages.dev' } } };
+
+  test('the headers are the same on Caddy and on Pages', () => {
+    for (const wasm of [false, true]) {
+      const caddy = siteCaddyfile({ wasm, spa: false });
+      const pages = pagesHeaders({ wasm });
+      for (const [name, value] of siteHeaders({ wasm })) {
+        expect(caddy).toContain(`${name} ${value.includes(' ') ? `"${value}"` : value}`);
+        expect(pages).toContain(`  ${name}: ${value}\n`);
+      }
+      expect(pages.split('\n').filter((l) => l.startsWith('  '))).toHaveLength(
+        siteHeaders({ wasm }).length,
+      );
+    }
+  });
+
+  test('uploads the site with the headers and a 404 page, without precompressed copies, and links it', async () => {
+    const s = pagesStep({ wasm: true });
+    expect(s).toMatchObject({
+      name: 'publish-web',
+      kind: 'pagesDeploy',
+      image: PAGES_IMAGE,
+      retries: 2,
+    });
+    expect(recordConfigRefs(s.settings)).toEqual({
+      accountId: { $config: 'pages.accountId' },
+      project: { $config: 'pages.project' },
+      apiToken: 'CLOUDFLARE_API_TOKEN',
+      link: { $config: 'pages.link' },
+      site: { wasm: true, spa: false },
+    });
+    const f = fakes(
+      {
+        'index.html': 'page',
+        'index.html.br': 'br',
+        '_framework/app.wasm': 'wasm',
+        'data.gz': 'own',
+      },
+      [project],
+    );
+    const r = await run(
+      f,
+      { wasm: true },
+      { accountId: 'acct-1', project: 'web', link: 'https://www.example.com' },
+    );
+    expect(r).toMatchObject({
+      status: 'succeeded',
+      output: { project: 'web', url: 'https://web-3x7.pages.dev' },
+      links: [{ url: 'https://www.example.com', label: 'site' }],
+    });
+    expect(f.requests).toEqual([`GET ${API}/web`]);
+    expect(f.uploaded()).toEqual({
+      '404.html': PAGES_NOT_FOUND,
+      '_framework/app.wasm': 'wasm',
+      _headers: pagesHeaders({ wasm: true }),
+      'data.gz': 'own',
+      'index.html': 'page',
+    });
+    expect(f.calls[0]!.argv).toEqual([
+      'npx',
+      '--yes',
+      `wrangler@${WRANGLER_VERSION}`,
+      'pages',
+      'deploy',
+      f.calls[0]!.argv[5]!,
+      '--project-name',
+      'web',
+      '--branch',
+      'main',
+      '--commit-dirty=true',
+    ]);
+    expect(f.calls[0]!.env).toMatchObject({
+      CLOUDFLARE_API_TOKEN: 'tok',
+      CLOUDFLARE_ACCOUNT_ID: 'acct-1',
+    });
+    expect(f.checked).toEqual(['https://web-3x7.pages.dev']);
+  });
+
+  test('a missing project is created with main as production; a single-page app gets no 404 page', async () => {
+    const f = fakes({ 'index.html': 'page' }, [
+      { status: 404, body: { success: false } },
+      project,
+    ]);
+    const r = await run(f, { spa: true });
+    expect(r).toMatchObject({
+      status: 'succeeded',
+      links: [{ url: 'https://web-3x7.pages.dev' }],
+    });
+    expect(f.requests).toEqual([
+      `GET ${API}/web`,
+      `POST ${API} {"name":"web","production_branch":"main"}`,
+    ]);
+    expect(Object.keys(f.uploaded())).toEqual(['_headers', 'index.html']);
+  });
+
+  test.each([
+    [
+      'a refused token',
+      { 'index.html': 'page' },
+      [{ status: 403, body: { errors: [{ message: 'Authentication error' }] } }],
+      "Cloudflare Pages: reading project 'web' failed with 403: Authentication error",
+    ],
+    [
+      'a site with its own _headers',
+      { 'index.html': 'page', _headers: '/*' },
+      [],
+      "the site has its own _headers: the step writes it (set the headers with the step's options)",
+    ],
+    ['no index.html', { 'about.html': 'page' }, [], 'the site has no index.html'],
+  ] as const)('fails on %s', async (_, layout, answers, message) => {
+    const f = fakes(layout, [...answers]);
+    const r = await run(f);
+    expect(r).toMatchObject({
+      status: 'failed',
+      error: { kind: 'handler', message: `step 'publish-web' failed: ${message}` },
+    });
+    expect(f.calls).toEqual([]);
   });
 });

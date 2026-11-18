@@ -290,7 +290,7 @@ a step only one pipeline needs stays a custom step there.
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value; its optional `link` is the public URL the step links to), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 | `steps.mirrorToRepo` | `debian:bookworm-slim` | `{ snapshot: Snapshot }`, plus `source: Source` with `rules` → `MirroredCommit { repository, commit }` | `repository` (`owner/name` on GitHub), `deployKey: Secret` (a deploy key with write access), `author: { name, email }`, `hostKey?` (default GitHub's published ed25519 key), `base?` (a branch of the repository whose files go under the snapshot's), `rules?` (a gitleaks TOML in the source tree), `canaries?` (rule id → a sample line that must trip it; needs `rules`) |
-| `steps.staticSite` | kaniko (`image`), `alpine/helm:3.16.2` (deploys, previews), `node:22-bookworm-slim` (`pages`) | `{ site: Site }` → `PushedImage`; `{ image: PushedImage }` → `HelmRelease`; previews also read `CiInput`; `pages`: `{ site: Site }` → `PagesDeployment` | `name` (step name prefix), `repository`, `registryMap?`, `registryAuth?`, `secrets?`, `wasm?`, `spa?`, `dir?`; then `deploy({ name, target, sshKey?, ingress?, healthPath?, … })`, `preview({ kubeconfig, namespace, domain, tlsSecret?, className?, annotations?, release? })` and `pages({ name, accountId, project, apiToken, link? })` |
+| `steps.staticSite` | kaniko (`image`), `alpine/helm:3.16.2` (deploys, previews), `node:22-bookworm-slim` (`pages`) | `{ site: Site }` → `PushedImage`; `{ image: PushedImage }` → `HelmRelease`; previews also read `CiInput`; `pages`: `{ site: Site }` → `PagesDeployment` | `name` (step name prefix), `repository?` (needed by `image`), `registryMap?`, `registryAuth?`, `secrets?`, `wasm?`, `spa?`, `dir?`; then `deploy({ name, target, sshKey?, ingress?, healthPath?, … })`, `preview({ kubeconfig, namespace, domain, tlsSecret?, className?, annotations?, release? })` and `pages({ name, accountId, project, apiToken, link? })` |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
 output take a config reference instead of a literal (`repository: PUBLISH.server.repository`); `push`,
@@ -456,7 +456,8 @@ config are reserved.
   (written to a file, never on a command line), serves it at `pr-<pull>.<domain>` (TLS with
   `tlsSecret` when set) and links it; `remove` (`<name>-preview-remove`) uninstalls it in `onClose`.
   `release` defaults to `<repository name>-<site name>-preview`.
-  `site.pages(…)` publishes the same files to Cloudflare Pages instead, with no image and no cluster:
+  `site.pages(…)` publishes the same files to Cloudflare Pages instead, with no image and no cluster
+  (so no `repository`):
   it uploads the site with wrangler as the production deploy of `project` (created on the first deploy,
   with `main` as its production branch), writes the same headers as the Caddyfile into `_headers`,
   leaves out the precompressed copies (Pages compresses on its own) and, unless `spa`, adds a `404.html`

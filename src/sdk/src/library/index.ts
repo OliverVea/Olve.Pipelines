@@ -15,6 +15,7 @@ export {
   FailureContext,
   Snapshot,
   MirroredCommit,
+  PagesDeployment,
 } from './models.ts';
 export type { GitHubSourceDef } from './github-source.ts';
 export type { MirrorToRepoDef } from './mirror-to-repo.ts';

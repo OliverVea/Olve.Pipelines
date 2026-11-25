@@ -1,9 +1,9 @@
 {
   "system": "k3s",
   "name": "pods-complete",
-  "source": "rancher/k3s:v1.31.4-k3s1 on tools/real-system/host.sh",
-  "capturedAt": "2026-10-31",
-  "systemVersion": "v1.31.4-k3s1",
+  "source": "rancher/k3s:v1.37.2-k3s1 on tools/real-system/host.sh",
+  "capturedAt": "2026-11-25",
+  "systemVersion": "v1.37.2-k3s1",
   "elided": "items.metadata.annotations, items.metadata.generateName, items.metadata.labels, items.metadata.managedFields, items.metadata.ownerReferences, items.metadata.uid, items.spec, items.status.conditions, items.status.containerStatuses.containerID, items.status.containerStatuses.image, items.status.containerStatuses.imageID, items.status.containerStatuses.lastState, items.status.containerStatuses.state.terminated.containerID, items.status.containerStatuses.volumeMounts, items.status.hostIP, items.status.hostIPs, items.status.initContainerStatuses.containerID, items.status.initContainerStatuses.image, items.status.initContainerStatuses.imageID, items.status.initContainerStatuses.lastState, items.status.initContainerStatuses.state.terminated.containerID, items.status.initContainerStatuses.volumeMounts, items.status.podIP, items.status.podIPs, metadata",
   "request": {
     "method": "GET",
@@ -19,14 +19,16 @@
       "items": [
         {
           "metadata": {
-            "name": "recorder-complete-svll5",
+            "name": "recorder-complete-556q4",
             "namespace": "olve-runners",
-            "resourceVersion": "472",
-            "creationTimestamp": "2026-10-31T04:26:43Z"
+            "resourceVersion": "549",
+            "generation": 1,
+            "creationTimestamp": "2026-11-25T15:56:46Z"
           },
           "status": {
+            "observedGeneration": 1,
             "phase": "Succeeded",
-            "startTime": "2026-10-31T04:26:43Z",
+            "startTime": "2026-11-25T15:56:46Z",
             "initContainerStatuses": [
               {
                 "name": "olve-init",
@@ -34,13 +36,24 @@
                   "terminated": {
                     "exitCode": 0,
                     "reason": "Completed",
-                    "startedAt": "2026-10-31T04:26:43Z",
-                    "finishedAt": "2026-10-31T04:26:43Z"
+                    "startedAt": "2026-11-25T15:56:50Z",
+                    "finishedAt": "2026-11-25T15:56:50Z"
                   }
                 },
                 "ready": true,
                 "restartCount": 0,
-                "started": false
+                "started": false,
+                "resources": {},
+                "user": {
+                  "linux": {
+                    "uid": 0,
+                    "gid": 0,
+                    "supplementalGroups": [
+                      0,
+                      10
+                    ]
+                  }
+                }
               }
             ],
             "containerStatuses": [
@@ -50,16 +63,28 @@
                   "terminated": {
                     "exitCode": 0,
                     "reason": "Completed",
-                    "startedAt": "2026-10-31T04:26:43Z",
-                    "finishedAt": "2026-10-31T04:26:43Z"
+                    "startedAt": "2026-11-25T15:56:51Z",
+                    "finishedAt": "2026-11-25T15:56:51Z"
                   }
                 },
                 "ready": false,
                 "restartCount": 0,
-                "started": false
+                "started": false,
+                "resources": {},
+                "user": {
+                  "linux": {
+                    "uid": 0,
+                    "gid": 0,
+                    "supplementalGroups": [
+                      0,
+                      10
+                    ]
+                  }
+                }
               }
             ],
-            "qosClass": "BestEffort"
+            "qosClass": "BestEffort",
+            "resources": {}
           }
         }
       ]

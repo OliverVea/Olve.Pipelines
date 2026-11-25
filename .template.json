@@ -1,0 +1,10 @@
+{
+  "template": "olve-api",
+  "version": null,
+  "features": {
+    "aot-image-tests": "n/a: the real-system tests (tools/real-system, Olve.Pipelines.RealSystemTests) run the real image instead",
+    "api-tests-any-target": "n/a: the API tests run on TestServer in the unit tests, plus the real-system tests",
+    "frontend-stack": "n/a: Lit, npm, eslint and prettier by design",
+    "helm-clusterip": "n/a: a publicly distributed chart, with optional ingresses"
+  }
+}

@@ -58,6 +58,8 @@ docs/design/                        v2 spec, plan, spike findings (spike code: g
 tools/real-system/                  The throwaway host the real-system tests run against
 tools/recordings/                   Real exchanges with GitHub, Dex and k3s (see Recorded fixtures)
 tools/version.cs                    CalVer versioning script
+tools/template-parity.ts            What the olve-api template has that this repo lacks (Template parity)
+.template.json                      Which olve-api template features apply here (Template parity)
 ```
 
 ## Build & test
@@ -194,7 +196,7 @@ that neither client builds an `/api/` URL by hand:
 ```bash
 tools/check.sh                 # fast tier: formatting, lint, type checks, the spec compiles, generated files current, pipeline valid
 tools/check.sh --changed       # only the projects changed against the upstream branch (plus uncommitted work)
-tools/check.sh --full          # plus the unit tests, the SDK test suite and the frontend build
+tools/check.sh --full          # plus the unit tests, the SDK test suite, the frontend build and the template-parity report
 tools/check.sh --fix           # format and regenerate first (prettier, dotnet format, manifest schema)
 ```
 
@@ -261,3 +263,35 @@ dotnet run tools/version.cs                                          # 0.0.0-dev
 dotnet run tools/version.cs -- --ci --run-number 42                  # 2026.3.28.42+cb9a99b
 dotnet run tools/version.cs -- --ci --run-number 42 --rid linux-x64  # artifact name
 ```
+
+## Template parity
+
+Olve.Pipelines predates the `olve-api` template, and much of the template came from here, so
+`.template.json` has no template `version` yet; it records the template features that don't fit here.
+`tools/template-parity.ts` compares the repo with the template's feature manifest (`template-features.json` on the template's `main`) and lists what is
+missing, adopted and opted out. It is a report: `tools/check.sh --full` runs it and never fails on it.
+
+```bash
+bun tools/template-parity.ts                    # against the template's main
+bun tools/template-parity.ts --manifest <path>  # against a template checkout's template-features.json
+bun tools/template-parity.ts --strict           # exit 1 when a feature is missing
+```
+
+A feature counts as adopted when its check passes. Opting out is the user's decision, recorded with
+its reason:
+
+```json
+{
+  "template": "olve-api",
+  "version": "2026.11.14.23",
+  "features": {
+    "pwa": "declined: no browser UI yet",
+    "frontend-stack": "n/a: Lit by design"
+  }
+}
+```
+
+`declined` is a choice that may change; `n/a` means the feature doesn't fit this service. `adopted` marks
+a `manual` feature, one no file check can see. Features the template introduced after `version` are
+tagged "new since"; after taking them over (by hand, from the template's diff), raise `version` to the
+template version compared against.

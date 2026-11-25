@@ -423,7 +423,7 @@ describe('steps.staticSite: deploys', () => {
     const inCluster = s.deploy({ name: 'deploy-web-beta', target: WEB.beta as never });
     expect(inCluster).toMatchObject({
       kind: 'helmDeployInCluster',
-      image: 'alpine/helm:3.16.2',
+      image: 'alpine/helm:4.3.2',
       clusterAccess: true,
       secrets: [],
     });
@@ -499,7 +499,7 @@ describe('steps.staticSite: previews', () => {
     const { deploy, remove } = preview('trains-preview');
     expect(deploy).toMatchObject({
       name: 'web-preview',
-      image: 'alpine/helm:3.16.2',
+      image: 'alpine/helm:4.3.2',
       reuse: false,
       secrets: [KUBECONFIG],
     });

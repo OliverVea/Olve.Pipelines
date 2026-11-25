@@ -118,11 +118,13 @@ services:
 
   # Password-protected (src/deploy/compose/registry.htpasswd: local / local-registry), plain HTTP.
   registry:
-    image: registry:2.8.3
+    image: registry:3.1.2
     environment:
       REGISTRY_AUTH: htpasswd
       REGISTRY_AUTH_HTPASSWD_REALM: olve-pipelines-local
       REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      # The default config logs at debug, which prints every storage span.
+      REGISTRY_LOG_LEVEL: info
     volumes:
       - ./src/deploy/compose/registry.htpasswd:/auth/htpasswd:ro
       - registry-data:/var/lib/registry

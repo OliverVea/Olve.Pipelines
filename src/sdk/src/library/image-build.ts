@@ -107,7 +107,7 @@ export interface ImageBuildDef<N extends string, K extends string = never> {
    * HTTP apply when it is on `repository`'s registry. An unreachable cache is skipped, never a failure.
    */
   cacheRepo?: Configurable<string | false | undefined>;
-  /** The registry of `repository` speaks plain HTTP (a local `registry:2`). */
+  /** The registry of `repository` speaks plain HTTP (a local `registry:3`). */
   insecureRegistry?: Configurable<boolean | undefined>;
   /** Secrets a config-referenced `registryAuth` may name (the step declares them). */
   secrets?: readonly Secret<K>[];
@@ -302,7 +302,7 @@ export function parseChallenge(header: string): {
 }
 
 /**
- * `HEAD`/`GET` against a registry API path, answering its auth challenge: Basic (a `registry:2` with
+ * `HEAD`/`GET` against a registry API path, answering its auth challenge: Basic (a `registry:3` with
  * htpasswd) or a Bearer token from the realm (ghcr.io, Docker Hub; anonymous for public images).
  */
 async function registryFetch(

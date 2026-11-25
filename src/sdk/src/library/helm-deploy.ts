@@ -28,8 +28,8 @@ import { httpHealthCheck } from './http-health.ts';
 import type { HostKey } from './ssh.ts';
 import { HelmRelease, PushedImage, Source } from './models.ts';
 
-/** helm 3 on Alpine, for in-cluster deploys (the health check runs in the harness). */
-export const HELM_IMAGE = 'alpine/helm:3.16.2';
+/** helm 4 on Alpine, for in-cluster deploys (the health check runs in the harness). */
+export const HELM_IMAGE = 'alpine/helm:4.3.2';
 
 /** Where the step pod finds its ServiceAccount token (mounted only with the instance's step ServiceAccount). */
 export const SERVICE_ACCOUNT_TOKEN =

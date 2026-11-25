@@ -36,7 +36,7 @@ export const TARGET = config("target", "Where the release is deployed.",
 export const deploy = implement(step({
   name: "deploy",
   description: "Deploys the release.",
-  image: "alpine/helm:3",
+  image: "alpine/helm:4",
   config: [AUTH, TARGET],          // like secrets: only declared entries are delivered
   secrets: [DEX_CLIENT_SECRET],    // a secretRef's secret must also be declared by the step
 }), async (_, ctx) => {

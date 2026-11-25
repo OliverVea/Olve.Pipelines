@@ -429,7 +429,7 @@ describe('target deploys and select', () => {
     expect(inCluster).toMatchObject({
       name: 'deploy-prod',
       kind: 'helmDeployInCluster',
-      image: 'alpine/helm:3.16.2',
+      image: 'alpine/helm:4.3.2',
       secrets: [],
       clusterAccess: true,
     });

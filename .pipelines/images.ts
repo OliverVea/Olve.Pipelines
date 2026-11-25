@@ -4,4 +4,4 @@ export const DOTNET_AOT_SDK = 'mcr.microsoft.com/dotnet/sdk:11.0.100-resolute-ao
 export const CRANE_IMAGE =
   'gcr.io/go-containerregistry/crane/debug:v0.21.9@sha256:ba318977330d2a41fdd4af7536d35567a4ceb204252b7dfcd19b01dad2567793';
 export const HELM_IMAGE =
-  'alpine/helm:3.16.2@sha256:a19a2968fd672336d39771f6c899781424d725229148656dbc2a1e305003cdec';
+  'alpine/helm:4.3.2@sha256:a3b9d617c0c30a6c488cebb429c4ba83995a26dc2184599af5fd408a361b2e67';

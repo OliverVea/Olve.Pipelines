@@ -108,7 +108,7 @@ export const build = step({     // custom: image build + helm package → BuildA
 
 export const deployBeta = step({
   name: "deploy-beta",
-  image: "alpine:latest",
+  image: "alpine:3.24",
   input: { artifact: M.BuildArtifact },
   output: M.BetaDeployment,
   secrets: [SSH_PRIVATE_KEY],
@@ -117,7 +117,7 @@ export const deployBeta = step({
 
 export const deployProd = step({
   name: "deploy-prod",
-  image: "alpine:latest",
+  image: "alpine:3.24",
   input: { artifact: M.BuildArtifact },
   output: M.ProdDeployment,
   secrets: [SSH_PRIVATE_KEY],
@@ -355,7 +355,7 @@ pool: the step waits, with no pod, until the input is answered. Design:
                    "input": { "repo": { "ref": "input.repo" }, "sha": { "ref": "input.sha" } },
                    "output": "Source" } ] },
     { "steps": [ "…build, test…" ] },
-    { "steps": [ { "name": "deploy-beta", "image": "alpine:latest",
+    { "steps": [ { "name": "deploy-beta", "image": "alpine:3.24",
                    "input": { "artifact": { "ref": "build" } }, "output": "BetaDeployment",
                    "secrets": ["SSH_PRIVATE_KEY"] } ] },
     { "when": { "deployTo": ["prod"] }, "stages": [ "…" ] }

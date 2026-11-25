@@ -100,7 +100,7 @@ describe('code hash (the whole build, with the SDK external)', () => {
     ).toBe(true);
     expect(
       await changed((d) =>
-        edit(join(d, 'steps/deploy-beta.ts'), "'alpine:latest'", "'alpine:3.20'"),
+        edit(join(d, 'steps/deploy-beta.ts'), /'alpine:[^']*'/, "'alpine:3.20'"),
       ),
     ).toBe(true);
     expect(

@@ -59,7 +59,7 @@ render() {
 }
 {
   render hb-debian debian debian:trixie-slim; echo ---
-  render hb-alpine alpine alpine:latest; echo ---
+  render hb-alpine alpine alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf; echo ---
   render hb-kaniko kaniko gcr.io/kaniko-project/executor:v1.24.0-debug@sha256:2562c4fe551399514277ffff7dcca9a3b1628c4ea38cb017d7286dc6ea52f4cd
 } | kubectl apply -f - 2>/dev/null
 kubectl -n "$NAMESPACE" wait --for=condition=complete job -l spike=v2-harness-base --timeout=300s || true

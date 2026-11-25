@@ -10,7 +10,8 @@ export const deployBeta = implement(
   step({
     name: 'deploy-beta',
     description: 'Deploys to beta.',
-    image: 'alpine:latest',
+    image:
+      'alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf',
     input: { artifact: M.BuildArtifact },
     output: M.BetaDeployment,
     secrets: [SSH_PRIVATE_KEY],

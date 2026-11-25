@@ -4,25 +4,63 @@ using Olve.Pipelines.Sources;
 
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
-/// <summary>Event entry points of the scheduler; each takes the scheduling lock. Transient.</summary>
+/// <summary>
+/// Event entry points of the scheduler; each takes the scheduling lock. Transient. A failure is logged
+/// here with the run it was advancing and not rethrown: the event would hand it to the store event
+/// sink without those ids, and <see cref="RunSweep"/> advances the run again within a minute.
+/// </summary>
 public class RunSchedulingHandler(
     StageScheduler scheduler,
     SwitchService switches,
-    RunSchedulingLock schedulingLock)
+    RunSchedulingLock schedulingLock,
+    ILogger<RunSchedulingHandler> logger)
 {
-    public void HandleRunAdded(Id<Run> runId) => scheduler.Advance(runId);
+    public void HandleRunAdded(Run run)
+    {
+        try
+        {
+            scheduler.Advance(run.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not schedule new run #{RunNumber} ('{RunId}') of pipeline '{PipelineId}'; the run sweep retries it within a minute",
+                run.Number, run.Id, run.PipelineId);
+        }
+    }
 
     /// <summary>An attempt reached a terminal status: advance its run, then check a pending drain (in
     /// that order, under the lock, so a drain never completes between a stage settling and the next
     /// stage being scheduled).</summary>
-    public void HandleAttemptFinished(Attempt attempt) => schedulingLock.Run(() =>
+    public void HandleAttemptFinished(Attempt attempt)
     {
-        scheduler.Advance(attempt.RunId);
-        switches.TryCompleteDrain(attempt.PipelineId);
-    });
+        try
+        {
+            schedulingLock.Run(() =>
+            {
+                scheduler.Advance(attempt.RunId);
+                switches.TryCompleteDrain(attempt.PipelineId);
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not advance run #{RunNumber} ('{RunId}') of pipeline '{PipelineId}' after attempt {AttemptNumber} of step '{StepName}' ('{AttemptId}') finished as {AttemptStatus}; the run sweep retries it within a minute",
+                attempt.RunNumber, attempt.RunId, attempt.PipelineId, attempt.Number, attempt.StepName, attempt.Id, attempt.Status.Discriminator());
+        }
+    }
 
     /// <summary>A step was blocked/unblocked: unblocking resumes runs held at it.</summary>
-    public void HandleBlockedStepsChanged(Id<Pipeline> pipelineId) => scheduler.AdvanceRunning(pipelineId);
+    public void HandleBlockedStepsChanged(Id<Pipeline> pipelineId)
+    {
+        try
+        {
+            scheduler.AdvanceRunning(pipelineId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not advance the running runs of pipeline '{PipelineId}' after its blocked steps changed; the run sweep retries them within a minute",
+                pipelineId);
+        }
+    }
 }
 
 /// <summary>Scheduler subscriptions (one line each): run creation, attempt completion, blocked-step changes.</summary>
@@ -34,7 +72,7 @@ public class RunSchedulingEventRegistration(
 {
     public Result Run()
     {
-        runEvents.OnAdded.Subscribe(e => { if (e.Entity.Status is RunStatus.Running) Handler().HandleRunAdded(e.Id); });
+        runEvents.OnAdded.Subscribe(e => { if (e.Entity.Status is RunStatus.Running) Handler().HandleRunAdded(e.Entity); });
         attemptEvents.OnUpdated.Subscribe(e => { if (e.Before.Status.IsActive() && e.After.Status.IsTerminal()) Handler().HandleAttemptFinished(e.After); });
         blocked.OnSet.Subscribe(id => Handler().HandleBlockedStepsChanged(id));
         blocked.OnRemoved.Subscribe(id => Handler().HandleBlockedStepsChanged(id));

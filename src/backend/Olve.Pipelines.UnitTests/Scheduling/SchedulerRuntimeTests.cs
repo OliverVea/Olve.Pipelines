@@ -86,6 +86,38 @@ public class SchedulerRuntimeTests
         await Assert.That(missed.AttemptService.ListForStep(run.Id, "build")[0].Status).IsTypeOf<Scheduled>();
     }
 
+    // Catches #29: a handler that throws ahead of the scheduler's (on the store event or on the domain hub)
+    // skipping it, or failing the write, so the next stage is never scheduled.
+    [Test]
+    public async Task ThrowingEventHandlers_AheadOfTheScheduler_DoNotStopTheNextStage()
+    {
+        var storeThrows = 0;
+        var hubThrows = 0;
+        var s = new SchedulerScenario(beforeWiring: d =>
+        {
+            d.Attempts.OnUpdated.Subscribe(_ =>
+            {
+                storeThrows++;
+                throw new InvalidOperationException("store subscriber failed");
+            });
+            d.AttemptEvents.OnUpdated.Subscribe(_ =>
+            {
+                hubThrows++;
+                throw new InvalidOperationException("hub subscriber failed");
+            });
+        });
+        var run = s.Start(Input());
+
+        var checkout = s.Succeed(run, "checkout");
+
+        await Assert.That(checkout.Status).IsTypeOf<Succeeded>();
+        await Assert.That(storeThrows).IsGreaterThan(0);
+        await Assert.That(hubThrows).IsGreaterThan(0);
+        // No sweep: the live cascade scheduled the next stage on its own.
+        await Assert.That(s.Latest(run, "build")!.Status).IsTypeOf<Scheduled>();
+        await Assert.That(s.Latest(run, "test")!.Status).IsTypeOf<Scheduled>();
+    }
+
     [Test]
     public async Task Restart_LeavesInFlightAttemptsAlone()
     {

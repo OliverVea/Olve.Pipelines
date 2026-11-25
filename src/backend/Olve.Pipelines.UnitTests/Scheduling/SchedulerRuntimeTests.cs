@@ -203,7 +203,7 @@ public class SchedulerRuntimeTests
         await Assert.That(spec.InputJson).IsEqualTo(deploy.Input!);
         await Assert.That(spec.InputHash).IsEqualTo(deploy.InputHash);
         await Assert.That(spec.Step.Name).IsEqualTo("deploy-beta");
-        await Assert.That(spec.Step.Image).IsEqualTo("alpine:latest");
+        await Assert.That(spec.Step.Image).IsEqualTo("alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf");
         await Assert.That(spec.BinaryKey).IsEqualTo(s.Version.BinaryKey);
         await Assert.That(spec.FileRefs.Select(f => f.FileKey).ToList())
             .IsEquivalentTo([$"{run.Number}/build/1/chart/", $"{run.Number}/build/1/image.tar"]);

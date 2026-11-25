@@ -6,7 +6,7 @@
       "step": {
         "description": "Opens an AI session to triage a failed deploy.",
         "handlerHash": "sha256:9661380684c83818cb4cfb999ea3fad906109bc40934695aade9979776219c96",
-        "image": "alpine:latest",
+        "image": "alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf",
         "input": {
           "failure": {
             "ref": "failure"
@@ -492,7 +492,7 @@
         {
           "description": "Deploys to beta.",
           "handlerHash": "sha256:69f6255e89dc5719955560aad5e635d374da344ccd6f39bd70f3fffb2c7578fb",
-          "image": "alpine:latest",
+          "image": "alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf",
           "input": {
             "artifact": {
               "ref": "build"
@@ -521,7 +521,7 @@
             {
               "description": "Deploys to prod.",
               "handlerHash": "sha256:ca63940b93886a617bbc1e2c5036d7dba8a24f75502bb7ec815b4587b436a73b",
-              "image": "alpine:latest",
+              "image": "alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf",
               "input": {
                 "artifact": {
                   "ref": "build"
@@ -596,7 +596,7 @@
         {
           "description": "Reports what was deployed.",
           "handlerHash": "sha256:13ed0fba61d404be51447fbf862dd89551b75a3a367a894ef9371890183647ea",
-          "image": "alpine:latest",
+          "image": "alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf",
           "input": {
             "beta": {
               "ref": "deploy-beta"

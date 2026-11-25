@@ -77,7 +77,7 @@ export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for the host."
 export const deployBeta = step({
   name: "deploy-beta",                         // identity: lower-case kebab, ≤ 63 chars
   description: "Deploys to beta.",             // required (may be ""); shown in the UI, not versioned
-  image: "alpine:latest",                      // any image; the harness brings its own runtime
+  image: "alpine:3.24",                        // any image; the harness brings its own runtime
   input: { artifact: BuildArtifact },          // model | optional(model) | cells(model) | plain zod schema | external(model, …)
   output: BetaDeployment,                      // a model, or omitted (no output)
   secrets: [SSH_PRIVATE_KEY],                  // only these are mounted; ctx.secrets is typed to them

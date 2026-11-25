@@ -35,6 +35,8 @@ COPY src/frontend/package.json src/frontend/package-lock.json ./src/frontend/
 RUN cd src/frontend && npm install
 # The contract's TypeScript client (`@olve/api`), resolved from src/frontend as ../../artifacts/clients/ts.
 COPY --from=spec /src/artifacts/clients/ts artifacts/clients/ts
+# `@olve/client`, resolved from src/frontend as ../client/src.
+COPY src/client/ ./src/client/
 COPY src/frontend/ ./src/frontend/
 RUN cd src/frontend && npm run build
 

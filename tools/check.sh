@@ -3,7 +3,7 @@
 #
 #   tools/check.sh                 fast tier, every project: formatting, lint, type checks, the spec compiles, generated files current, pipeline valid
 #   tools/check.sh --changed       only the projects with changes against the upstream branch (plus uncommitted work)
-#   tools/check.sh --full          adds the unit tests, the SDK test suite and the frontend build
+#   tools/check.sh --full          adds the unit tests, the SDK test suite, the frontend build and the template-parity report
 #   tools/check.sh --fix           formats and regenerates first (prettier, dotnet format, manifest schema), then checks
 #   tools/check.sh --hook          --changed, quiet on success, failures on stderr, exit 2 (for pre-push hooks)
 set -u
@@ -135,6 +135,9 @@ if [ -n "${want[dotnet]:-}" ]; then
   [ $full = 0 ] || run "dotnet: unit tests" dotnet test --project src/backend/Olve.Pipelines.UnitTests --no-restore
   [ $full = 0 ] || [ ! -f artifacts/recorded-fixtures.txt ] || cat artifacts/recorded-fixtures.txt
 fi
+# A report, never a failure, so it prints outside run(): what the olve-api template has that this repo
+# lacks (CONTRIBUTING.md, Template parity).
+[ $full = 0 ] || [ $hook = 1 ] || bun tools/template-parity.ts
 
 if [ ${#failed[@]} -gt 0 ]; then
   echo "${#failed[@]} check(s) failed: ${failed[*]}" >&2

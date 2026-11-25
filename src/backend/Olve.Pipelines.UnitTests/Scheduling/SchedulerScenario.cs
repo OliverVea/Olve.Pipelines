@@ -19,10 +19,14 @@ internal sealed class SchedulerScenario
     public static readonly string Sha = new('a', 40);
     public static readonly string OtherSha = new('b', 40);
 
-    public SchedulerScenario(string? manifest = null)
+    /// <param name="beforeWiring">Runs on the domain before its event wiring, so anything it subscribes
+    /// runs ahead of production's handlers.</param>
+    public SchedulerScenario(string? manifest = null, Action<TestRunDomain>? beforeWiring = null)
     {
         Clock = new MonotonicTimeProvider();
-        D = new TestRunDomain(Clock).WireEvents(scheduler: true);
+        var domain = new TestRunDomain(Clock);
+        beforeWiring?.Invoke(domain);
+        D = domain.WireEvents(scheduler: true);
         Pipeline = D.CreatePipeline("olve-pipelines");
         Version = AddVersion(manifest);
         TestRunDomain.Pick(D.Switches.Switch(Pipeline.Id, Version.Id));

@@ -239,7 +239,7 @@ Everything is built from this checkout, and nothing talks to the homelab. It run
 - **Garage** for storage, as in the chart.
 - **A single-node k3s** in a privileged container. It runs the build Jobs and the step Jobs.
 - **The step pods' init image.** `harness-build` builds it from `src/harness/base` with kaniko and
-  pushes it to a password-protected local `registry:2`. k3s pulls it from there over plain HTTP.
+  pushes it to a password-protected local `registry:3`. k3s pulls it from there over plain HTTP.
 - **`pl`.** `pl-build` builds it from source, and the server serves it at `/download`, so
   `curl -fsSL http://localhost:5080/install.sh | sh` works. The server doesn't wait for it: until the
   build lands (about a minute), `/download` answers 503 and `install.sh` exits

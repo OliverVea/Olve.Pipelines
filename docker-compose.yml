@@ -179,7 +179,7 @@ services:
       - pl-dist:/dist
 
   k3s:
-    image: rancher/k3s:v1.31.4-k3s1
+    image: rancher/k3s:v1.37.2-k3s1
     privileged: true
     command:
       - server
@@ -204,7 +204,7 @@ services:
 
   # One-shot: namespace + ServiceAccount + RBAC (mirrors src/deploy/helm/templates/serviceaccount.yaml).
   k3s-bootstrap:
-    image: rancher/k3s:v1.31.4-k3s1
+    image: rancher/k3s:v1.37.2-k3s1
     entrypoint: ["/bin/sh", "/bootstrap/k3s-bootstrap.sh"]
     volumes:
       - ./src/deploy/compose:/bootstrap:ro

@@ -1,9 +1,9 @@
 {
   "system": "k3s",
   "name": "job-deadline",
-  "source": "rancher/k3s:v1.31.4-k3s1 on tools/real-system/host.sh",
-  "capturedAt": "2026-10-31",
-  "systemVersion": "v1.31.4-k3s1",
+  "source": "rancher/k3s:v1.37.2-k3s1 on tools/real-system/host.sh",
+  "capturedAt": "2026-11-25",
+  "systemVersion": "v1.37.2-k3s1",
   "elided": "metadata.annotations, metadata.labels, metadata.managedFields, metadata.uid, spec",
   "request": {
     "method": "GET",
@@ -19,30 +19,30 @@
       "metadata": {
         "name": "recorder-deadline",
         "namespace": "olve-runners",
-        "resourceVersion": "515",
+        "resourceVersion": "601",
         "generation": 1,
-        "creationTimestamp": "2026-10-31T04:26:47Z"
+        "creationTimestamp": "2026-11-25T15:56:55Z"
       },
       "status": {
         "conditions": [
           {
             "type": "FailureTarget",
             "status": "True",
-            "lastProbeTime": "2026-10-31T04:26:55Z",
-            "lastTransitionTime": "2026-10-31T04:26:55Z",
+            "lastProbeTime": "2026-11-25T15:57:03Z",
+            "lastTransitionTime": "2026-11-25T15:57:03Z",
             "reason": "DeadlineExceeded",
             "message": "Job was active longer than specified deadline"
           },
           {
             "type": "Failed",
             "status": "True",
-            "lastProbeTime": "2026-10-31T04:27:26Z",
-            "lastTransitionTime": "2026-10-31T04:27:26Z",
+            "lastProbeTime": "2026-11-25T15:57:34Z",
+            "lastTransitionTime": "2026-11-25T15:57:34Z",
             "reason": "DeadlineExceeded",
             "message": "Job was active longer than specified deadline"
           }
         ],
-        "startTime": "2026-10-31T04:26:47Z",
+        "startTime": "2026-11-25T15:56:55Z",
         "failed": 1,
         "terminating": 0,
         "uncountedTerminatedPods": {},

@@ -13,7 +13,7 @@ repo's own pipeline (`.pipelines/`) does, configured per instance ([Pipeline Con
 - **GitHub.** Bindings and pull request CI work with GitHub only. Bindings read `github.com` or,
   through `GitHub:ApiUrl`, a GitHub Enterprise API, which webhook registration uses too. The
   bundled Dex logs people in with GitHub; any other OIDC provider works through `Auth:Authority`.
-- **Kubernetes.** The compose stack runs k3s `v1.31.4-k3s1`. The chart needs:
+- **Kubernetes.** The compose stack runs k3s `v1.37.2-k3s1`. The chart needs:
   - a default StorageClass (or `garage.*StorageClass`, `dex.storageClass`) for three ReadWriteOnce
     volumes: Garage's metadata (5Gi) and data (20Gi), and Dex's (1Gi);
   - rights to create RBAC: a Role in the runner namespace (Jobs, Pods, their logs, Secrets) and a
@@ -291,6 +291,9 @@ docker compose down -v           # stop and wipe all state (the reset between ev
 - **Rebuilding the harness image.** It is tagged `:local`, and k3s pulls it only if it isn't
   present yet. After changing `src/harness/base`, run `docker compose down -v` (or delete the
   `k3s-data` volume).
+- **A new k3s pin.** Kubernetes upgrades one minor version at a time, so when the k3s image in
+  `docker-compose.yml` moves more than one minor past the one your `k3s-data` volume was made by,
+  start that volume over with `docker compose down -v`.
 - **Windows checkouts.** `.gitattributes` keeps every file that ends up in a container LF. A
   checkout made before it existed still has CRLF files, so re-check them out once:
 

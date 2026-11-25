@@ -37,7 +37,7 @@ triggers: none (manual only)
 
 stages:
   1.  hello                alpine:3.22 -> Greeting
-  2.  count                debian:bookworm-slim -> LineCount
+  2.  count                debian:trixie-slim -> LineCount
       echo                 busybox:1.37
   3.  send-signals         alpine:3.22 -> SignalsSent
   4.  called-back          alpine:3.22  [waits for: signal (Signal)]  [preflight]

@@ -8,6 +8,6 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 internal static class HarnessImage
 {
     public const string Repository = "ghcr.io/olivervea/olve-pipelines-harness-base";
-    public const string Tag = "src-1559dbe086e1";
+    public const string Tag = "src-039d7bfdb0e7";
     public const string Default = Repository + ":" + Tag;
 }

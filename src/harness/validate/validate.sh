@@ -58,7 +58,7 @@ render() {
     '${JOB_NAME} ${CASE} ${STEP_IMAGE} ${HARNESS_IMAGE} ${STEP_URL} ${INPUT_URL} ${NAMESPACE}' <job.yaml | runtime_class
 }
 {
-  render hb-debian debian debian:bookworm-slim; echo ---
+  render hb-debian debian debian:trixie-slim; echo ---
   render hb-alpine alpine alpine:latest; echo ---
   render hb-kaniko kaniko gcr.io/kaniko-project/executor:v1.24.0-debug@sha256:2562c4fe551399514277ffff7dcca9a3b1628c4ea38cb017d7286dc6ea52f4cd
 } | kubectl apply -f - 2>/dev/null

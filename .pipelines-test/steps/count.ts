@@ -5,7 +5,7 @@ import * as M from "../models";
 export const count = implement(step({
   name: "count",
   description: "Counts the greeting's lines.",
-  image: "debian:bookworm-slim",
+  image: "debian:trixie-slim",
   input: { greeting: M.Greeting },
   output: M.LineCount,
   timeoutSeconds: 300,

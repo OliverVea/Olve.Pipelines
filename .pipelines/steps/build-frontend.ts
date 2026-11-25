@@ -9,7 +9,7 @@ export const buildFrontend = implement(
     name: 'build-frontend',
     description:
       'Lints and tests the frontend, checks its formatting and builds it as an image layer.',
-    image: 'node:22-slim',
+    image: 'node:24-trixie-slim',
     input: { source: Source, spec: M.SpecBuild },
     output: M.FrontendBuild,
     timeoutSeconds: 900,

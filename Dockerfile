@@ -25,7 +25,7 @@ COPY install.sh install.ps1 ./
 # Tests are NOT run in the image build — the pipeline's `test` step runs them beside the build.
 RUN dotnet publish src/backend/Olve.Pipelines -c Release -r linux-x64 -p:DebugType=none -p:SkipSpecGen=true -o /app
 
-FROM node:22-slim AS frontend
+FROM node:24-trixie-slim AS frontend
 WORKDIR /build
 # The build's `prebuild` hook (scripts/build-docs-index.mjs) reads ../../docs/setup to emit
 # the client-side search index, so the docs must be present in this stage too.

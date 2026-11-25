@@ -9,7 +9,7 @@
 # from Garage via a pre-signed GET. Both bases are pinned by digest so the build is reproducible.
 # See harness/README.md for the env contract and the pod template.
 
-FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS glibc
+FROM debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0 AS glibc
 RUN mkdir -p /out/lib \
  && cp -L /lib64/ld-linux-x86-64.so.2 \
           /lib/x86_64-linux-gnu/libc.so.6 \

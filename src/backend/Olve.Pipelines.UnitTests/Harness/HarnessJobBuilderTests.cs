@@ -98,7 +98,7 @@ public class HarnessJobBuilderTests
                 "initContainers": [
                   {
                     "name": "olve-init",
-                    "image": "ghcr.io/olivervea/olve-pipelines-harness-base:src-1559dbe086e1",
+                    "image": "ghcr.io/olivervea/olve-pipelines-harness-base:src-039d7bfdb0e7",
                     "env": [
                       { "name": "OLVE_STEP_URL", "valueFrom": { "secretKeyRef": { "name": "olve-urls-aaaaaaaabbbbccccddddeeeeeeeeeeee", "key": "OLVE_STEP_URL", "optional": false } } },
                       { "name": "OLVE_INPUT_URL", "valueFrom": { "secretKeyRef": { "name": "olve-urls-aaaaaaaabbbbccccddddeeeeeeeeeeee", "key": "OLVE_INPUT_URL", "optional": false } } }

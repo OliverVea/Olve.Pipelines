@@ -27,7 +27,7 @@ The image is 2.4 MB compressed and contains:
 |---|---|
 | `/bin/*` | `busybox:1.37-musl` (static): `sh`, `wget` (plain HTTP is fine), `tar`/`gzip`, `cp` |
 | `/opt/olve/zstd/` | `zstd` from Alpine with its musl loader and `libzstd` (run through the loader; busybox has no zstd) |
-| `/opt/olve/lib/` | `ld-linux-x86-64.so.2`, `libc.so.6`, `libpthread.so.0`, `libdl.so.2`, `libm.so.6`, copied with `cp -L` from `debian:bookworm-slim` |
+| `/opt/olve/lib/` | `ld-linux-x86-64.so.2`, `libc.so.6`, `libpthread.so.0`, `libdl.so.2`, `libm.so.6`, copied with `cp -L` from `debian:trixie-slim` |
 | `/opt/olve/bin/olve-init` | entrypoint |
 
 Both base images are pinned by digest in the Dockerfile, so the build needs no local files and is
@@ -222,5 +222,5 @@ checkout: the tag covers exec bits and line endings. After changing `olve-init` 
 3. Set `HarnessImage.Tag` to the new tag (the SDK test above prints the expected one), and
    `HARNESS_BASE_IMAGE` in `src/cli/src/dev/session.ts` (`pl dev --docker`) to match. The
    executor pins a tag; it never uses `latest`.
-4. To bump the glibc libs, change the `debian:bookworm-slim@sha256:` digest. The step binary only
+4. To bump the glibc libs, change the `debian:trixie-slim@sha256:` digest. The step binary only
    needs a glibc at least as new as the one Bun was linked against.

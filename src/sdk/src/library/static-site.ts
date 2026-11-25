@@ -572,7 +572,7 @@ export function staticSite<const N extends string, const K extends string = neve
 
 /** Node on Debian (wrangler's workerd is built for glibc), pinned by digest. */
 export const PAGES_IMAGE =
-  'node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee';
+  'node:24-trixie-slim@sha256:4d00acb4bcc42c454c4eb801526f7ad7f772ea3bd4fd168c5cc2e384abcbb9d4';
 
 /** The wrangler the step runs with npx. */
 export const WRANGLER_VERSION = '4.156.0';

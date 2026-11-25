@@ -123,7 +123,7 @@ const run = (
 describe('steps.mirrorToRepo', () => {
   test('scans the canaries, then the snapshot, then pushes one commit', async () => {
     const step = steps.mirrorToRepo(def);
-    expect(step).toMatchObject({ image: 'debian:bookworm-slim', secrets: [DEPLOY_KEY] });
+    expect(step).toMatchObject({ image: 'debian:trixie-slim', secrets: [DEPLOY_KEY] });
     expect(Object.keys(step.input)).toEqual(['snapshot', 'source']);
     expect(recordConfigRefs(step.settings)).toEqual({
       repository: 'example/public-mirror',

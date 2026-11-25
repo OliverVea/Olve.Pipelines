@@ -19,7 +19,7 @@ import { MirroredCommit, Snapshot, Source } from './models.ts';
 import { hostKeyOptions, knownHosts, shq, writeSshFiles } from './ssh.ts';
 
 /** Debian, as the tools come from apt at run time. */
-export const MIRROR_TO_REPO_IMAGE = 'debian:bookworm-slim';
+export const MIRROR_TO_REPO_IMAGE = 'debian:trixie-slim';
 
 export const MIRROR_TOOLS_INSTALL =
   'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ' +

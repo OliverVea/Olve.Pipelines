@@ -322,7 +322,7 @@
       "steps": [
         {
           "handlerHash": "sha256:f7eaf9c800e5c3e4163fccbd382a47e2b60565d78144c281289fdd04e6961032",
-          "image": "debian:bookworm-slim",
+          "image": "debian:trixie-slim",
           "input": {
             "greeting": {
               "ref": "hello"

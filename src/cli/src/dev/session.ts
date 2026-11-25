@@ -25,7 +25,7 @@ import type { Toolchain } from './toolchain';
 
 /** The step-pod init image, the server's default (`HarnessImage.cs`; `test/harness-image.test.ts` checks they match). */
 export const HARNESS_BASE_IMAGE =
-  'ghcr.io/olivervea/olve-pipelines-harness-base:src-1559dbe086e1';
+  'ghcr.io/olivervea/olve-pipelines-harness-base:src-039d7bfdb0e7';
 export const HARNESS_BASE_ENV = 'OLVE_HARNESS_BASE';
 const CASES_ENV = 'OLVE_CASES';
 const CELL_ENV = 'OLVE_CELL';
